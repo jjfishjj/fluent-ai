@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
+import { useAuth } from '@/contexts/AuthContext';
 import { ScenarioSelector } from '@/components/practice/ScenarioSelector';
 import { ChatInterface } from '@/components/practice/ChatInterface';
 import { Button } from '@/components/ui/button';
@@ -17,10 +18,12 @@ import {
   Message
 } from '@/lib/types';
 import { ArrowLeft, Globe } from 'lucide-react';
+import { createConversation, saveMessage } from '@/lib/conversation-service';
 
 const Practice = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user, profile, isAdmin, signOut } = useAuth();
   
   // State
   const [selectedLanguage, setSelectedLanguage] = useState<Language | null>(null);
@@ -33,6 +36,7 @@ const Practice = () => {
   const [isInConversation, setIsInConversation] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
   // Initialize from URL params
   useEffect(() => {
@@ -44,7 +48,7 @@ const Practice = () => {
 
   const currentLanguage = LANGUAGES.find(l => l.id === selectedLanguage);
 
-  const handleStartConversation = () => {
+  const handleStartConversation = async () => {
     if (!selectedLanguage || !selectedScenario) return;
 
     const settings: ConversationSettings = {
@@ -57,6 +61,12 @@ const Practice = () => {
       instantCorrection,
     };
 
+    // Create conversation in DB for logged-in users
+    if (user) {
+      const id = await createConversation(settings, user.id);
+      setConversationId(id || null);
+    }
+
     // Initialize with AI greeting
     const greeting: Message = {
       id: '1',
@@ -64,6 +74,11 @@ const Practice = () => {
       content: getGreeting(settings),
       timestamp: new Date(),
     };
+
+    // Save greeting message
+    if (user && conversationId) {
+      saveMessage(conversationId, { role: 'assistant', content: greeting.content });
+    }
 
     setMessages([greeting]);
     setIsInConversation(true);
@@ -97,18 +112,30 @@ const Practice = () => {
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
+    // Save user message to DB
+    if (user && conversationId) {
+      saveMessage(conversationId, { role: 'user', content });
+    }
+
     // Simulate AI response (will be replaced with actual AI)
     setTimeout(() => {
+      const suggestion = mode === 'practice' && Math.random() > 0.5 
+        ? "You could also say: 'That sounds great!'" 
+        : undefined;
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: getAIResponse(content),
         timestamp: new Date(),
-        suggestion: mode === 'practice' && Math.random() > 0.5 
-          ? "You could also say: 'That sounds great!'" 
-          : undefined,
+        suggestion,
       };
       setMessages(prev => [...prev, aiResponse]);
+
+      // Save AI response to DB
+      if (user && conversationId) {
+        saveMessage(conversationId, { role: 'assistant', content: aiResponse.content, suggestion });
+      }
+
       setIsLoading(false);
     }, 1500);
   };
@@ -160,7 +187,13 @@ const Practice = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header isAdmin={true} />
+      <Header 
+        isLoggedIn={!!user}
+        isAdmin={isAdmin}
+        userName={profile?.display_name || user?.email?.split('@')[0] || 'User'}
+        onLogin={() => navigate('/auth')}
+        onLogout={signOut}
+      />
 
       <div className="container mx-auto px-4 py-8">
         {/* Back Button */}

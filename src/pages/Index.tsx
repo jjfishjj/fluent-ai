@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/layout/Header';
 import { LanguageCard } from '@/components/home/LanguageCard';
 import { FeatureCard } from '@/components/home/FeatureCard';
@@ -6,19 +7,13 @@ import { Button } from '@/components/ui/button';
 import { LANGUAGES } from '@/lib/constants';
 import { LanguageConfig } from '@/lib/types';
 import { 
-  MessageSquare, 
-  Mic, 
-  Brain, 
-  BarChart3, 
-  Target, 
-  Globe,
-  ChevronRight,
-  Sparkles,
-  Users
+  MessageSquare, Mic, Brain, BarChart3, Target, Globe,
+  ChevronRight, Sparkles, Users
 } from 'lucide-react';
 
 const Index = () => {
   const navigate = useNavigate();
+  const { user, profile, isAdmin, signOut } = useAuth();
 
   const handleLanguageSelect = (language: LanguageConfig) => {
     navigate(`/practice?lang=${language.id}`);
@@ -26,7 +21,13 @@ const Index = () => {
 
   return (
     <div className="min-h-screen gradient-hero">
-      <Header isAdmin={true} />
+      <Header 
+        isLoggedIn={!!user}
+        isAdmin={isAdmin}
+        userName={profile?.display_name || user?.email?.split('@')[0] || 'User'}
+        onLogin={() => navigate('/auth')}
+        onLogout={signOut}
+      />
       
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-16 md:py-24">
@@ -79,26 +80,15 @@ const Index = () => {
       {/* Language Selection */}
       <section className="container mx-auto px-4 py-16">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
-            Choose Your Language
-          </h2>
+          <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">Choose Your Language</h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Select a language to start practicing. Each language includes specialized 
-            scenarios and exam preparation modes.
+            Select a language to start practicing. Each language includes specialized scenarios and exam preparation modes.
           </p>
         </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {LANGUAGES.map((language, index) => (
-            <div 
-              key={language.id} 
-              className="animate-slide-up" 
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              <LanguageCard 
-                language={language} 
-                onClick={handleLanguageSelect} 
-              />
+            <div key={language.id} className="animate-slide-up" style={{ animationDelay: `${index * 100}ms` }}>
+              <LanguageCard language={language} onClick={handleLanguageSelect} />
             </div>
           ))}
         </div>
@@ -107,47 +97,18 @@ const Index = () => {
       {/* Features Section */}
       <section className="container mx-auto px-4 py-16">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
-            Why LinguaAI?
-          </h2>
+          <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">Why LinguaAI?</h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Our platform combines cutting-edge AI with proven language learning 
-            methodologies for maximum effectiveness.
+            Our platform combines cutting-edge AI with proven language learning methodologies for maximum effectiveness.
           </p>
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          <FeatureCard
-            icon={MessageSquare}
-            title="Scenario-Based Learning"
-            description="Practice real-world situations like job interviews, ordering food, or medical appointments."
-            gradient
-          />
-          <FeatureCard
-            icon={Mic}
-            title="Voice Interaction"
-            description="Speak naturally and get instant feedback on pronunciation and fluency."
-          />
-          <FeatureCard
-            icon={Brain}
-            title="AI Corrections"
-            description="Receive real-time grammar corrections and natural phrasing suggestions."
-          />
-          <FeatureCard
-            icon={Target}
-            title="Exam Preparation"
-            description="Dedicated modes for IELTS and TOEFL speaking test preparation with scoring."
-          />
-          <FeatureCard
-            icon={BarChart3}
-            title="Progress Tracking"
-            description="Monitor your improvement across vocabulary, grammar, and fluency metrics."
-          />
-          <FeatureCard
-            icon={Sparkles}
-            title="Personalized Learning"
-            description="AI-generated recommendations based on your strengths and areas for improvement."
-          />
+          <FeatureCard icon={MessageSquare} title="Scenario-Based Learning" description="Practice real-world situations like job interviews, ordering food, or medical appointments." gradient />
+          <FeatureCard icon={Mic} title="Voice Interaction" description="Speak naturally and get instant feedback on pronunciation and fluency." />
+          <FeatureCard icon={Brain} title="AI Corrections" description="Receive real-time grammar corrections and natural phrasing suggestions." />
+          <FeatureCard icon={Target} title="Exam Preparation" description="Dedicated modes for IELTS and TOEFL speaking test preparation with scoring." />
+          <FeatureCard icon={BarChart3} title="Progress Tracking" description="Monitor your improvement across vocabulary, grammar, and fluency metrics." />
+          <FeatureCard icon={Sparkles} title="Personalized Learning" description="AI-generated recommendations based on your strengths and areas for improvement." />
         </div>
       </section>
 
@@ -156,12 +117,9 @@ const Index = () => {
         <div className="max-w-4xl mx-auto bg-card rounded-3xl p-8 md:p-12 shadow-elevated border border-border">
           <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="flex-1 text-center md:text-left">
-              <h2 className="text-2xl md:text-3xl font-display font-bold mb-4">
-                Ready to Start Your Language Journey?
-              </h2>
+              <h2 className="text-2xl md:text-3xl font-display font-bold mb-4">Ready to Start Your Language Journey?</h2>
               <p className="text-muted-foreground mb-6">
-                Join thousands of learners improving their language skills every day. 
-                Start with a free conversation – no credit card required.
+                Join thousands of learners improving their language skills every day. Start with a free conversation – no credit card required.
               </p>
               <Button variant="gradient" size="lg" onClick={() => navigate('/practice')}>
                 Begin Free Practice
@@ -182,9 +140,7 @@ const Index = () => {
             </div>
             <span className="font-display font-bold">LinguaAI</span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            © 2024 LinguaAI. All rights reserved.
-          </p>
+          <p className="text-sm text-muted-foreground">© 2024 LinguaAI. All rights reserved.</p>
         </div>
       </footer>
     </div>
