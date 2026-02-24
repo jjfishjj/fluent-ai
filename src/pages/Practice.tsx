@@ -19,6 +19,8 @@ import {
 } from '@/lib/types';
 import { ArrowLeft, Globe } from 'lucide-react';
 import { createConversation, saveMessage } from '@/lib/conversation-service';
+import { streamChat } from '@/lib/stream-chat';
+import { toast } from 'sonner';
 
 const Practice = () => {
   const [searchParams] = useSearchParams();
@@ -48,60 +50,65 @@ const Practice = () => {
 
   const currentLanguage = LANGUAGES.find(l => l.id === selectedLanguage);
 
+  const getCurrentSettings = (): ConversationSettings => ({
+    language: selectedLanguage!,
+    scenario: selectedScenario!.id,
+    difficulty,
+    speed,
+    tone,
+    mode,
+    instantCorrection,
+  });
+
   const handleStartConversation = async () => {
     if (!selectedLanguage || !selectedScenario) return;
 
-    const settings: ConversationSettings = {
-      language: selectedLanguage,
-      scenario: selectedScenario.id,
-      difficulty,
-      speed,
-      tone,
-      mode,
-      instantCorrection,
-    };
+    const settings = getCurrentSettings();
 
     // Create conversation in DB for logged-in users
+    let newConvId: string | null = null;
     if (user) {
       const id = await createConversation(settings, user.id);
-      setConversationId(id || null);
+      newConvId = id || null;
+      setConversationId(newConvId);
     }
 
-    // Initialize with AI greeting
-    const greeting: Message = {
-      id: '1',
-      role: 'assistant',
-      content: getGreeting(settings),
-      timestamp: new Date(),
-    };
+    // Stream initial greeting from AI
+    const greetingPrompt = `Start the conversation with a greeting in ${selectedLanguage}. Introduce the scenario "${selectedScenario.id}" at the ${difficulty} level. Keep it brief (2-3 sentences).`;
 
-    // Save greeting message
-    if (user && conversationId) {
-      saveMessage(conversationId, { role: 'assistant', content: greeting.content });
-    }
-
-    setMessages([greeting]);
+    setMessages([]);
     setIsInConversation(true);
+    setIsLoading(true);
+
+    let assistantContent = '';
+    const greetingId = Date.now().toString();
+
+    await streamChat({
+      messages: [{ role: 'user', content: greetingPrompt }],
+      settings,
+      onDelta: (chunk) => {
+        assistantContent += chunk;
+        setMessages([{
+          id: greetingId,
+          role: 'assistant',
+          content: assistantContent,
+          timestamp: new Date(),
+        }]);
+      },
+      onDone: () => {
+        setIsLoading(false);
+        if (user && newConvId) {
+          saveMessage(newConvId, { role: 'assistant', content: assistantContent });
+        }
+      },
+      onError: (msg) => {
+        setIsLoading(false);
+        toast.error(msg);
+      },
+    });
   };
 
-  const getGreeting = (settings: ConversationSettings): string => {
-    const greetings: Record<Language, string> = {
-      english: "Hello! I'm your English practice partner. Let's practice together!",
-      german: "Hallo! Ich bin dein Deutsch-Übungspartner. Lass uns zusammen üben!",
-      french: "Bonjour! Je suis votre partenaire de pratique. Commençons!",
-      spanish: "¡Hola! Soy tu compañero de práctica de español. ¡Empecemos!",
-      japanese: "こんにちは！私はあなたの日本語練習パートナーです。一緒に練習しましょう！",
-      korean: "안녕하세요! 저는 한국어 연습 파트너입니다. 같이 연습해요!",
-    };
-
-    const scenarioIntro = settings.scenario === 'freeChat' 
-      ? "Feel free to talk about anything you'd like." 
-      : `Today we'll practice a ${settings.scenario} scenario at the ${settings.difficulty} level.`;
-
-    return `${greetings[settings.language]}\n\n${scenarioIntro}`;
-  };
-
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string) => {
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -109,7 +116,8 @@ const Practice = () => {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setIsLoading(true);
 
     // Save user message to DB
@@ -117,39 +125,46 @@ const Practice = () => {
       saveMessage(conversationId, { role: 'user', content });
     }
 
-    // Simulate AI response (will be replaced with actual AI)
-    setTimeout(() => {
-      const suggestion = mode === 'practice' && Math.random() > 0.5 
-        ? "You could also say: 'That sounds great!'" 
-        : undefined;
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: getAIResponse(content),
-        timestamp: new Date(),
-        suggestion,
-      };
-      setMessages(prev => [...prev, aiResponse]);
+    // Build chat history for AI (only role + content)
+    const chatHistory = newMessages.map(m => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    }));
 
-      // Save AI response to DB
-      if (user && conversationId) {
-        saveMessage(conversationId, { role: 'assistant', content: aiResponse.content, suggestion });
-      }
+    let assistantContent = '';
+    const aiId = (Date.now() + 1).toString();
 
-      setIsLoading(false);
-    }, 1500);
-  };
-
-  const getAIResponse = (userMessage: string): string => {
-    // Placeholder responses - will be replaced with actual AI
-    const responses = [
-      "That's a great point! Can you tell me more about that?",
-      "Interesting! How do you feel about this situation?",
-      "I understand. What would you do next in this scenario?",
-      "Good observation! Let's continue with the conversation.",
-      "That's correct! You're doing well. What else would you like to discuss?",
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
+    await streamChat({
+      messages: chatHistory,
+      settings: getCurrentSettings(),
+      onDelta: (chunk) => {
+        assistantContent += chunk;
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last?.id === aiId) {
+            return prev.map((m, i) =>
+              i === prev.length - 1 ? { ...m, content: assistantContent } : m
+            );
+          }
+          return [...prev, {
+            id: aiId,
+            role: 'assistant' as const,
+            content: assistantContent,
+            timestamp: new Date(),
+          }];
+        });
+      },
+      onDone: () => {
+        setIsLoading(false);
+        if (user && conversationId) {
+          saveMessage(conversationId, { role: 'assistant', content: assistantContent });
+        }
+      },
+      onError: (msg) => {
+        setIsLoading(false);
+        toast.error(msg);
+      },
+    });
   };
 
   const handleBack = () => {
