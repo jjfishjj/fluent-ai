@@ -11,7 +11,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, settings } = await req.json();
+    const { messages, settings, learningStyle } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -26,6 +26,37 @@ serve(async (req) => {
 
     const langName = langNames[settings?.language] || settings?.language || "English";
 
+    const learningStyleGuide: Record<string, string> = {
+      visual: `The user is a VISUAL learner. Adapt your teaching:
+- Use descriptive imagery, mental pictures, and spatial descriptions
+- Describe scenes vividly so they can visualize contexts
+- Suggest visual learning tools (flashcards with images, mind maps, color-coding)
+- Use emoji and formatting to create visual structure in responses
+- When correcting, highlight differences visually`,
+      auditory: `The user is an AUDITORY learner. Adapt your teaching:
+- Emphasize pronunciation, rhythm, and intonation patterns
+- Suggest they read responses aloud and practice shadowing
+- Include phonetic hints when introducing new words
+- Encourage listening exercises and verbal repetition
+- Focus on conversational flow and natural speech patterns`,
+      reading: `The user is a READ/WRITE learner. Adapt your teaching:
+- Provide detailed written explanations of grammar rules
+- Include example sentences and written context
+- Suggest they take notes and write sentences using new vocabulary
+- Offer structured lists and organized information
+- Provide references to reading materials when relevant`,
+      kinesthetic: `The user is a KINESTHETIC learner. Adapt your teaching:
+- Create role-play scenarios and real-world simulations
+- Encourage them to use new words in practical situations immediately
+- Make conversations action-oriented with tasks and activities
+- Suggest physical learning methods (gestures, acting out scenarios)
+- Focus on experiential and interactive learning`,
+    };
+
+    const styleInstruction = learningStyle && learningStyleGuide[learningStyle]
+      ? `\n\n## Learning Style Adaptation\n${learningStyleGuide[learningStyle]}`
+      : '';
+
     const systemPrompt = `You are a language practice partner helping users practice ${langName}.
 
 ## Context
@@ -34,6 +65,7 @@ serve(async (req) => {
 - Tone: ${settings?.tone || "semi-formal"}
 - Mode: ${settings?.mode || "practice"}
 - Speech Speed: ${settings?.speed || "normal"}
+${styleInstruction}
 
 ## Rules
 1. ALWAYS respond primarily in ${langName}. Add a brief translation or explanation in the user's native language only when helpful.
@@ -46,7 +78,8 @@ serve(async (req) => {
 5. If mode is "practice": gently correct grammar or vocabulary mistakes inline. After your response, if the user made errors, add a "📝 Correction:" section. If they could say it more naturally, add a "💡 More natural:" section.
 6. If mode is "test": do NOT correct mistakes. Just continue the conversation naturally as if in a real exam.
 7. Keep responses concise (2-4 sentences typically). Don't write essays.
-8. Be encouraging and supportive.`;
+8. Be encouraging and supportive.
+9. At the end of each conversation (when the user says goodbye or wants to end), provide a brief summary with personalized language learning tips based on their learning style.`;
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
