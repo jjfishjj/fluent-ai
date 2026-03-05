@@ -122,6 +122,7 @@ export type Database = {
           display_name: string | null
           enable_data_collection: boolean | null
           id: string
+          learning_style: string | null
           preferred_difficulty: string | null
           preferred_language: string | null
           updated_at: string
@@ -133,6 +134,7 @@ export type Database = {
           display_name?: string | null
           enable_data_collection?: boolean | null
           id?: string
+          learning_style?: string | null
           preferred_difficulty?: string | null
           preferred_language?: string | null
           updated_at?: string
@@ -144,6 +146,7 @@ export type Database = {
           display_name?: string | null
           enable_data_collection?: boolean | null
           id?: string
+          learning_style?: string | null
           preferred_difficulty?: string | null
           preferred_language?: string | null
           updated_at?: string
