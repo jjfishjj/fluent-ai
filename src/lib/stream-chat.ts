@@ -7,12 +7,14 @@ type Msg = { role: 'user' | 'assistant' | 'system'; content: string };
 export async function streamChat({
   messages,
   settings,
+  learningStyle,
   onDelta,
   onDone,
   onError,
 }: {
   messages: Msg[];
   settings: ConversationSettings;
+  learningStyle?: string | null;
   onDelta: (text: string) => void;
   onDone: () => void;
   onError: (msg: string) => void;
@@ -23,7 +25,7 @@ export async function streamChat({
       'Content-Type': 'application/json',
       Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
-    body: JSON.stringify({ messages, settings }),
+    body: JSON.stringify({ messages, settings, learningStyle }),
   });
 
   if (!resp.ok) {
