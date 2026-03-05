@@ -8,6 +8,7 @@ interface Profile {
   preferred_language: string | null;
   preferred_difficulty: string | null;
   enable_data_collection: boolean;
+  learning_style: string | null;
 }
 
 interface AuthContextType {
@@ -34,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('display_name, avatar_url, preferred_language, preferred_difficulty, enable_data_collection')
+      .select('display_name, avatar_url, preferred_language, preferred_difficulty, enable_data_collection, learning_style')
       .eq('user_id', userId)
       .single();
     setProfile(data);

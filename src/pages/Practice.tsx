@@ -86,6 +86,7 @@ const Practice = () => {
     await streamChat({
       messages: [{ role: 'user', content: greetingPrompt }],
       settings,
+      learningStyle: profile?.learning_style,
       onDelta: (chunk) => {
         assistantContent += chunk;
         setMessages([{
@@ -137,6 +138,7 @@ const Practice = () => {
     await streamChat({
       messages: chatHistory,
       settings: getCurrentSettings(),
+      learningStyle: profile?.learning_style,
       onDelta: (chunk) => {
         assistantContent += chunk;
         setMessages(prev => {
