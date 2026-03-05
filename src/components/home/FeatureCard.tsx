@@ -5,11 +5,15 @@ interface FeatureCardProps {
   title: string;
   description: string;
   gradient?: boolean;
+  onClick?: () => void;
 }
 
-export function FeatureCard({ icon: Icon, title, description, gradient = false }: FeatureCardProps) {
+export function FeatureCard({ icon: Icon, title, description, gradient = false, onClick }: FeatureCardProps) {
   return (
-    <div className="scenario-card group">
+    <div 
+      className={`scenario-card group ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={onClick}
+    >
       <div 
         className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-all duration-300 group-hover:scale-110 ${
           gradient 
