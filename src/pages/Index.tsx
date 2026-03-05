@@ -103,12 +103,12 @@ const Index = () => {
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          <FeatureCard icon={MessageSquare} title="Scenario-Based Learning" description="Practice real-world situations like job interviews, ordering food, or medical appointments." gradient />
-          <FeatureCard icon={Mic} title="Voice Interaction" description="Speak naturally and get instant feedback on pronunciation and fluency." />
-          <FeatureCard icon={Brain} title="AI Corrections" description="Receive real-time grammar corrections and natural phrasing suggestions." />
-          <FeatureCard icon={Target} title="Exam Preparation" description="Dedicated modes for IELTS and TOEFL speaking test preparation with scoring." />
-          <FeatureCard icon={BarChart3} title="Progress Tracking" description="Monitor your improvement across vocabulary, grammar, and fluency metrics." />
-          <FeatureCard icon={Sparkles} title="Personalized Learning" description="AI-generated recommendations based on your strengths and areas for improvement." />
+          <FeatureCard icon={MessageSquare} title="Scenario-Based Learning" description="Practice real-world situations like job interviews, ordering food, or medical appointments." gradient onClick={() => navigate('/practice')} />
+          <FeatureCard icon={Mic} title="Voice Interaction" description="Speak naturally and get instant feedback on pronunciation and fluency." onClick={() => navigate('/practice')} />
+          <FeatureCard icon={Brain} title="AI Corrections" description="Receive real-time grammar corrections and natural phrasing suggestions." onClick={() => navigate('/practice')} />
+          <FeatureCard icon={Target} title="Exam Preparation" description="Dedicated modes for IELTS and TOEFL speaking test preparation with scoring." onClick={() => navigate('/practice?lang=english')} />
+          <FeatureCard icon={BarChart3} title="Progress Tracking" description="Monitor your improvement across vocabulary, grammar, and fluency metrics." onClick={() => navigate(user ? '/admin' : '/auth')} />
+          <FeatureCard icon={Sparkles} title="Personalized Learning" description="AI-generated recommendations based on your strengths and areas for improvement." onClick={() => navigate('/quiz')} />
         </div>
       </section>
 
