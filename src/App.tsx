@@ -9,6 +9,8 @@ import Practice from "./pages/Practice";
 import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import Quiz from "./pages/Quiz";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
