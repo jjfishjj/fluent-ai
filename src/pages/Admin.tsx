@@ -17,6 +17,8 @@ export interface AdminStats {
   totalConversations: number;
   avgConversationsPerUser: number;
   languageBreakdown: Record<string, number>;
+  scenarioBreakdown: Record<string, number>;
+  difficultyBreakdown: Record<string, number>;
 }
 
 const Admin = () => {
