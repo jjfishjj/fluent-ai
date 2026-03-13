@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 interface ConvRow {
   id: string;
@@ -22,6 +23,25 @@ interface MsgRow {
   created_at: string;
 }
 
+const LANG_COLORS: Record<string, string> = {
+  english: 'hsl(217, 91%, 60%)',
+  german: 'hsl(48, 96%, 53%)',
+  french: 'hsl(239, 84%, 67%)',
+  spanish: 'hsl(25, 95%, 53%)',
+  japanese: 'hsl(330, 81%, 60%)',
+  korean: 'hsl(187, 92%, 41%)',
+};
+
+const SCENARIO_COLORS = ['hsl(217, 91%, 60%)', 'hsl(142, 71%, 45%)', 'hsl(25, 95%, 53%)', 'hsl(262, 83%, 58%)', 'hsl(330, 81%, 60%)'];
+const DIFF_COLORS = ['hsl(142, 71%, 45%)', 'hsl(48, 96%, 53%)', 'hsl(0, 84%, 60%)'];
+
+const tooltipStyle = {
+  backgroundColor: 'hsl(var(--card))',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: '0.75rem',
+  fontSize: '0.75rem',
+};
+
 export function AdminConversationsTab() {
   const [conversations, setConversations] = useState<ConvRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +58,7 @@ export function AdminConversationsTab() {
       .from('conversations')
       .select('id, language, scenario, difficulty, mode, started_at, user_id')
       .order('started_at', { ascending: false })
-      .limit(100);
+      .limit(500);
     setConversations(data || []);
     setLoading(false);
   };
@@ -55,10 +75,107 @@ export function AdminConversationsTab() {
     setMsgLoading(false);
   };
 
+  // Compute stats per language
+  const langStats = conversations.reduce<Record<string, { scenarios: Record<string, number>; difficulties: Record<string, number>; total: number }>>((acc, c) => {
+    if (!acc[c.language]) acc[c.language] = { scenarios: {}, difficulties: {}, total: 0 };
+    acc[c.language].total++;
+    acc[c.language].scenarios[c.scenario] = (acc[c.language].scenarios[c.scenario] || 0) + 1;
+    acc[c.language].difficulties[c.difficulty] = (acc[c.language].difficulties[c.difficulty] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Overall scenario/difficulty breakdown for charts
+  const allScenarios: Record<string, number> = {};
+  const allDifficulties: Record<string, number> = {};
+  conversations.forEach(c => {
+    allScenarios[c.scenario] = (allScenarios[c.scenario] || 0) + 1;
+    allDifficulties[c.difficulty] = (allDifficulties[c.difficulty] || 0) + 1;
+  });
+
+  const scenarioChartData = Object.entries(allScenarios).map(([k, v]) => ({ name: k.charAt(0).toUpperCase() + k.slice(1), value: v }));
+  const diffChartData = Object.entries(allDifficulties).map(([k, v]) => ({ name: k.charAt(0).toUpperCase() + k.slice(1), value: v }));
+
+  // Per-language stacked data for bar chart
+  const langBreakdownData = Object.entries(langStats).map(([lang, s]) => ({
+    language: lang.charAt(0).toUpperCase() + lang.slice(1),
+    ...s.scenarios,
+    total: s.total,
+  }));
+
   if (loading) return <p className="text-muted-foreground">載入中...</p>;
 
   return (
-    <>
+    <div className="space-y-6">
+      {/* Stats charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Scenario pie */}
+        <div className="bg-card rounded-xl p-5 border border-border shadow-soft">
+          <h4 className="font-semibold text-sm mb-3">📋 情境比例</h4>
+          <div className="h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={scenarioChartData} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{ fontSize: '10px' }}>
+                  {scenarioChartData.map((_, i) => <Cell key={i} fill={SCENARIO_COLORS[i % SCENARIO_COLORS.length]} />)}
+                </Pie>
+                <Tooltip contentStyle={tooltipStyle} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Difficulty pie */}
+        <div className="bg-card rounded-xl p-5 border border-border shadow-soft">
+          <h4 className="font-semibold text-sm mb-3">📊 難度比例</h4>
+          <div className="h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={diffChartData} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{ fontSize: '10px' }}>
+                  {diffChartData.map((_, i) => <Cell key={i} fill={DIFF_COLORS[i % DIFF_COLORS.length]} />)}
+                </Pie>
+                <Tooltip contentStyle={tooltipStyle} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Per-language total bar */}
+        <div className="bg-card rounded-xl p-5 border border-border shadow-soft">
+          <h4 className="font-semibold text-sm mb-3">🌐 各語言對話數</h4>
+          <div className="h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={langBreakdownData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="language" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                  {langBreakdownData.map((entry, i) => (
+                    <Cell key={i} fill={LANG_COLORS[entry.language.toLowerCase()] || 'hsl(210, 10%, 60%)'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Per-language detail cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Object.entries(langStats).sort((a, b) => b[1].total - a[1].total).map(([lang, s]) => (
+          <div key={lang} className="bg-card rounded-xl p-4 border border-border shadow-soft">
+            <h4 className="font-semibold capitalize mb-2 flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: LANG_COLORS[lang] }} />
+              {lang} <Badge variant="secondary">{s.total}</Badge>
+            </h4>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p><strong>情境：</strong>{Object.entries(s.scenarios).map(([k, v]) => `${k}(${v})`).join(', ')}</p>
+              <p><strong>難度：</strong>{Object.entries(s.difficulties).map(([k, v]) => `${k}(${v})`).join(', ')}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Conversations table */}
       <div className="bg-card rounded-xl border border-border shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -73,7 +190,7 @@ export function AdminConversationsTab() {
               </tr>
             </thead>
             <tbody>
-              {conversations.map((c) => (
+              {conversations.slice(0, 100).map((c) => (
                 <tr key={c.id} className="border-t border-border">
                   <td className="p-3 capitalize">{c.language}</td>
                   <td className="p-3 capitalize">{c.scenario}</td>
@@ -124,6 +241,6 @@ export function AdminConversationsTab() {
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

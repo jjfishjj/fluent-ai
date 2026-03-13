@@ -17,6 +17,8 @@ export interface AdminStats {
   totalConversations: number;
   avgConversationsPerUser: number;
   languageBreakdown: Record<string, number>;
+  scenarioBreakdown: Record<string, number>;
+  difficultyBreakdown: Record<string, number>;
 }
 
 const Admin = () => {
@@ -29,6 +31,8 @@ const Admin = () => {
     totalConversations: 0,
     avgConversationsPerUser: 0,
     languageBreakdown: {},
+    scenarioBreakdown: {},
+    difficultyBreakdown: {},
   });
   const [loading, setLoading] = useState(true);
 
@@ -53,15 +57,18 @@ const Admin = () => {
       // Fetch conversations
       const { data: conversations } = await supabase
         .from('conversations')
-        .select('id, language, user_id, started_at');
+        .select('id, language, scenario, difficulty, user_id, started_at');
 
       const totalConvs = conversations?.length || 0;
       const uniqueUsers = new Set(conversations?.map(c => c.user_id).filter(Boolean));
       
-      // Language breakdown
       const langBreakdown: Record<string, number> = {};
+      const scenarioBreakdown: Record<string, number> = {};
+      const difficultyBreakdown: Record<string, number> = {};
       conversations?.forEach(c => {
         langBreakdown[c.language] = (langBreakdown[c.language] || 0) + 1;
+        scenarioBreakdown[c.scenario] = (scenarioBreakdown[c.scenario] || 0) + 1;
+        difficultyBreakdown[c.difficulty] = (difficultyBreakdown[c.difficulty] || 0) + 1;
       });
 
       setStats({
@@ -70,6 +77,8 @@ const Admin = () => {
         totalConversations: totalConvs,
         avgConversationsPerUser: uniqueUsers.size > 0 ? Math.round(totalConvs / uniqueUsers.size) : 0,
         languageBreakdown: langBreakdown,
+        scenarioBreakdown,
+        difficultyBreakdown,
       });
     } catch (err) {
       console.error('Failed to fetch admin stats:', err);
