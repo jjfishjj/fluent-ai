@@ -31,6 +31,8 @@ const Admin = () => {
     totalConversations: 0,
     avgConversationsPerUser: 0,
     languageBreakdown: {},
+    scenarioBreakdown: {},
+    difficultyBreakdown: {},
   });
   const [loading, setLoading] = useState(true);
 
