@@ -42,6 +42,12 @@ export const LANGUAGES: LanguageConfig[] = [
     nativeName: '한국어',
     flag: '🇰🇷',
   },
+  {
+    id: 'hebrew',
+    name: 'Hebrew',
+    nativeName: 'עברית',
+    flag: '🇮🇱',
+  },
 ];
 
 export const SCENARIOS: Scenario[] = [
