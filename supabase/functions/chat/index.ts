@@ -22,6 +22,7 @@ serve(async (req) => {
       spanish: "Spanish",
       japanese: "Japanese",
       korean: "Korean",
+      hebrew: "Hebrew",
     };
 
     const langName = langNames[settings?.language] || settings?.language || "English";
