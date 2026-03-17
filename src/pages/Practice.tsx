@@ -166,7 +166,13 @@ const Practice = () => {
       onDone: () => {
         setIsLoading(false);
         if (user && conversationId) {
-          saveMessage(conversationId, { role: 'assistant', content: assistantContent });
+          const parsed = parseCorrections(assistantContent);
+          saveMessage(conversationId, {
+            role: 'assistant',
+            content: parsed.content,
+            correction: parsed.correction || undefined,
+            suggestion: parsed.suggestion || undefined,
+          });
         }
       },
       onError: (msg) => {
