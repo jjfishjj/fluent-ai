@@ -20,6 +20,7 @@ import {
 import { ArrowLeft, Globe } from 'lucide-react';
 import { createConversation, saveMessage } from '@/lib/conversation-service';
 import { streamChat } from '@/lib/stream-chat';
+import { parseCorrections } from '@/lib/parse-corrections';
 import { toast } from 'sonner';
 
 const Practice = () => {
@@ -99,7 +100,13 @@ const Practice = () => {
       onDone: () => {
         setIsLoading(false);
         if (user && newConvId) {
-          saveMessage(newConvId, { role: 'assistant', content: assistantContent });
+          const parsed = parseCorrections(assistantContent);
+          saveMessage(newConvId, {
+            role: 'assistant',
+            content: parsed.content,
+            correction: parsed.correction || undefined,
+            suggestion: parsed.suggestion || undefined,
+          });
         }
       },
       onError: (msg) => {
@@ -159,7 +166,13 @@ const Practice = () => {
       onDone: () => {
         setIsLoading(false);
         if (user && conversationId) {
-          saveMessage(conversationId, { role: 'assistant', content: assistantContent });
+          const parsed = parseCorrections(assistantContent);
+          saveMessage(conversationId, {
+            role: 'assistant',
+            content: parsed.content,
+            correction: parsed.correction || undefined,
+            suggestion: parsed.suggestion || undefined,
+          });
         }
       },
       onError: (msg) => {

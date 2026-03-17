@@ -3,6 +3,7 @@ import { Message, ConversationSettings } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { parseCorrections } from '@/lib/parse-corrections';
 import { 
   Send, 
   Mic, 
@@ -10,7 +11,6 @@ import {
   Volume2, 
   X, 
   Lightbulb, 
-  CheckCircle2,
   AlertCircle,
   ArrowLeft
 } from 'lucide-react';
@@ -58,7 +58,6 @@ export function ChatInterface({
 
   const toggleRecording = () => {
     setIsRecording(!isRecording);
-    // TODO: Implement actual speech-to-text
   };
 
   return (
@@ -81,6 +80,11 @@ export function ChatInterface({
                 <Badge variant="outline" className="text-xs">
                   {settings.mode}
                 </Badge>
+                {settings.mode === 'practice' && settings.instantCorrection && (
+                  <Badge variant="default" className="text-xs bg-primary/80">
+                    ✓ 糾錯
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
@@ -93,52 +97,63 @@ export function ChatInterface({
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-scale-in`}
-          >
-            <div className={message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}>
-              <p className="text-sm leading-relaxed">{message.content}</p>
-              
-              {/* AI Features */}
-              {message.role === 'assistant' && (
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
-                  <Button variant="ghost" size="sm" className="h-7 text-xs">
-                    <Volume2 className="w-3 h-3 mr-1" />
-                    Play
-                  </Button>
-                </div>
-              )}
+        {messages.map((message) => {
+          // Parse corrections from AI messages for display
+          const parsed = message.role === 'assistant'
+            ? parseCorrections(message.content)
+            : null;
 
-              {/* Correction */}
-              {message.correction && (
-                <div className="mt-3 p-2 rounded-lg bg-destructive/10 border border-destructive/20">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-destructive mt-0.5" />
-                    <div>
-                      <p className="text-xs font-medium text-destructive">Correction</p>
-                      <p className="text-xs text-muted-foreground">{message.correction}</p>
+          const displayContent = parsed ? parsed.content : message.content;
+          const correction = message.correction || parsed?.correction;
+          const suggestion = message.suggestion || parsed?.suggestion;
+
+          return (
+            <div
+              key={message.id}
+              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-scale-in`}
+            >
+              <div className={message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{displayContent}</p>
+                
+                {/* AI Features */}
+                {message.role === 'assistant' && (
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs">
+                      <Volume2 className="w-3 h-3 mr-1" />
+                      Play
+                    </Button>
+                  </div>
+                )}
+
+                {/* Correction */}
+                {correction && (
+                  <div className="mt-3 p-2.5 rounded-lg bg-destructive/10 border border-destructive/20">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-semibold text-destructive mb-1">📝 文法糾正</p>
+                        <p className="text-xs text-muted-foreground whitespace-pre-wrap">{correction}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Suggestion */}
-              {message.suggestion && (
-                <div className="mt-3 p-2 rounded-lg bg-success/10 border border-success/20">
-                  <div className="flex items-start gap-2">
-                    <Lightbulb className="w-4 h-4 text-success mt-0.5" />
-                    <div>
-                      <p className="text-xs font-medium text-success">More Natural</p>
-                      <p className="text-xs text-muted-foreground">{message.suggestion}</p>
+                {/* Suggestion */}
+                {suggestion && (
+                  <div className="mt-3 p-2.5 rounded-lg bg-success/10 border border-success/20">
+                    <div className="flex items-start gap-2">
+                      <Lightbulb className="w-4 h-4 text-success mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-semibold text-success mb-1">💡 更自然的說法</p>
+                        <p className="text-xs text-muted-foreground whitespace-pre-wrap">{suggestion}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         
         {isLoading && (
           <div className="flex justify-start">
