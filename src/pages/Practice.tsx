@@ -20,6 +20,7 @@ import {
 import { ArrowLeft, Globe } from 'lucide-react';
 import { createConversation, saveMessage } from '@/lib/conversation-service';
 import { streamChat } from '@/lib/stream-chat';
+import { parseCorrections } from '@/lib/parse-corrections';
 import { toast } from 'sonner';
 
 const Practice = () => {
