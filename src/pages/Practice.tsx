@@ -100,7 +100,13 @@ const Practice = () => {
       onDone: () => {
         setIsLoading(false);
         if (user && newConvId) {
-          saveMessage(newConvId, { role: 'assistant', content: assistantContent });
+          const parsed = parseCorrections(assistantContent);
+          saveMessage(newConvId, {
+            role: 'assistant',
+            content: parsed.content,
+            correction: parsed.correction || undefined,
+            suggestion: parsed.suggestion || undefined,
+          });
         }
       },
       onError: (msg) => {
