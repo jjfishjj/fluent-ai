@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { parseCorrections } from '@/lib/parse-corrections';
+import { toast } from 'sonner';
 import { 
   Send, 
   Mic, 
@@ -33,6 +34,7 @@ export function ChatInterface({
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -58,8 +60,54 @@ export function ChatInterface({
 
   const [playingId, setPlayingId] = useState<string | null>(null);
 
+  const langMap: Record<string, string> = {
+    english: 'en-US', german: 'de-DE', french: 'fr-FR',
+    spanish: 'es-ES', japanese: 'ja-JP', korean: 'ko-KR', hebrew: 'he-IL',
+  };
+
   const toggleRecording = () => {
-    setIsRecording(!isRecording);
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) {
+      toast.error('您的瀏覽器不支援語音輸入');
+      return;
+    }
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = langMap[settings.language] || 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    let finalTranscript = '';
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      setInput(finalTranscript + interim);
+    };
+
+    recognition.onerror = () => {
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
   };
 
   const handlePlayAudio = (messageId: string, text: string) => {
