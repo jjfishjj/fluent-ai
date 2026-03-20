@@ -78,7 +78,7 @@ export function ChatInterface({
       return;
     }
 
-    const recognition = new SpeechRecognition();
+    const recognition = new SpeechRecognitionAPI();
     recognition.lang = langMap[settings.language] || 'en-US';
     recognition.interimResults = true;
     recognition.continuous = true;
