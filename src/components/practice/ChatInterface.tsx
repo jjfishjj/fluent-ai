@@ -72,8 +72,8 @@ export function ChatInterface({
       return;
     }
 
-    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) {
       toast.error('您的瀏覽器不支援語音輸入');
       return;
     }
