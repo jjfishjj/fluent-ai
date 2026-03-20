@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { parseCorrections } from '@/lib/parse-corrections';
+import { toast } from 'sonner';
 import { 
   Send, 
   Mic, 
