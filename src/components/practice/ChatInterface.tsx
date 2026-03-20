@@ -56,8 +56,34 @@ export function ChatInterface({
     }
   };
 
+  const [playingId, setPlayingId] = useState<string | null>(null);
+
   const toggleRecording = () => {
     setIsRecording(!isRecording);
+  };
+
+  const handlePlayAudio = (messageId: string, text: string) => {
+    if (playingId === messageId) {
+      window.speechSynthesis.cancel();
+      setPlayingId(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const langMap: Record<string, string> = {
+      english: 'en-US', german: 'de-DE', french: 'fr-FR',
+      spanish: 'es-ES', japanese: 'ja-JP', korean: 'ko-KR', hebrew: 'he-IL',
+    };
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = langMap[settings.language] || 'en-US';
+    utterance.rate = settings.speed === 'slow' ? 0.75 : settings.speed === 'fast' ? 1.25 : 1;
+    utterance.onend = () => setPlayingId(null);
+    utterance.onerror = () => setPlayingId(null);
+
+    setPlayingId(messageId);
+    window.speechSynthesis.speak(utterance);
   };
 
   return (
