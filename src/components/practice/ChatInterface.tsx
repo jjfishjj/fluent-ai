@@ -56,8 +56,34 @@ export function ChatInterface({
     }
   };
 
+  const [playingId, setPlayingId] = useState<string | null>(null);
+
   const toggleRecording = () => {
     setIsRecording(!isRecording);
+  };
+
+  const handlePlayAudio = (messageId: string, text: string) => {
+    if (playingId === messageId) {
+      window.speechSynthesis.cancel();
+      setPlayingId(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const langMap: Record<string, string> = {
+      english: 'en-US', german: 'de-DE', french: 'fr-FR',
+      spanish: 'es-ES', japanese: 'ja-JP', korean: 'ko-KR', hebrew: 'he-IL',
+    };
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = langMap[settings.language] || 'en-US';
+    utterance.rate = settings.speed === 'slow' ? 0.75 : settings.speed === 'fast' ? 1.25 : 1;
+    utterance.onend = () => setPlayingId(null);
+    utterance.onerror = () => setPlayingId(null);
+
+    setPlayingId(messageId);
+    window.speechSynthesis.speak(utterance);
   };
 
   return (
@@ -118,9 +144,14 @@ export function ChatInterface({
                 {/* AI Features */}
                 {message.role === 'assistant' && (
                   <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
-                    <Button variant="ghost" size="sm" className="h-7 text-xs">
-                      <Volume2 className="w-3 h-3 mr-1" />
-                      Play
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => handlePlayAudio(message.id, displayContent)}
+                    >
+                      <Volume2 className={`w-3 h-3 mr-1 ${playingId === message.id ? 'text-primary animate-pulse' : ''}`} />
+                      {playingId === message.id ? 'Stop' : 'Play'}
                     </Button>
                   </div>
                 )}
