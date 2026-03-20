@@ -144,9 +144,14 @@ export function ChatInterface({
                 {/* AI Features */}
                 {message.role === 'assistant' && (
                   <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
-                    <Button variant="ghost" size="sm" className="h-7 text-xs">
-                      <Volume2 className="w-3 h-3 mr-1" />
-                      Play
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => handlePlayAudio(message.id, displayContent)}
+                    >
+                      <Volume2 className={`w-3 h-3 mr-1 ${playingId === message.id ? 'text-primary animate-pulse' : ''}`} />
+                      {playingId === message.id ? 'Stop' : 'Play'}
                     </Button>
                   </div>
                 )}
