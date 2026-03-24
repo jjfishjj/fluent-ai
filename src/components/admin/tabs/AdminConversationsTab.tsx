@@ -46,7 +46,15 @@ interface ProfileInfo {
   user_id: string;
   display_name: string | null;
   email: string | null;
+  learning_style: string | null;
 }
+
+const STYLE_LABELS: Record<string, { label: string; emoji: string; color: string }> = {
+  visual: { label: '視覺型', emoji: '👁️', color: 'hsl(220, 90%, 55%)' },
+  auditory: { label: '聽覺型', emoji: '👂', color: 'hsl(142, 70%, 45%)' },
+  reading: { label: '讀寫型', emoji: '📖', color: 'hsl(38, 92%, 50%)' },
+  kinesthetic: { label: '實作型', emoji: '🤸', color: 'hsl(340, 80%, 55%)' },
+};
 
 export function AdminConversationsTab() {
   const [conversations, setConversations] = useState<ConvRow[]>([]);
