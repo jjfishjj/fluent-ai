@@ -212,6 +212,7 @@ export function AdminConversationsTab() {
                 <th className="text-left p-3 font-medium">模式</th>
                 <th className="text-left p-3 font-medium">時間</th>
                 <th className="text-left p-3 font-medium">用戶資訊</th>
+                <th className="text-left p-3 font-medium">學習型態</th>
                 <th className="text-left p-3 font-medium">操作</th>
               </tr>
             </thead>
