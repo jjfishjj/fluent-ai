@@ -120,6 +120,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           display_name: string | null
+          email: string | null
           enable_data_collection: boolean | null
           id: string
           learning_style: string | null
@@ -132,6 +133,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
+          email?: string | null
           enable_data_collection?: boolean | null
           id?: string
           learning_style?: string | null
@@ -144,6 +146,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
+          email?: string | null
           enable_data_collection?: boolean | null
           id?: string
           learning_style?: string | null
