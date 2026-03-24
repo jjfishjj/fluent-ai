@@ -239,6 +239,15 @@ export function AdminConversationsTab() {
                       <span className="text-xs text-muted-foreground">訪客</span>
                     )}
                   </td>
+                   <td className="p-3">
+                    {profile?.learning_style && STYLE_LABELS[profile.learning_style] ? (
+                      <Badge variant="outline" className="text-xs" style={{ borderColor: STYLE_LABELS[profile.learning_style].color, color: STYLE_LABELS[profile.learning_style].color }}>
+                        {STYLE_LABELS[profile.learning_style].emoji} {STYLE_LABELS[profile.learning_style].label}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">未測驗</span>
+                    )}
+                  </td>
                   <td className="p-3">
                     <Button variant="ghost" size="sm" onClick={() => viewMessages(c.id)}>
                       查看對話
