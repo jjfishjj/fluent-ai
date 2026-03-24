@@ -42,16 +42,33 @@ const tooltipStyle = {
   fontSize: '0.75rem',
 };
 
+interface ProfileInfo {
+  user_id: string;
+  display_name: string | null;
+  email: string | null;
+}
+
 export function AdminConversationsTab() {
   const [conversations, setConversations] = useState<ConvRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
   const [messages, setMessages] = useState<MsgRow[]>([]);
   const [msgLoading, setMsgLoading] = useState(false);
+  const [profileMap, setProfileMap] = useState<Record<string, ProfileInfo>>({});
 
   useEffect(() => {
     fetchConversations();
+    fetchProfiles();
   }, []);
+
+  const fetchProfiles = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('user_id, display_name, email');
+    const map: Record<string, ProfileInfo> = {};
+    data?.forEach(p => { map[p.user_id] = p; });
+    setProfileMap(map);
+  };
 
   const fetchConversations = async () => {
     const { data } = await supabase
