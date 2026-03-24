@@ -72,7 +72,7 @@ export function AdminConversationsTab() {
   const fetchProfiles = async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('user_id, display_name, email');
+      .select('user_id, display_name, email, learning_style');
     const map: Record<string, ProfileInfo> = {};
     data?.forEach(p => { map[p.user_id] = p; });
     setProfileMap(map);
