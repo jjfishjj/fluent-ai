@@ -203,11 +203,14 @@ export function AdminConversationsTab() {
                 <th className="text-left p-3 font-medium">難度</th>
                 <th className="text-left p-3 font-medium">模式</th>
                 <th className="text-left p-3 font-medium">時間</th>
+                <th className="text-left p-3 font-medium">用戶資訊</th>
                 <th className="text-left p-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
-              {conversations.slice(0, 100).map((c) => (
+              {conversations.slice(0, 100).map((c) => {
+                const profile = c.user_id ? profileMap[c.user_id] : null;
+                return (
                 <tr key={c.id} className="border-t border-border">
                   <td className="p-3 capitalize">{c.language}</td>
                   <td className="p-3 capitalize">{c.scenario}</td>
@@ -215,6 +218,17 @@ export function AdminConversationsTab() {
                   <td className="p-3"><Badge variant="secondary">{c.mode}</Badge></td>
                   <td className="p-3 text-muted-foreground">
                     {new Date(c.started_at).toLocaleString('zh-TW')}
+                  </td>
+                  <td className="p-3">
+                    {profile ? (
+                      <div className="text-xs space-y-0.5">
+                        <p className="font-medium">{profile.display_name || '未命名'}</p>
+                        <p className="text-muted-foreground">{profile.email || '-'}</p>
+                        <p className="text-muted-foreground font-mono text-[10px]">{c.user_id?.slice(0, 8)}...</p>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">訪客</span>
+                    )}
                   </td>
                   <td className="p-3">
                     <Button variant="ghost" size="sm" onClick={() => viewMessages(c.id)}>
