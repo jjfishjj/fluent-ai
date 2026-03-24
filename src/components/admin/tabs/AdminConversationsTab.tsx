@@ -46,7 +46,15 @@ interface ProfileInfo {
   user_id: string;
   display_name: string | null;
   email: string | null;
+  learning_style: string | null;
 }
+
+const STYLE_LABELS: Record<string, { label: string; emoji: string; color: string }> = {
+  visual: { label: '視覺型', emoji: '👁️', color: 'hsl(220, 90%, 55%)' },
+  auditory: { label: '聽覺型', emoji: '👂', color: 'hsl(142, 70%, 45%)' },
+  reading: { label: '讀寫型', emoji: '📖', color: 'hsl(38, 92%, 50%)' },
+  kinesthetic: { label: '實作型', emoji: '🤸', color: 'hsl(340, 80%, 55%)' },
+};
 
 export function AdminConversationsTab() {
   const [conversations, setConversations] = useState<ConvRow[]>([]);
@@ -64,7 +72,7 @@ export function AdminConversationsTab() {
   const fetchProfiles = async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('user_id, display_name, email');
+      .select('user_id, display_name, email, learning_style');
     const map: Record<string, ProfileInfo> = {};
     data?.forEach(p => { map[p.user_id] = p; });
     setProfileMap(map);
@@ -204,6 +212,7 @@ export function AdminConversationsTab() {
                 <th className="text-left p-3 font-medium">模式</th>
                 <th className="text-left p-3 font-medium">時間</th>
                 <th className="text-left p-3 font-medium">用戶資訊</th>
+                <th className="text-left p-3 font-medium">學習型態</th>
                 <th className="text-left p-3 font-medium">操作</th>
               </tr>
             </thead>
@@ -230,6 +239,15 @@ export function AdminConversationsTab() {
                       <span className="text-xs text-muted-foreground">訪客</span>
                     )}
                   </td>
+                   <td className="p-3">
+                    {profile?.learning_style && STYLE_LABELS[profile.learning_style] ? (
+                      <Badge variant="outline" className="text-xs" style={{ borderColor: STYLE_LABELS[profile.learning_style].color, color: STYLE_LABELS[profile.learning_style].color }}>
+                        {STYLE_LABELS[profile.learning_style].emoji} {STYLE_LABELS[profile.learning_style].label}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">未測驗</span>
+                    )}
+                  </td>
                   <td className="p-3">
                     <Button variant="ghost" size="sm" onClick={() => viewMessages(c.id)}>
                       查看對話
@@ -238,7 +256,7 @@ export function AdminConversationsTab() {
                 </tr>
               )})}
               {conversations.length === 0 && (
-                <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">尚無對話紀錄</td></tr>
+                <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">尚無對話紀錄</td></tr>
               )}
             </tbody>
           </table>
