@@ -256,7 +256,7 @@ export function AdminConversationsTab() {
                 </tr>
               )})}
               {conversations.length === 0 && (
-                <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">尚無對話紀錄</td></tr>
+                <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">尚無對話紀錄</td></tr>
               )}
             </tbody>
           </table>
