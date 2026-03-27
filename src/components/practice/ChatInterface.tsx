@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { parseCorrections } from '@/lib/parse-corrections';
 import { toast } from 'sonner';
+import { fileToBase64 } from '@/lib/image-service';
 import { 
   Send, 
   Mic, 
@@ -13,15 +14,21 @@ import {
   X, 
   Lightbulb, 
   AlertCircle,
-  ArrowLeft
+  ArrowLeft,
+  ImagePlus,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 
 interface ChatInterfaceProps {
   settings: ConversationSettings;
   messages: Message[];
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, imageBase64?: string) => void;
   onBack: () => void;
   isLoading?: boolean;
+  imageMode?: boolean;
+  onImageModeChange?: (enabled: boolean) => void;
+  isGeneratingImage?: boolean;
 }
 
 export function ChatInterface({ 
@@ -29,12 +36,18 @@ export function ChatInterface({
   messages, 
   onSendMessage, 
   onBack,
-  isLoading = false 
+  isLoading = false,
+  imageMode = false,
+  onImageModeChange,
+  isGeneratingImage = false,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -44,11 +57,18 @@ export function ChatInterface({
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = () => {
-    if (input.trim() && !isLoading) {
-      onSendMessage(input.trim());
-      setInput('');
+  const handleSend = async () => {
+    if ((!input.trim() && !previewImage) || isLoading) return;
+
+    let imageBase64: string | undefined;
+    if (selectedFile) {
+      imageBase64 = await fileToBase64(selectedFile);
     }
+
+    onSendMessage(input.trim() || '(sent an image)', imageBase64);
+    setInput('');
+    setPreviewImage(null);
+    setSelectedFile(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -56,6 +76,28 @@ export function ChatInterface({
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('請選擇圖片檔案');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('圖片大小不能超過 5MB');
+      return;
+    }
+    setSelectedFile(file);
+    const url = URL.createObjectURL(file);
+    setPreviewImage(url);
+  };
+
+  const removePreviewImage = () => {
+    setPreviewImage(null);
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -97,13 +139,8 @@ export function ChatInterface({
       setInput(finalTranscript + interim);
     };
 
-    recognition.onerror = () => {
-      setIsRecording(false);
-    };
-
-    recognition.onend = () => {
-      setIsRecording(false);
-    };
+    recognition.onerror = () => setIsRecording(false);
+    recognition.onend = () => setIsRecording(false);
 
     recognitionRef.current = recognition;
     recognition.start();
@@ -118,11 +155,6 @@ export function ChatInterface({
     }
 
     window.speechSynthesis.cancel();
-
-    const langMap: Record<string, string> = {
-      english: 'en-US', german: 'de-DE', french: 'fr-FR',
-      spanish: 'es-ES', japanese: 'ja-JP', korean: 'ko-KR', hebrew: 'he-IL',
-    };
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = langMap[settings.language] || 'en-US';
@@ -162,17 +194,27 @@ export function ChatInterface({
               </div>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={onBack}>
-            <X className="w-4 h-4 mr-1" />
-            End
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={imageMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => onImageModeChange?.(!imageMode)}
+              className={imageMode ? 'bg-primary/80' : ''}
+            >
+              <Sparkles className="w-4 h-4 mr-1" />
+              🖼️ 圖片模式
+            </Button>
+            <Button variant="outline" size="sm" onClick={onBack}>
+              <X className="w-4 h-4 mr-1" />
+              End
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => {
-          // Parse corrections from AI messages for display
           const parsed = message.role === 'assistant'
             ? parseCorrections(message.content)
             : null;
@@ -187,7 +229,20 @@ export function ChatInterface({
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-scale-in`}
             >
               <div className={message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{displayContent}</p>
+                {/* User uploaded image */}
+                {message.imageUrl && (
+                  <div className="mb-2">
+                    <img 
+                      src={message.imageUrl} 
+                      alt="uploaded" 
+                      className="max-w-[240px] rounded-lg border border-border/30"
+                    />
+                  </div>
+                )}
+
+                {displayContent && displayContent !== '(sent an image)' && (
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{displayContent}</p>
+                )}
                 
                 {/* AI Features */}
                 {message.role === 'assistant' && (
@@ -234,7 +289,7 @@ export function ChatInterface({
           );
         })}
         
-        {isLoading && (
+        {isLoading && !isGeneratingImage && (
           <div className="flex justify-start">
             <div className="chat-bubble-ai">
               <div className="flex gap-1">
@@ -245,13 +300,41 @@ export function ChatInterface({
             </div>
           </div>
         )}
+
+        {isGeneratingImage && (
+          <div className="flex justify-start">
+            <div className="chat-bubble-ai">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">🎨 正在生成圖片...</span>
+              </div>
+            </div>
+          </div>
+        )}
         
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Image Preview */}
+      {previewImage && (
+        <div className="px-4 pb-2">
+          <div className="relative inline-block">
+            <img src={previewImage} alt="preview" className="h-20 rounded-lg border border-border" />
+            <Button
+              variant="destructive"
+              size="icon"
+              className="absolute -top-2 -right-2 h-6 w-6"
+              onClick={removePreviewImage}
+            >
+              <X className="w-3 h-3" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Input Area */}
       <div className="glass border-t border-border/50 p-4">
-        <div className="flex items-end gap-3">
+        <div className="flex items-end gap-2">
           <Button
             variant={isRecording ? 'destructive' : 'outline'}
             size="icon"
@@ -260,13 +343,29 @@ export function ChatInterface({
           >
             {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </Button>
+
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            className="shrink-0"
+          >
+            <ImagePlus className="w-5 h-5" />
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageSelect}
+          />
           
           <div className="flex-1 relative">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type your message..."
+              placeholder="輸入訊息或上傳圖片..."
               className="min-h-[48px] max-h-32 pr-12 resize-none"
               rows={1}
             />
@@ -276,7 +375,7 @@ export function ChatInterface({
             variant="gradient"
             size="icon"
             onClick={handleSend}
-            disabled={!input.trim() || isLoading}
+            disabled={(!input.trim() && !previewImage) || isLoading}
             className="shrink-0"
           >
             <Send className="w-5 h-5" />

@@ -5,7 +5,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ScenarioSelector } from '@/components/practice/ScenarioSelector';
 import { ChatInterface } from '@/components/practice/ChatInterface';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { LANGUAGES, SCENARIOS } from '@/lib/constants';
 import { 
   Language, 
@@ -17,10 +16,11 @@ import {
   ConversationSettings,
   Message
 } from '@/lib/types';
-import { ArrowLeft, Globe } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { createConversation, saveMessage } from '@/lib/conversation-service';
 import { streamChat } from '@/lib/stream-chat';
 import { parseCorrections } from '@/lib/parse-corrections';
+import { generateImage, uploadChatImage } from '@/lib/image-service';
 import { toast } from 'sonner';
 
 const Practice = () => {
@@ -28,7 +28,6 @@ const Practice = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, signOut } = useAuth();
   
-  // State
   const [selectedLanguage, setSelectedLanguage] = useState<Language | null>(null);
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('intermediate');
@@ -40,8 +39,9 @@ const Practice = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [imageMode, setImageMode] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
-  // Initialize from URL params
   useEffect(() => {
     const lang = searchParams.get('lang') as Language;
     if (lang && LANGUAGES.find(l => l.id === lang)) {
@@ -61,12 +61,43 @@ const Practice = () => {
     instantCorrection,
   });
 
+  const handleGenerateImage = async (aiContent: string, convId: string | null) => {
+    if (!imageMode || !selectedLanguage) return;
+    setIsGeneratingImage(true);
+    try {
+      const result = await generateImage(aiContent.slice(0, 200), selectedLanguage);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      if (result.imageUrl) {
+        const imgMsg: Message = {
+          id: `img-${Date.now()}`,
+          role: 'assistant',
+          content: result.text || '',
+          imageUrl: result.imageUrl,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, imgMsg]);
+        if (user && convId) {
+          saveMessage(convId, {
+            role: 'assistant',
+            content: result.text || '🖼️',
+            imageUrl: result.imageUrl,
+          });
+        }
+      }
+    } catch {
+      toast.error('圖片生成失敗');
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
   const handleStartConversation = async () => {
     if (!selectedLanguage || !selectedScenario) return;
-
     const settings = getCurrentSettings();
 
-    // Create conversation in DB for logged-in users
     let newConvId: string | null = null;
     if (user) {
       const id = await createConversation(settings, user.id);
@@ -74,7 +105,6 @@ const Practice = () => {
       setConversationId(newConvId);
     }
 
-    // Stream initial greeting from AI
     const greetingPrompt = `Start the conversation with a greeting in ${selectedLanguage}. Introduce the scenario "${selectedScenario.id}" at the ${difficulty} level. Keep it brief (2-3 sentences).`;
 
     setMessages([]);
@@ -108,6 +138,7 @@ const Practice = () => {
             suggestion: parsed.suggestion || undefined,
           });
         }
+        handleGenerateImage(assistantContent, newConvId);
       },
       onError: (msg) => {
         setIsLoading(false);
@@ -116,28 +147,50 @@ const Practice = () => {
     });
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, imageBase64?: string) => {
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content,
       timestamp: new Date(),
+      imageUrl: imageBase64,
     };
 
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setIsLoading(true);
 
-    // Save user message to DB
-    if (user && conversationId) {
-      saveMessage(conversationId, { role: 'user', content });
+    // Upload image to storage if present
+    let storedImageUrl: string | undefined;
+    if (imageBase64 && user) {
+      // We already have base64, save reference
+      storedImageUrl = imageBase64;
     }
 
-    // Build chat history for AI (only role + content)
-    const chatHistory = newMessages.map(m => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    }));
+    if (user && conversationId) {
+      saveMessage(conversationId, { 
+        role: 'user', 
+        content,
+        imageUrl: storedImageUrl,
+      });
+    }
+
+    // Build chat history - support multimodal
+    const chatHistory = newMessages.map(m => {
+      if (m.imageUrl && m.role === 'user') {
+        return {
+          role: m.role as 'user' | 'assistant',
+          content: [
+            { type: 'text' as const, text: m.content },
+            { type: 'image_url' as const, image_url: { url: m.imageUrl } },
+          ],
+        };
+      }
+      return {
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      };
+    });
 
     let assistantContent = '';
     const aiId = (Date.now() + 1).toString();
@@ -174,6 +227,7 @@ const Practice = () => {
             suggestion: parsed.suggestion || undefined,
           });
         }
+        handleGenerateImage(assistantContent, conversationId);
       },
       onError: (msg) => {
         setIsLoading(false);
@@ -194,7 +248,6 @@ const Practice = () => {
     }
   };
 
-  // Render conversation view
   if (isInConversation && selectedLanguage && selectedScenario) {
     return (
       <ChatInterface
@@ -211,6 +264,9 @@ const Practice = () => {
         onSendMessage={handleSendMessage}
         onBack={handleBack}
         isLoading={isLoading}
+        imageMode={imageMode}
+        onImageModeChange={setImageMode}
+        isGeneratingImage={isGeneratingImage}
       />
     );
   }
@@ -226,13 +282,11 @@ const Practice = () => {
       />
 
       <div className="container mx-auto px-4 py-8">
-        {/* Back Button */}
         <Button variant="ghost" className="mb-6" onClick={handleBack}>
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
         </Button>
 
-        {/* Language Selection */}
         {!selectedLanguage ? (
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-8">
@@ -259,7 +313,6 @@ const Practice = () => {
             </div>
           </div>
         ) : (
-          /* Scenario Configuration */
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center gap-3 mb-8">
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
