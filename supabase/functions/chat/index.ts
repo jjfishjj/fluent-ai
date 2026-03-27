@@ -97,7 +97,13 @@ ${styleInstruction}
         },
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
-          messages: [{ role: "system", content: systemPrompt }, ...messages],
+          messages: [{ role: "system", content: systemPrompt }, ...messages.map((m: any) => {
+            // Support multimodal messages (text + image)
+            if (Array.isArray(m.content)) {
+              return { role: m.role, content: m.content };
+            }
+            return { role: m.role, content: m.content };
+          })],
           stream: true,
         }),
       }
