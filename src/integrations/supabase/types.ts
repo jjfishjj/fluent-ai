@@ -82,6 +82,7 @@ export type Database = {
           correction: string | null
           created_at: string
           id: string
+          image_url: string | null
           role: string
           suggestion: string | null
         }
@@ -92,6 +93,7 @@ export type Database = {
           correction?: string | null
           created_at?: string
           id?: string
+          image_url?: string | null
           role: string
           suggestion?: string | null
         }
@@ -102,6 +104,7 @@ export type Database = {
           correction?: string | null
           created_at?: string
           id?: string
+          image_url?: string | null
           role?: string
           suggestion?: string | null
         }
