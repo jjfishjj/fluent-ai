@@ -47,6 +47,7 @@ export interface Message {
   correction?: string;
   suggestion?: string;
   audioUrl?: string;
+  imageUrl?: string;
 }
 
 export interface Conversation {

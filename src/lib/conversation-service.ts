@@ -22,7 +22,7 @@ export async function createConversation(settings: ConversationSettings, userId:
 
 export async function saveMessage(
   conversationId: string,
-  message: Pick<Message, 'role' | 'content' | 'correction' | 'suggestion'>
+  message: Pick<Message, 'role' | 'content' | 'correction' | 'suggestion' | 'imageUrl'>
 ) {
   const { error } = await supabase
     .from('messages')
@@ -32,6 +32,7 @@ export async function saveMessage(
       content: message.content,
       correction: message.correction || null,
       suggestion: message.suggestion || null,
+      image_url: message.imageUrl || null,
     });
 
   if (error) console.error('Error saving message:', error);

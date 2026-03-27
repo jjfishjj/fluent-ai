@@ -2,7 +2,8 @@ import { ConversationSettings } from '@/lib/types';
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
-type Msg = { role: 'user' | 'assistant' | 'system'; content: string };
+type MsgContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+type Msg = { role: 'user' | 'assistant' | 'system'; content: MsgContent };
 
 export async function streamChat({
   messages,
