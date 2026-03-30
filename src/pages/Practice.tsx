@@ -147,7 +147,7 @@ const Practice = () => {
     });
   };
 
-  const handleSendMessage = async (content: string, imageBase64?: string) => {
+  const handleSendMessage = async (content: string, imageBase64?: string, videoFrames?: string[], urlContext?: string) => {
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -163,7 +163,6 @@ const Practice = () => {
     // Upload image to storage if present
     let storedImageUrl: string | undefined;
     if (imageBase64 && user) {
-      // We already have base64, save reference
       storedImageUrl = imageBase64;
     }
 
@@ -177,20 +176,51 @@ const Practice = () => {
 
     // Build chat history - support multimodal
     const chatHistory = newMessages.map(m => {
-      if (m.imageUrl && m.role === 'user') {
-        return {
-          role: m.role as 'user' | 'assistant',
-          content: [
-            { type: 'text' as const, text: m.content },
-            { type: 'image_url' as const, image_url: { url: m.imageUrl } },
-          ],
-        };
+      const parts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
+      
+      if (m.content) {
+        parts.push({ type: 'text', text: m.content });
       }
-      return {
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      };
+
+      if (m.imageUrl && m.role === 'user') {
+        parts.push({ type: 'image_url', image_url: { url: m.imageUrl } });
+      }
+
+      if (parts.length > 1) {
+        return { role: m.role as 'user' | 'assistant', content: parts };
+      }
+      return { role: m.role as 'user' | 'assistant', content: m.content };
     });
+
+    // If video frames, add them to the last user message
+    if (videoFrames && videoFrames.length > 0) {
+      const lastMsg = chatHistory[chatHistory.length - 1];
+      const frameParts = videoFrames.map(f => ({ type: 'image_url' as const, image_url: { url: f } }));
+      if (Array.isArray(lastMsg.content)) {
+        (lastMsg.content as any[]).push(...frameParts);
+      } else {
+        lastMsg.content = [
+          { type: 'text', text: lastMsg.content as string },
+          ...frameParts,
+        ];
+      }
+    }
+
+    // If URL context, prepend it to the last user message
+    if (urlContext) {
+      const lastMsg = chatHistory[chatHistory.length - 1];
+      const contextPrefix = `[The user shared a link. Here is the content from that link for context:\n${urlContext}\n]\n\n`;
+      if (Array.isArray(lastMsg.content)) {
+        const textPart = (lastMsg.content as any[]).find((p: any) => p.type === 'text');
+        if (textPart) {
+          textPart.text = contextPrefix + (textPart.text || '');
+        } else {
+          (lastMsg.content as any[]).unshift({ type: 'text', text: contextPrefix });
+        }
+      } else {
+        lastMsg.content = contextPrefix + (lastMsg.content as string);
+      }
+    }
 
     let assistantContent = '';
     const aiId = (Date.now() + 1).toString();
