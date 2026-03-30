@@ -17,13 +17,16 @@ import {
   ArrowLeft,
   ImagePlus,
   Sparkles,
-  Loader2
+  Loader2,
+  Video,
+  Link2,
+  FileVideo
 } from 'lucide-react';
 
 interface ChatInterfaceProps {
   settings: ConversationSettings;
   messages: Message[];
-  onSendMessage: (content: string, imageBase64?: string) => void;
+  onSendMessage: (content: string, imageBase64?: string, videoFrames?: string[], urlContext?: string) => void;
   onBack: () => void;
   isLoading?: boolean;
   imageMode?: boolean;
@@ -45,9 +48,15 @@ export function ChatInterface({
   const [isRecording, setIsRecording] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewVideo, setPreviewVideo] = useState<string | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
+  const [urlInput, setUrlInput] = useState('');
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [isProcessingContent, setIsProcessingContent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -58,17 +67,57 @@ export function ChatInterface({
   }, [messages]);
 
   const handleSend = async () => {
-    if ((!input.trim() && !previewImage) || isLoading) return;
+    if ((!input.trim() && !previewImage && !previewVideo && !urlInput.trim()) || isLoading || isProcessingContent) return;
 
     let imageBase64: string | undefined;
+    let videoFrames: string[] | undefined;
+    let urlContext: string | undefined;
+
     if (selectedFile) {
       imageBase64 = await fileToBase64(selectedFile);
     }
 
-    onSendMessage(input.trim() || '(sent an image)', imageBase64);
+    if (selectedVideo) {
+      setIsProcessingContent(true);
+      try {
+        const { videoToBase64Frames } = await import('@/lib/content-service');
+        videoFrames = await videoToBase64Frames(selectedVideo, 4);
+        toast.success('已擷取影片畫面');
+      } catch {
+        toast.error('影片處理失敗');
+      }
+      setIsProcessingContent(false);
+    }
+
+    if (urlInput.trim()) {
+      setIsProcessingContent(true);
+      try {
+        const { analyzeUrl } = await import('@/lib/content-service');
+        const result = await analyzeUrl(urlInput.trim());
+        if (result.error) {
+          toast.error(result.error);
+        } else {
+          urlContext = result.content;
+        }
+      } catch {
+        toast.error('連結分析失敗');
+      }
+      setIsProcessingContent(false);
+    }
+
+    const messageText = input.trim() || 
+      (previewVideo ? '(sent a video)' : '') ||
+      (urlInput.trim() ? `(shared a link: ${urlInput.trim()})` : '') ||
+      '(sent an image)';
+
+    onSendMessage(messageText, imageBase64, videoFrames, urlContext);
     setInput('');
     setPreviewImage(null);
     setSelectedFile(null);
+    setPreviewVideo(null);
+    setSelectedVideo(null);
+    setUrlInput('');
+    setShowUrlInput(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -90,14 +139,35 @@ export function ChatInterface({
       return;
     }
     setSelectedFile(file);
-    const url = URL.createObjectURL(file);
-    setPreviewImage(url);
+    setPreviewImage(URL.createObjectURL(file));
+  };
+
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('video/')) {
+      toast.error('請選擇影片檔案');
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('影片大小不能超過 50MB');
+      return;
+    }
+    setSelectedVideo(file);
+    setPreviewVideo(URL.createObjectURL(file));
   };
 
   const removePreviewImage = () => {
     setPreviewImage(null);
     setSelectedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removePreviewVideo = () => {
+    if (previewVideo) URL.revokeObjectURL(previewVideo);
+    setPreviewVideo(null);
+    setSelectedVideo(null);
+    if (videoInputRef.current) videoInputRef.current.value = '';
   };
 
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -240,7 +310,26 @@ export function ChatInterface({
                   </div>
                 )}
 
-                {displayContent && displayContent !== '(sent an image)' && (
+                {/* Video indicator */}
+                {message.content.includes('(sent a video)') && (
+                  <div className="mb-2 flex items-center gap-2 text-muted-foreground">
+                    <FileVideo className="w-4 h-4" />
+                    <span className="text-xs">📹 已上傳影片</span>
+                  </div>
+                )}
+
+                {/* URL indicator */}
+                {message.content.includes('(shared a link:') && (
+                  <div className="mb-2 flex items-center gap-2 text-muted-foreground">
+                    <Link2 className="w-4 h-4" />
+                    <span className="text-xs break-all">🔗 {message.content.match(/\(shared a link: (.*?)\)/)?.[1]}</span>
+                  </div>
+                )}
+
+                {displayContent && 
+                 displayContent !== '(sent an image)' && 
+                 displayContent !== '(sent a video)' && 
+                 !displayContent.startsWith('(shared a link:') && (
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{displayContent}</p>
                 )}
                 
@@ -311,24 +400,76 @@ export function ChatInterface({
             </div>
           </div>
         )}
+
+        {isProcessingContent && (
+          <div className="flex justify-start">
+            <div className="chat-bubble-ai">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">📎 正在分析內容...</span>
+              </div>
+            </div>
+          </div>
+        )}
         
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Image Preview */}
-      {previewImage && (
-        <div className="px-4 pb-2">
-          <div className="relative inline-block">
-            <img src={previewImage} alt="preview" className="h-20 rounded-lg border border-border" />
-            <Button
-              variant="destructive"
-              size="icon"
-              className="absolute -top-2 -right-2 h-6 w-6"
-              onClick={removePreviewImage}
-            >
-              <X className="w-3 h-3" />
-            </Button>
-          </div>
+      {/* Previews */}
+      {(previewImage || previewVideo || showUrlInput) && (
+        <div className="px-4 pb-2 space-y-2">
+          {previewImage && (
+            <div className="relative inline-block">
+              <img src={previewImage} alt="preview" className="h-20 rounded-lg border border-border" />
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute -top-2 -right-2 h-6 w-6"
+                onClick={removePreviewImage}
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          )}
+
+          {previewVideo && (
+            <div className="relative inline-block">
+              <video src={previewVideo} className="h-20 rounded-lg border border-border" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <FileVideo className="w-6 h-6 text-foreground/80" />
+              </div>
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute -top-2 -right-2 h-6 w-6"
+                onClick={removePreviewVideo}
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          )}
+
+          {showUrlInput && (
+            <div className="flex items-center gap-2">
+              <Link2 className="w-4 h-4 text-muted-foreground shrink-0" />
+              <input
+                type="url"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="貼上連結 (網頁或 YouTube)..."
+                className="flex-1 h-8 px-3 text-sm rounded-md border border-input bg-background"
+                onKeyDown={handleKeyDown}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => { setShowUrlInput(false); setUrlInput(''); }}
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -359,13 +500,38 @@ export function ChatInterface({
             className="hidden"
             onChange={handleImageSelect}
           />
+
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => videoInputRef.current?.click()}
+            className="shrink-0"
+          >
+            <Video className="w-5 h-5" />
+          </Button>
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/*"
+            className="hidden"
+            onChange={handleVideoSelect}
+          />
+
+          <Button
+            variant={showUrlInput ? 'default' : 'outline'}
+            size="icon"
+            onClick={() => setShowUrlInput(!showUrlInput)}
+            className="shrink-0"
+          >
+            <Link2 className="w-5 h-5" />
+          </Button>
           
           <div className="flex-1 relative">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="輸入訊息或上傳圖片..."
+              placeholder="輸入訊息、上傳圖片/影片或貼上連結..."
               className="min-h-[48px] max-h-32 pr-12 resize-none"
               rows={1}
             />
@@ -375,7 +541,7 @@ export function ChatInterface({
             variant="gradient"
             size="icon"
             onClick={handleSend}
-            disabled={(!input.trim() && !previewImage) || isLoading}
+            disabled={(!input.trim() && !previewImage && !previewVideo && !urlInput.trim()) || isLoading || isProcessingContent}
             className="shrink-0"
           >
             <Send className="w-5 h-5" />

@@ -85,7 +85,10 @@ ${styleInstruction}
 6. If mode is "test": do NOT correct mistakes. Just continue the conversation naturally as if in a real exam.
 7. Keep responses concise (2-4 sentences typically). Don't write essays.
 8. Be encouraging and supportive.
-9. At the end of each conversation (when the user says goodbye or wants to end), provide a brief summary with personalized language learning tips based on their learning style.`;
+9. At the end of each conversation (when the user says goodbye or wants to end), provide a brief summary with personalized language learning tips based on their learning style.
+10. If the user shares video frames (images from a video), analyze them together to understand the video content. Describe what you see and use it as conversation material.
+11. If the user shares a link with extracted content, read it carefully and use the content as context for the language practice conversation. You can discuss the content, ask comprehension questions, or use vocabulary from it.
+12. If the user shares a YouTube video, try to read any subtitles/transcript provided and discuss the video content in the target language.`;
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
