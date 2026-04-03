@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe } from 'lucide-react';
+import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag } from 'lucide-react';
 
 interface HeaderProps {
   isLoggedIn?: boolean;
@@ -58,6 +58,24 @@ export function Header({
                 size="sm"
               >
                 Practice
+              </Button>
+            </Link>
+            <Link to="/friends">
+              <Button 
+                variant={isActive('/friends') ? 'secondary' : 'ghost'} 
+                size="sm"
+              >
+                <Users className="w-4 h-4 mr-1" />
+                Friends
+              </Button>
+            </Link>
+            <Link to="/shop">
+              <Button 
+                variant={isActive('/shop') ? 'secondary' : 'ghost'} 
+                size="sm"
+              >
+                <ShoppingBag className="w-4 h-4 mr-1" />
+                Shop
               </Button>
             </Link>
             {isAdmin && (
@@ -138,6 +156,18 @@ export function Header({
               <Link to="/practice" onClick={() => setIsMobileMenuOpen(false)}>
                 <Button variant={isActive('/practice') ? 'secondary' : 'ghost'} className="w-full justify-start">
                   Practice
+                </Button>
+              </Link>
+              <Link to="/friends" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button variant={isActive('/friends') ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <Users className="w-4 h-4 mr-2" />
+                  Friends
+                </Button>
+              </Link>
+              <Link to="/shop" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button variant={isActive('/shop') ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <ShoppingBag className="w-4 h-4 mr-2" />
+                  Shop
                 </Button>
               </Link>
               {isAdmin && (
