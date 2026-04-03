@@ -60,6 +60,24 @@ export function Header({
                 Practice
               </Button>
             </Link>
+            <Link to="/friends">
+              <Button 
+                variant={isActive('/friends') ? 'secondary' : 'ghost'} 
+                size="sm"
+              >
+                <Users className="w-4 h-4 mr-1" />
+                Friends
+              </Button>
+            </Link>
+            <Link to="/shop">
+              <Button 
+                variant={isActive('/shop') ? 'secondary' : 'ghost'} 
+                size="sm"
+              >
+                <ShoppingBag className="w-4 h-4 mr-1" />
+                Shop
+              </Button>
+            </Link>
             {isAdmin && (
               <Link to="/admin">
                 <Button 
