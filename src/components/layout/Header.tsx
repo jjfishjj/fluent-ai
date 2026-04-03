@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe } from 'lucide-react';
+import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag } from 'lucide-react';
 
 interface HeaderProps {
   isLoggedIn?: boolean;
