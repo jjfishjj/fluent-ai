@@ -158,6 +158,18 @@ export function Header({
                   Practice
                 </Button>
               </Link>
+              <Link to="/friends" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button variant={isActive('/friends') ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <Users className="w-4 h-4 mr-2" />
+                  Friends
+                </Button>
+              </Link>
+              <Link to="/shop" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button variant={isActive('/shop') ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <ShoppingBag className="w-4 h-4 mr-2" />
+                  Shop
+                </Button>
+              </Link>
               {isAdmin && (
                 <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)}>
                   <Button variant={isActive('/admin') ? 'secondary' : 'ghost'} className="w-full justify-start">
