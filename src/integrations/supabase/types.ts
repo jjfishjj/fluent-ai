@@ -74,6 +74,132 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_matches: {
+        Row: {
+          compatibility_score: number
+          created_at: string
+          id: string
+          is_free: boolean
+          match_date: string
+          matched_user_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          compatibility_score?: number
+          created_at?: string
+          id?: string
+          is_free?: boolean
+          match_date?: string
+          matched_user_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          compatibility_score?: number
+          created_at?: string
+          id?: string
+          is_free?: boolean
+          match_date?: string
+          matched_user_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      energy_points: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          last_daily_login: string | null
+          lifetime_earned: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          last_daily_login?: string | null
+          lifetime_earned?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          last_daily_login?: string | null
+          lifetime_earned?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      energy_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      friendships: {
+        Row: {
+          chat_bg_color: string | null
+          created_at: string
+          id: string
+          intimacy_score: number
+          message_count: number
+          title: string
+          updated_at: string
+          user_a_id: string
+          user_b_id: string
+        }
+        Insert: {
+          chat_bg_color?: string | null
+          created_at?: string
+          id?: string
+          intimacy_score?: number
+          message_count?: number
+          title?: string
+          updated_at?: string
+          user_a_id: string
+          user_b_id: string
+        }
+        Update: {
+          chat_bg_color?: string | null
+          created_at?: string
+          id?: string
+          intimacy_score?: number
+          message_count?: number
+          title?: string
+          updated_at?: string
+          user_a_id?: string
+          user_b_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           audio_url: string | null
@@ -159,6 +285,113 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      shop_items: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_days: number | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          price: number
+          stock: number | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_days?: number | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          price: number
+          stock?: number | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_days?: number | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          price?: number
+          stock?: number | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_interests: {
+        Row: {
+          created_at: string
+          id: string
+          interest_topics: string[]
+          learning_goals: string[]
+          target_language: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interest_topics?: string[]
+          learning_goals?: string[]
+          target_language?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interest_topics?: string[]
+          learning_goals?: string[]
+          target_language?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_purchases: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          shop_item_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          shop_item_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          shop_item_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_purchases_shop_item_id_fkey"
+            columns: ["shop_item_id"]
+            isOneToOne: false
+            referencedRelation: "shop_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
