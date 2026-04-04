@@ -55,12 +55,14 @@ const Practice = () => {
 
   const getCurrentSettings = (): ConversationSettings => ({
     language: selectedLanguage!,
+    languageVariant: selectedVariant || undefined,
     scenario: selectedScenario!.id,
     difficulty,
     speed,
     tone,
     mode,
     instantCorrection,
+    romanization: currentLanguage?.supportsRomanization ? romanization : undefined,
   });
 
   const handleGenerateImage = async (aiContent: string, convId: string | null) => {
