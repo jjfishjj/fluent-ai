@@ -38,6 +38,7 @@ export interface ConversationSettings {
   tone: ToneStyle;
   mode: ConversationMode;
   instantCorrection: boolean;
+  romanization?: boolean;
 }
 
 export interface Message {
