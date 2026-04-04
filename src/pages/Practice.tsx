@@ -332,16 +332,20 @@ const Practice = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {LANGUAGES.map((language) => (
                 <button
                   key={language.id}
-                  onClick={() => setSelectedLanguage(language.id)}
+                  onClick={() => {
+                    setSelectedLanguage(language.id);
+                    setRomanization(false);
+                    setSelectedVariant(null);
+                  }}
                   className={`language-card lang-${language.id}`}
                 >
                   <div className="text-3xl mb-2">{language.flag}</div>
-                  <h3 className="font-semibold">{language.name}</h3>
-                  <p className="text-sm text-muted-foreground">{language.nativeName}</p>
+                  <h3 className="font-semibold text-sm">{language.name}</h3>
+                  <p className="text-xs text-muted-foreground">{language.nativeName}</p>
                 </button>
               ))}
             </div>
