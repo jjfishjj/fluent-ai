@@ -1,5 +1,5 @@
 // Language Types
-export type Language = 'english' | 'german' | 'french' | 'spanish' | 'japanese' | 'korean' | 'hebrew';
+export type Language = 'english' | 'german' | 'french' | 'spanish' | 'japanese' | 'korean' | 'hebrew' | 'chinese' | 'turkish' | 'arabic' | 'russian' | 'thai' | 'vietnamese' | 'indonesian' | 'hindi' | 'cantonese' | 'hakka';
 export type EnglishVariant = 'general' | 'ielts' | 'toefl';
 
 export interface LanguageConfig {
