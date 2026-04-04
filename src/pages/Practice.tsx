@@ -6,6 +6,8 @@ import { ScenarioSelector } from '@/components/practice/ScenarioSelector';
 import { ChatInterface } from '@/components/practice/ChatInterface';
 import { Button } from '@/components/ui/button';
 import { LANGUAGES, SCENARIOS } from '@/lib/constants';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { 
   Language, 
   Scenario, 
@@ -35,6 +37,8 @@ const Practice = () => {
   const [tone, setTone] = useState<ToneStyle>('semi-formal');
   const [mode, setMode] = useState<ConversationMode>('practice');
   const [instantCorrection, setInstantCorrection] = useState(true);
+  const [romanization, setRomanization] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [isInConversation, setIsInConversation] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -53,12 +57,14 @@ const Practice = () => {
 
   const getCurrentSettings = (): ConversationSettings => ({
     language: selectedLanguage!,
+    languageVariant: selectedVariant || undefined,
     scenario: selectedScenario!.id,
     difficulty,
     speed,
     tone,
     mode,
     instantCorrection,
+    romanization: currentLanguage?.supportsRomanization ? romanization : undefined,
   });
 
   const handleGenerateImage = async (aiContent: string, convId: string | null) => {
@@ -328,16 +334,20 @@ const Practice = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {LANGUAGES.map((language) => (
                 <button
                   key={language.id}
-                  onClick={() => setSelectedLanguage(language.id)}
+                  onClick={() => {
+                    setSelectedLanguage(language.id);
+                    setRomanization(false);
+                    setSelectedVariant(null);
+                  }}
                   className={`language-card lang-${language.id}`}
                 >
                   <div className="text-3xl mb-2">{language.flag}</div>
-                  <h3 className="font-semibold">{language.name}</h3>
-                  <p className="text-sm text-muted-foreground">{language.nativeName}</p>
+                  <h3 className="font-semibold text-sm">{language.name}</h3>
+                  <p className="text-xs text-muted-foreground">{language.nativeName}</p>
                 </button>
               ))}
             </div>
@@ -357,6 +367,45 @@ const Practice = () => {
                 </p>
               </div>
             </div>
+
+            {/* Variant selector for languages with variants */}
+            {currentLanguage?.variants && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium mb-3">選擇變體 / Select Variant</h3>
+                <div className="flex gap-3 flex-wrap">
+                  {currentLanguage.variants.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => setSelectedVariant(v.id)}
+                      className={`px-4 py-2 rounded-lg border text-sm transition-colors ${
+                        selectedVariant === v.id
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-card border-border hover:border-primary/50'
+                      }`}
+                    >
+                      {v.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Romanization toggle for supported languages */}
+            {currentLanguage?.supportsRomanization && (
+              <div className="mb-6 flex items-center gap-3 p-4 rounded-lg bg-muted/50 border border-border">
+                <Switch
+                  checked={romanization}
+                  onCheckedChange={setRomanization}
+                  id="romanization"
+                />
+                <Label htmlFor="romanization" className="cursor-pointer">
+                  <span className="font-medium">英文拼音輔助 (Romanization)</span>
+                  <span className="block text-xs text-muted-foreground">
+                    對話中附上拼音/羅馬字以方便閱讀
+                  </span>
+                </Label>
+              </div>
+            )}
 
             <ScenarioSelector
               selectedScenario={selectedScenario}

@@ -1,5 +1,5 @@
 // Language Types
-export type Language = 'english' | 'german' | 'french' | 'spanish' | 'japanese' | 'korean' | 'hebrew';
+export type Language = 'english' | 'german' | 'french' | 'spanish' | 'japanese' | 'korean' | 'hebrew' | 'chinese' | 'turkish' | 'arabic' | 'russian' | 'thai' | 'vietnamese' | 'indonesian' | 'hindi' | 'cantonese' | 'hakka';
 export type EnglishVariant = 'general' | 'ielts' | 'toefl';
 
 export interface LanguageConfig {
@@ -8,6 +8,7 @@ export interface LanguageConfig {
   nativeName: string;
   flag: string;
   variants?: { id: string; name: string }[];
+  supportsRomanization?: boolean;
 }
 
 // Scenario Types
@@ -37,6 +38,7 @@ export interface ConversationSettings {
   tone: ToneStyle;
   mode: ConversationMode;
   instantCorrection: boolean;
+  romanization?: boolean;
 }
 
 export interface Message {
