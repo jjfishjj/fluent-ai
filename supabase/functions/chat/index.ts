@@ -92,8 +92,8 @@ This helps the learner read and pronounce the text.`
 - Difficulty: ${settings?.difficulty || "intermediate"}
 - Tone: ${settings?.tone || "semi-formal"}
 - Mode: ${settings?.mode || "practice"}
-- Speech Speed: ${settings?.speed || "normal"}
-${styleInstruction}
+- Speech Speed: ${settings?.speed || "normal"}${variantNote}
+${styleInstruction}${romanizationNote}
 
 ## Rules
 1. ALWAYS respond primarily in ${langName}. Add a brief translation or explanation in the user's native language only when helpful.
