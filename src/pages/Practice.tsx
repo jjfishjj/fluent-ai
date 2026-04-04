@@ -35,6 +35,8 @@ const Practice = () => {
   const [tone, setTone] = useState<ToneStyle>('semi-formal');
   const [mode, setMode] = useState<ConversationMode>('practice');
   const [instantCorrection, setInstantCorrection] = useState(true);
+  const [romanization, setRomanization] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [isInConversation, setIsInConversation] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
