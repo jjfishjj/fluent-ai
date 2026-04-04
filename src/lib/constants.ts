@@ -13,6 +13,17 @@ export const LANGUAGES: LanguageConfig[] = [
     ],
   },
   {
+    id: 'chinese',
+    name: 'Chinese',
+    nativeName: '中文',
+    flag: '🇨🇳',
+    variants: [
+      { id: 'simplified', name: '简体中文 (Simplified)' },
+      { id: 'traditional', name: '繁體中文 (Traditional)' },
+    ],
+    supportsRomanization: true,
+  },
+  {
     id: 'german',
     name: 'German',
     nativeName: 'Deutsch',
@@ -43,13 +54,72 @@ export const LANGUAGES: LanguageConfig[] = [
     flag: '🇰🇷',
   },
   {
+    id: 'arabic',
+    name: 'Arabic',
+    nativeName: 'العربية',
+    flag: '🇸🇦',
+    supportsRomanization: true,
+  },
+  {
+    id: 'russian',
+    name: 'Russian',
+    nativeName: 'Русский',
+    flag: '🇷🇺',
+    supportsRomanization: true,
+  },
+  {
+    id: 'thai',
+    name: 'Thai',
+    nativeName: 'ไทย',
+    flag: '🇹🇭',
+    supportsRomanization: true,
+  },
+  {
+    id: 'hindi',
+    name: 'Hindi',
+    nativeName: 'हिन्दी',
+    flag: '🇮🇳',
+    supportsRomanization: true,
+  },
+  {
+    id: 'turkish',
+    name: 'Turkish',
+    nativeName: 'Türkçe',
+    flag: '🇹🇷',
+  },
+  {
+    id: 'vietnamese',
+    name: 'Vietnamese',
+    nativeName: 'Tiếng Việt',
+    flag: '🇻🇳',
+  },
+  {
+    id: 'indonesian',
+    name: 'Indonesian',
+    nativeName: 'Bahasa Indonesia',
+    flag: '🇮🇩',
+  },
+  {
+    id: 'cantonese',
+    name: 'Cantonese',
+    nativeName: '廣東話',
+    flag: '🇭🇰',
+    supportsRomanization: true,
+  },
+  {
+    id: 'hakka',
+    name: 'Hakka',
+    nativeName: '客家話',
+    flag: '🏔️',
+    supportsRomanization: true,
+  },
+  {
     id: 'hebrew',
     name: 'Hebrew',
     nativeName: 'עברית',
     flag: '🇮🇱',
   },
 ];
-
 export const SCENARIOS: Scenario[] = [
   {
     id: 'daily',
