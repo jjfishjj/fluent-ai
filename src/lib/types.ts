@@ -8,6 +8,7 @@ export interface LanguageConfig {
   nativeName: string;
   flag: string;
   variants?: { id: string; name: string }[];
+  supportsRomanization?: boolean;
 }
 
 // Scenario Types
