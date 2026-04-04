@@ -366,6 +366,45 @@ const Practice = () => {
               </div>
             </div>
 
+            {/* Variant selector for languages with variants */}
+            {currentLanguage?.variants && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium mb-3">選擇變體 / Select Variant</h3>
+                <div className="flex gap-3 flex-wrap">
+                  {currentLanguage.variants.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => setSelectedVariant(v.id)}
+                      className={`px-4 py-2 rounded-lg border text-sm transition-colors ${
+                        selectedVariant === v.id
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-card border-border hover:border-primary/50'
+                      }`}
+                    >
+                      {v.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Romanization toggle for supported languages */}
+            {currentLanguage?.supportsRomanization && (
+              <div className="mb-6 flex items-center gap-3 p-4 rounded-lg bg-muted/50 border border-border">
+                <Switch
+                  checked={romanization}
+                  onCheckedChange={setRomanization}
+                  id="romanization"
+                />
+                <Label htmlFor="romanization" className="cursor-pointer">
+                  <span className="font-medium">英文拼音輔助 (Romanization)</span>
+                  <span className="block text-xs text-muted-foreground">
+                    對話中附上拼音/羅馬字以方便閱讀
+                  </span>
+                </Label>
+              </div>
+            )}
+
             <ScenarioSelector
               selectedScenario={selectedScenario}
               onSelectScenario={setSelectedScenario}
