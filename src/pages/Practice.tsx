@@ -6,6 +6,8 @@ import { ScenarioSelector } from '@/components/practice/ScenarioSelector';
 import { ChatInterface } from '@/components/practice/ChatInterface';
 import { Button } from '@/components/ui/button';
 import { LANGUAGES, SCENARIOS } from '@/lib/constants';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { 
   Language, 
   Scenario, 

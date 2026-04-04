@@ -23,9 +23,36 @@ serve(async (req) => {
       japanese: "Japanese",
       korean: "Korean",
       hebrew: "Hebrew",
+      chinese: "Chinese",
+      turkish: "Turkish",
+      arabic: "Arabic",
+      russian: "Russian",
+      thai: "Thai",
+      vietnamese: "Vietnamese",
+      indonesian: "Indonesian",
+      hindi: "Hindi",
+      cantonese: "Cantonese",
+      hakka: "Hakka",
     };
 
     const langName = langNames[settings?.language] || settings?.language || "English";
+    
+    const variantNote = settings?.languageVariant
+      ? `\n- Language variant: ${settings.languageVariant}`
+      : '';
+    
+    const romanizationNote = settings?.romanization
+      ? `\n\n## Romanization / Pinyin Assistance
+IMPORTANT: The user has enabled romanization assistance. For EVERY sentence you write in ${langName}, also provide the romanized/pinyin version in parentheses right after.
+- For Chinese: provide Pinyin, e.g. 你好 (nǐ hǎo)
+- For Arabic: provide transliteration, e.g. مرحبا (marhaba)
+- For Russian: provide transliteration, e.g. Привет (privet)
+- For Thai: provide romanization, e.g. สวัสดี (sawatdee)
+- For Hindi: provide transliteration, e.g. नमस्ते (namaste)
+- For Cantonese: provide Jyutping, e.g. 你好 (nei5 hou2)
+- For Hakka: provide romanization, e.g. 你好 (ngi2 ho3)
+This helps the learner read and pronounce the text.`
+      : '';
 
     const learningStyleGuide: Record<string, string> = {
       visual: `The user is a VISUAL learner. Adapt your teaching:
