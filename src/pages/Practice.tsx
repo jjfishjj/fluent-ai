@@ -345,9 +345,11 @@ const Practice = () => {
                   }}
                   className={`language-card lang-${language.id}`}
                 >
-                  <div className="text-3xl mb-2">{language.flag}</div>
-                  <h3 className="font-semibold text-sm">{language.name}</h3>
-                  <p className="text-xs text-muted-foreground">{language.nativeName}</p>
+                  <div className="relative z-10 text-left w-full">
+                    <div className="text-3xl mb-2 flag-emoji">{language.flag}</div>
+                    <h3 className="font-semibold text-sm lang-name">{language.name}</h3>
+                    <p className="text-xs text-muted-foreground">{language.nativeName}</p>
+                  </div>
                 </button>
               ))}
             </div>
