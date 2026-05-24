@@ -207,22 +207,112 @@
     --lang-color: var(--lang-korean);
   }
 
+  .lang-chinese {
+    --lang-color: var(--lang-chinese);
+  }
+
+  .lang-arabic {
+    --lang-color: var(--lang-arabic);
+  }
+
+  .lang-russian {
+    --lang-color: var(--lang-russian);
+  }
+
+  .lang-thai {
+    --lang-color: var(--lang-thai);
+  }
+
+  .lang-hindi {
+    --lang-color: var(--lang-hindi);
+  }
+
+  .lang-turkish {
+    --lang-color: var(--lang-turkish);
+  }
+
+  .lang-vietnamese {
+    --lang-color: var(--lang-vietnamese);
+  }
+
+  .lang-indonesian {
+    --lang-color: var(--lang-indonesian);
+  }
+
+  .lang-cantonese {
+    --lang-color: var(--lang-cantonese);
+  }
+
+  .lang-hakka {
+    --lang-color: var(--lang-hakka);
+  }
+
+  .lang-hebrew {
+    --lang-color: var(--lang-hebrew);
+  }
+
   .language-card {
-    @apply relative overflow-hidden rounded-2xl p-6 cursor-pointer transition-all duration-300;
-    @apply hover:scale-[1.02] hover:shadow-elevated;
-    background: linear-gradient(145deg, hsl(var(--lang-color) / 0.1), hsl(var(--lang-color) / 0.05));
-    border: 1px solid hsl(var(--lang-color) / 0.2);
+    @apply relative overflow-hidden rounded-2xl p-6 cursor-pointer transition-all duration-500;
+    background: linear-gradient(145deg, hsl(var(--lang-color) / 0.08), hsl(var(--lang-color) / 0.03));
+    border: 1px solid hsl(var(--lang-color) / 0.15);
   }
 
   .language-card:hover {
-    border-color: hsl(var(--lang-color) / 0.4);
-    box-shadow: 0 20px 50px -15px hsl(var(--lang-color) / 0.2);
+    transform: translateY(-6px) scale(1.03);
+    border-color: hsl(var(--lang-color) / 0.5);
+    box-shadow: 0 24px 60px -15px hsl(var(--lang-color) / 0.25),
+                0 0 0 1px hsl(var(--lang-color) / 0.3),
+                0 0 40px -10px hsl(var(--lang-color) / 0.15);
   }
 
   .language-card::before {
     content: '';
-    @apply absolute top-0 right-0 w-32 h-32 opacity-20;
-    background: radial-gradient(circle at center, hsl(var(--lang-color)), transparent 70%);
+    @apply absolute top-0 right-0 w-40 h-40 opacity-0 transition-opacity duration-500;
+    background: radial-gradient(circle at center, hsl(var(--lang-color) / 0.25), transparent 70%);
+  }
+
+  .language-card:hover::before {
+    opacity: 1;
+  }
+
+  .language-card::after {
+    content: '';
+    @apply absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-500;
+    background: linear-gradient(135deg, hsl(var(--lang-color) / 0.06) 0%, transparent 50%, hsl(var(--lang-color) / 0.04) 100%);
+  }
+
+  .language-card:hover::after {
+    opacity: 1;
+  }
+
+  .language-card .flag-emoji {
+    @apply transition-transform duration-500;
+    filter: drop-shadow(0 2px 8px hsl(var(--lang-color) / 0.2));
+  }
+
+  .language-card:hover .flag-emoji {
+    transform: scale(1.15) rotate(-5deg);
+    filter: drop-shadow(0 4px 16px hsl(var(--lang-color) / 0.35));
+  }
+
+  .language-card .lang-name {
+    @apply transition-all duration-300;
+  }
+
+  .language-card:hover .lang-name {
+    color: hsl(var(--lang-color));
+  }
+
+  .language-card .variant-tag {
+    @apply transition-all duration-300;
+    background: hsl(var(--lang-color) / 0.08);
+    border: 1px solid hsl(var(--lang-color) / 0.12);
+  }
+
+  .language-card:hover .variant-tag {
+    background: hsl(var(--lang-color) / 0.15);
+    border-color: hsl(var(--lang-color) / 0.3);
+    color: hsl(var(--lang-color));
   }
 
   .chat-bubble-user {
