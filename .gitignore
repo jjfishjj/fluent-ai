@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# iOS build artifacts
+ios/App/Pods/
+ios/App/App.xcworkspace/xcuserdata/
+ios/.xcode.env.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
