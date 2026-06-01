@@ -6,13 +6,15 @@ import { Badge } from '@/components/ui/badge';
 import { parseCorrections } from '@/lib/parse-corrections';
 import { toast } from 'sonner';
 import { fileToBase64 } from '@/lib/image-service';
-import { 
-  Send, 
-  Mic, 
-  MicOff, 
-  Volume2, 
-  X, 
-  Lightbulb, 
+import { VARKInsightBanner } from '@/components/vark/VARKInsightBanner';
+import { LearningStyle } from '@/lib/learning-styles';
+import {
+  Send,
+  Mic,
+  MicOff,
+  Volume2,
+  X,
+  Lightbulb,
   AlertCircle,
   ArrowLeft,
   ImagePlus,
@@ -32,17 +34,25 @@ interface ChatInterfaceProps {
   imageMode?: boolean;
   onImageModeChange?: (enabled: boolean) => void;
   isGeneratingImage?: boolean;
+  varkTip?: { style: LearningStyle; message: string } | null;
+  onVarkTipDismiss?: () => void;
+  onVoiceUsed?: () => void;
+  onAudioPlayed?: () => void;
 }
 
-export function ChatInterface({ 
-  settings, 
-  messages, 
-  onSendMessage, 
+export function ChatInterface({
+  settings,
+  messages,
+  onSendMessage,
   onBack,
   isLoading = false,
   imageMode = false,
   onImageModeChange,
   isGeneratingImage = false,
+  varkTip,
+  onVarkTipDismiss,
+  onVoiceUsed,
+  onAudioPlayed,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -215,6 +225,7 @@ export function ChatInterface({
     recognitionRef.current = recognition;
     recognition.start();
     setIsRecording(true);
+    onVoiceUsed?.();
   };
 
   const handlePlayAudio = (messageId: string, text: string) => {
@@ -234,6 +245,7 @@ export function ChatInterface({
 
     setPlayingId(messageId);
     window.speechSynthesis.speak(utterance);
+    onAudioPlayed?.();
   };
 
   return (
@@ -378,6 +390,14 @@ export function ChatInterface({
           );
         })}
         
+        {varkTip && onVarkTipDismiss && (
+          <VARKInsightBanner
+            style={varkTip.style}
+            tip={varkTip.message}
+            onDismiss={onVarkTipDismiss}
+          />
+        )}
+
         {isLoading && !isGeneratingImage && (
           <div className="flex justify-start">
             <div className="chat-bubble-ai">

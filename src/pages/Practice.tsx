@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,12 +8,12 @@ import { Button } from '@/components/ui/button';
 import { LANGUAGES, SCENARIOS } from '@/lib/constants';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { 
-  Language, 
-  Scenario, 
-  DifficultyLevel, 
-  SpeechSpeed, 
-  ToneStyle, 
+import {
+  Language,
+  Scenario,
+  DifficultyLevel,
+  SpeechSpeed,
+  ToneStyle,
   ConversationMode,
   ConversationSettings,
   Message
@@ -24,6 +24,10 @@ import { streamChat } from '@/lib/stream-chat';
 import { parseCorrections } from '@/lib/parse-corrections';
 import { generateImage, uploadChatImage } from '@/lib/image-service';
 import { toast } from 'sonner';
+import { LearningStyle } from '@/lib/learning-styles';
+import { analyzeMessage, updateProfile, getDominantStyle, VARKProfile } from '@/lib/vark-analyzer';
+import { loadVARKProfile, saveVARKProfile } from '@/lib/vark-service';
+import { getRandomTip } from '@/lib/vark-recommendations';
 
 const Practice = () => {
   const [searchParams] = useSearchParams();
@@ -46,12 +50,25 @@ const Practice = () => {
   const [imageMode, setImageMode] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
+  // VARK tracking
+  const [varkProfile, setVarkProfile] = useState<VARKProfile | null>(null);
+  const [varkTip, setVarkTip] = useState<{ style: LearningStyle; message: string } | null>(null);
+  const voiceUsedRef = useRef(false);
+  const audioPlayedRef = useRef(false);
+  const userMsgCountRef = useRef(0);
+  const isFirstMsgRef = useRef(true);
+
   useEffect(() => {
     const lang = searchParams.get('lang') as Language;
     if (lang && LANGUAGES.find(l => l.id === lang)) {
       setSelectedLanguage(lang);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const uid = user?.id || 'guest';
+    setVarkProfile(loadVARKProfile(uid));
+  }, [user?.id]);
 
   const currentLanguage = LANGUAGES.find(l => l.id === selectedLanguage);
 
@@ -116,6 +133,11 @@ const Practice = () => {
     setMessages([]);
     setIsInConversation(true);
     setIsLoading(true);
+    setVarkTip(null);
+    userMsgCountRef.current = 0;
+    isFirstMsgRef.current = true;
+    voiceUsedRef.current = false;
+    audioPlayedRef.current = false;
 
     let assistantContent = '';
     const greetingId = Date.now().toString();
@@ -165,6 +187,32 @@ const Practice = () => {
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setIsLoading(true);
+
+    // Collect VARK signals for this message
+    if (varkProfile && selectedLanguage && selectedScenario) {
+      const signals = analyzeMessage(content, getCurrentSettings(), {
+        hasImage: !!imageBase64,
+        hasVideo: !!(videoFrames?.length),
+        usedVoice: voiceUsedRef.current,
+        usedAudio: audioPlayedRef.current,
+      });
+      voiceUsedRef.current = false;
+      audioPlayedRef.current = false;
+
+      const isNew = isFirstMsgRef.current;
+      isFirstMsgRef.current = false;
+      const updated = updateProfile(varkProfile, signals, isNew);
+      setVarkProfile(updated);
+      saveVARKProfile(user?.id || 'guest', updated);
+
+      // Show VARK tip after 5th message, then every 10 messages
+      userMsgCountRef.current += 1;
+      const count = userMsgCountRef.current;
+      if ((count === 5 || (count > 5 && (count - 5) % 10 === 0)) && updated.totalSignals >= 5) {
+        const dominant = getDominantStyle(updated);
+        setVarkTip({ style: dominant, message: getRandomTip(dominant) });
+      }
+    }
 
     // Upload image to storage if present
     let storedImageUrl: string | undefined;
@@ -303,6 +351,10 @@ const Practice = () => {
         imageMode={imageMode}
         onImageModeChange={setImageMode}
         isGeneratingImage={isGeneratingImage}
+        varkTip={varkTip}
+        onVarkTipDismiss={() => setVarkTip(null)}
+        onVoiceUsed={() => { voiceUsedRef.current = true; }}
+        onAudioPlayed={() => { audioPlayedRef.current = true; }}
       />
     );
   }
