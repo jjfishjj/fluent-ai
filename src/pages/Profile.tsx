@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/layout/Header';
@@ -10,6 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { User, Save, Brain } from 'lucide-react';
+import { VARKProfileSection } from '@/components/vark/VARKProfileSection';
+import { loadVARKProfile } from '@/lib/vark-service';
+import { VARKProfile } from '@/lib/vark-analyzer';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -18,6 +21,13 @@ const Profile = () => {
   const [preferredLanguage, setPreferredLanguage] = useState(profile?.preferred_language || 'english');
   const [preferredDifficulty, setPreferredDifficulty] = useState(profile?.preferred_difficulty || 'intermediate');
   const [saving, setSaving] = useState(false);
+  const [varkProfile, setVarkProfile] = useState<VARKProfile | null>(null);
+
+  useEffect(() => {
+    if (user?.id) {
+      setVarkProfile(loadVARKProfile(user.id));
+    }
+  }, [user?.id]);
 
   if (!user) {
     navigate('/auth');
@@ -113,6 +123,13 @@ const Profile = () => {
             {saving ? '儲存中...' : '儲存變更'}
           </Button>
         </div>
+
+        {varkProfile && (
+          <VARKProfileSection
+            profile={varkProfile}
+            preferredLanguage={preferredLanguage}
+          />
+        )}
       </div>
     </div>
   );
