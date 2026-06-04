@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { BrainwaveProvider } from "@/contexts/BrainwaveContext";
+import BrainLab from "./pages/BrainLab";
 import Index from "./pages/Index";
 import Practice from "./pages/Practice";
 import Admin from "./pages/Admin";
@@ -26,6 +28,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <BrainwaveProvider>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/practice" element={<Practice />} />
@@ -38,9 +41,11 @@ const App = () => (
             <Route path="/energy" element={<Energy />} />
             <Route path="/shop" element={<Shop />} />
             <Route path="/interests" element={<Interests />} />
+            <Route path="/brain-lab" element={<BrainLab />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </BrainwaveProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

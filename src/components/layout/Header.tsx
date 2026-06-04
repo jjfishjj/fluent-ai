@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag } from 'lucide-react';
+import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag, Brain } from 'lucide-react';
 
 interface HeaderProps {
   isLoggedIn?: boolean;
@@ -70,12 +70,21 @@ export function Header({
               </Button>
             </Link>
             <Link to="/shop">
-              <Button 
-                variant={isActive('/shop') ? 'secondary' : 'ghost'} 
+              <Button
+                variant={isActive('/shop') ? 'secondary' : 'ghost'}
                 size="sm"
               >
                 <ShoppingBag className="w-4 h-4 mr-1" />
                 Shop
+              </Button>
+            </Link>
+            <Link to="/brain-lab">
+              <Button
+                variant={isActive('/brain-lab') ? 'secondary' : 'ghost'}
+                size="sm"
+              >
+                <Brain className="w-4 h-4 mr-1" />
+                Brain Lab
               </Button>
             </Link>
             {isAdmin && (
@@ -168,6 +177,12 @@ export function Header({
                 <Button variant={isActive('/shop') ? 'secondary' : 'ghost'} className="w-full justify-start">
                   <ShoppingBag className="w-4 h-4 mr-2" />
                   Shop
+                </Button>
+              </Link>
+              <Link to="/brain-lab" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button variant={isActive('/brain-lab') ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <Brain className="w-4 h-4 mr-2" />
+                  Brain Lab
                 </Button>
               </Link>
               {isAdmin && (
