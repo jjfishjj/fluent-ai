@@ -353,6 +353,18 @@ export function getOptimalMaterial(
   return candidates.length > 0 ? candidates[Math.floor(Math.random() * candidates.length)] : null;
 }
 
-export function getCategories(style: LearningStyle): string[] {
-  return [...new Set(VARK_MATERIALS.filter(m => m.style === style).map(m => m.category))];
+export function getRecommendedMaterials(
+  style: LearningStyle,
+  brainState: BrainState,
+  completedIds: string[],
+  limit = 3,
+): PracticeMaterial[] {
+  const pending = VARK_MATERIALS.filter(
+    m => m.style === style && !completedIds.includes(m.id)
+  );
+  // prioritise brain-state match
+  const matched = pending.filter(m => m.bestBrainStates.includes(brainState));
+  const rest = pending.filter(m => !m.bestBrainStates.includes(brainState));
+  return [...matched, ...rest].slice(0, limit);
 }
+

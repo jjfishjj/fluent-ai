@@ -28,12 +28,15 @@ import { LearningStyle } from '@/lib/learning-styles';
 import { analyzeMessage, updateProfile, getDominantStyle, VARKProfile } from '@/lib/vark-analyzer';
 import { loadVARKProfile, saveVARKProfile } from '@/lib/vark-service';
 import { getRandomTip } from '@/lib/vark-recommendations';
+import { useBrainwave } from '@/contexts/BrainwaveContext';
+import { markUsed, markCompleted, loadProgress } from '@/lib/material-progress';
 
 const Practice = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, profile, isAdmin, signOut } = useAuth();
-  
+  const { mode: brainMode, updateBehaviorSignals } = useBrainwave();
+
   const [selectedLanguage, setSelectedLanguage] = useState<Language | null>(null);
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('intermediate');
@@ -50,12 +53,17 @@ const Practice = () => {
   const [imageMode, setImageMode] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
+  // Material prompt injected from Brain Lab materials library
+  const [materialPrompt, setMaterialPrompt] = useState<string | null>(null);
+  const [materialId, setMaterialId] = useState<string | null>(null);
+
   // VARK tracking
   const [varkProfile, setVarkProfile] = useState<VARKProfile | null>(null);
   const [varkTip, setVarkTip] = useState<{ style: LearningStyle; message: string } | null>(null);
   const voiceUsedRef = useRef(false);
   const audioPlayedRef = useRef(false);
   const userMsgCountRef = useRef(0);
+  const totalCharsRef = useRef(0);
   const isFirstMsgRef = useRef(true);
 
   useEffect(() => {
@@ -63,6 +71,10 @@ const Practice = () => {
     if (lang && LANGUAGES.find(l => l.id === lang)) {
       setSelectedLanguage(lang);
     }
+    const prompt = searchParams.get('prompt');
+    if (prompt) setMaterialPrompt(decodeURIComponent(prompt));
+    const mid = searchParams.get('materialId');
+    if (mid) setMaterialId(mid);
   }, [searchParams]);
 
   useEffect(() => {
@@ -128,16 +140,22 @@ const Practice = () => {
       setConversationId(newConvId);
     }
 
-    const greetingPrompt = `Start the conversation with a greeting in ${selectedLanguage}. Introduce the scenario "${selectedScenario.id}" at the ${difficulty} level. Keep it brief (2-3 sentences).`;
+    const greetingPrompt = materialPrompt
+      ? materialPrompt
+      : `Start the conversation with a greeting in ${selectedLanguage}. Introduce the scenario "${selectedScenario.id}" at the ${difficulty} level. Keep it brief (2-3 sentences).`;
 
     setMessages([]);
     setIsInConversation(true);
     setIsLoading(true);
     setVarkTip(null);
     userMsgCountRef.current = 0;
+    totalCharsRef.current = 0;
     isFirstMsgRef.current = true;
     voiceUsedRef.current = false;
     audioPlayedRef.current = false;
+
+    // Record usage in material progress
+    if (materialId && user) markUsed(user.id, materialId);
 
     let assistantContent = '';
     const greetingId = Date.now().toString();
@@ -188,6 +206,14 @@ const Practice = () => {
     setMessages(newMessages);
     setIsLoading(true);
 
+    // Track message length for behavioral brain state inference
+    userMsgCountRef.current += 1;
+    totalCharsRef.current += content.length;
+    const avgChars = Math.round(totalCharsRef.current / userMsgCountRef.current);
+    if (brainMode === 'behavioral') {
+      updateBehaviorSignals(userMsgCountRef.current, avgChars);
+    }
+
     // Collect VARK signals for this message
     if (varkProfile && selectedLanguage && selectedScenario) {
       const signals = analyzeMessage(content, getCurrentSettings(), {
@@ -206,7 +232,6 @@ const Practice = () => {
       saveVARKProfile(user?.id || 'guest', updated);
 
       // Show VARK tip after 5th message, then every 10 messages
-      userMsgCountRef.current += 1;
       const count = userMsgCountRef.current;
       if ((count === 5 || (count > 5 && (count - 5) % 10 === 0)) && updated.totalSignals >= 5) {
         const dominant = getDominantStyle(updated);
@@ -322,8 +347,14 @@ const Practice = () => {
 
   const handleBack = () => {
     if (isInConversation) {
+      // Auto-mark material completed if user sent ≥3 messages
+      if (materialId && user && userMsgCountRef.current >= 3) {
+        markCompleted(user.id, materialId);
+      }
       setIsInConversation(false);
       setMessages([]);
+      setMaterialPrompt(null);
+      setMaterialId(null);
     } else if (selectedLanguage) {
       setSelectedLanguage(null);
       setSelectedScenario(null);
