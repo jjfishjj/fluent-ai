@@ -16,7 +16,10 @@ export function loadProgress(userId: string): MaterialProgress {
   try {
     const raw = localStorage.getItem(storageKey(userId));
     if (raw) return JSON.parse(raw);
-  } catch {}
+  } catch (e) {
+    console.warn('[material-progress] Failed to parse stored progress; resetting.', e);
+    // Do NOT write back here — let the caller decide whether to persist
+  }
   return { completed: [], lastUsed: {} };
 }
 
@@ -40,6 +43,3 @@ export function markUsed(userId: string, materialId: string): void {
   saveProgress(userId, prog);
 }
 
-export function isCompleted(userId: string, materialId: string): boolean {
-  return loadProgress(userId).completed.includes(materialId);
-}

@@ -29,7 +29,8 @@ import { analyzeMessage, updateProfile, getDominantStyle, VARKProfile } from '@/
 import { loadVARKProfile, saveVARKProfile } from '@/lib/vark-service';
 import { getRandomTip } from '@/lib/vark-recommendations';
 import { useBrainwave } from '@/contexts/BrainwaveContext';
-import { markUsed, markCompleted, loadProgress } from '@/lib/material-progress';
+import { markUsed, markCompleted } from '@/lib/material-progress';
+import { recordSessionEnd } from '@/lib/brainwave/behavioral-inference';
 
 const Practice = () => {
   const [searchParams] = useSearchParams();
@@ -347,6 +348,8 @@ const Practice = () => {
 
   const handleBack = () => {
     if (isInConversation) {
+      // Persist session end time so behavioral inference can compute daysSinceLastSession
+      recordSessionEnd();
       // Auto-mark material completed if user sent ≥3 messages
       if (materialId && user && userMsgCountRef.current >= 3) {
         markCompleted(user.id, materialId);

@@ -16,7 +16,7 @@ import { LearningStyle } from '@/lib/learning-styles';
 import { getStylePercentages, getDominantStyle } from '@/lib/vark-analyzer';
 import { getMaterialsByStyle, getRecommendedMaterials, PracticeMaterial } from '@/lib/vark-materials-library';
 import { useNavigate } from 'react-router-dom';
-import { loadProgress, markCompleted } from '@/lib/material-progress';
+import { loadProgress, saveProgress, markCompleted } from '@/lib/material-progress';
 import { Check } from 'lucide-react';
 
 export default function BrainLab() {
@@ -37,7 +37,12 @@ export default function BrainLab() {
 
   const dominantStyle = varkProfile ? getDominantStyle(varkProfile) : null;
   const userId = user?.id ?? 'guest';
-  const [progress, setProgress] = useState(() => loadProgress(userId));
+  const [progress, setProgress] = useState(() => loadProgress(user?.id ?? 'guest'));
+
+  // Reload progress when auth resolves (user was null on first render)
+  useEffect(() => {
+    setProgress(loadProgress(user?.id ?? 'guest'));
+  }, [user?.id]);
   const allMaterials = getMaterialsByStyle(materialStyle);
   const categories = ['All', ...new Set(allMaterials.map(m => m.categoryZh))];
   const filteredMaterials = materialCategory === 'All'
@@ -281,10 +286,9 @@ export default function BrainLab() {
                           <button
                             className="text-xs text-muted-foreground hover:text-foreground"
                             onClick={() => {
-                              const p = loadProgress(userId);
-                              p.completed = p.completed.filter(id => id !== mat.id);
-                              import('@/lib/material-progress').then(m => m.saveProgress(userId, p));
-                              setProgress({ ...p });
+                              const next = { ...progress, completed: progress.completed.filter(id => id !== mat.id) };
+                              saveProgress(userId, next);
+                              setProgress(next);
                             }}
                           >
                             取消完成

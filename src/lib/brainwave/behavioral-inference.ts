@@ -165,7 +165,7 @@ function buildReasoning(sig: BehaviorSignals, state: BrainState): { reasoning: s
 function suggestNextTime(currentHour: number, state: BrainState): { nextBestTime?: string; nextBestTimeZh?: string } {
   if (state === 'focus' || state === 'alert') return {};
   const focusHours = [9, 10, 11, 15, 16];
-  const next = focusHours.find(h => h > currentHour);
+  const next = focusHours.find(h => h >= currentHour);
   if (!next) return {};
   return {
     nextBestTime: `Highest focus window today: ${next}:00–${next + 1}:00`,
@@ -184,7 +184,7 @@ export function getCurrentBehaviorSignals(
   const lastSession = lastSessionStr ? new Date(lastSessionStr) : null;
   const daysSinceLastSession = lastSession
     ? Math.floor((Date.now() - lastSession.getTime()) / 86400000)
-    : 0;
+    : 999; // no recorded session → treat as long absence
   const streak = Number(localStorage.getItem('fluent_streak') ?? 0);
 
   return {
