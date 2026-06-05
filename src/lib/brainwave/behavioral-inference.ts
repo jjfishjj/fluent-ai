@@ -177,6 +177,7 @@ export function getCurrentBehaviorSignals(
   sessionStartTime: number,
   messageCount: number,
   avgResponseChars: number,
+  recentErrorRate = 0.15,
 ): BehaviorSignals {
   const now = new Date();
   const sessionDurationMin = (Date.now() - sessionStartTime) / 60000;
@@ -192,12 +193,33 @@ export function getCurrentBehaviorSignals(
     sessionDurationMin,
     messageCount,
     avgResponseChars,
-    recentErrorRate: 0.15,
+    recentErrorRate,
     daysSinceLastSession,
     consecutiveDays: streak,
   };
 }
 
-export function recordSessionEnd() {
-  localStorage.setItem('fluent_last_session', new Date().toISOString());
+export function recordSessionEnd(): void {
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+
+  const lastSessionStr = localStorage.getItem('fluent_last_session');
+  const currentStreak = Number(localStorage.getItem('fluent_streak') ?? 0);
+
+  let newStreak = 1;
+  if (lastSessionStr) {
+    const lastDate = new Date(lastSessionStr);
+    const lastDateStr = lastDate.toISOString().split('T')[0];
+    const daysDiff = Math.floor((now.getTime() - lastDate.getTime()) / 86400000);
+
+    if (lastDateStr === todayStr) {
+      newStreak = currentStreak || 1; // already practiced today, keep streak
+    } else if (daysDiff === 1) {
+      newStreak = currentStreak + 1; // yesterday → extend streak
+    }
+    // else: gap ≥ 2 days → reset to 1 (default)
+  }
+
+  localStorage.setItem('fluent_last_session', now.toISOString());
+  localStorage.setItem('fluent_streak', String(newStreak));
 }

@@ -65,6 +65,8 @@ const Practice = () => {
   const audioPlayedRef = useRef(false);
   const userMsgCountRef = useRef(0);
   const totalCharsRef = useRef(0);
+  const avgCharsRef = useRef(0);
+  const correctionCountRef = useRef(0);
   const isFirstMsgRef = useRef(true);
 
   useEffect(() => {
@@ -151,6 +153,8 @@ const Practice = () => {
     setVarkTip(null);
     userMsgCountRef.current = 0;
     totalCharsRef.current = 0;
+    avgCharsRef.current = 0;
+    correctionCountRef.current = 0;
     isFirstMsgRef.current = true;
     voiceUsedRef.current = false;
     audioPlayedRef.current = false;
@@ -207,13 +211,10 @@ const Practice = () => {
     setMessages(newMessages);
     setIsLoading(true);
 
-    // Track message length for behavioral brain state inference
+    // Track message length for error rate computation in onDone
     userMsgCountRef.current += 1;
     totalCharsRef.current += content.length;
-    const avgChars = Math.round(totalCharsRef.current / userMsgCountRef.current);
-    if (brainMode === 'behavioral') {
-      updateBehaviorSignals(userMsgCountRef.current, avgChars);
-    }
+    avgCharsRef.current = Math.round(totalCharsRef.current / userMsgCountRef.current);
 
     // Collect VARK signals for this message
     if (varkProfile && selectedLanguage && selectedScenario) {
@@ -328,8 +329,18 @@ const Practice = () => {
       },
       onDone: () => {
         setIsLoading(false);
+        const parsed = parseCorrections(assistantContent);
+
+        // Track correction rate for behavioral brain state inference
+        if (parsed.correction) correctionCountRef.current += 1;
+        if (brainMode === 'behavioral') {
+          const errorRate = userMsgCountRef.current > 0
+            ? correctionCountRef.current / userMsgCountRef.current
+            : 0.15;
+          updateBehaviorSignals(userMsgCountRef.current, avgCharsRef.current, errorRate);
+        }
+
         if (user && conversationId) {
-          const parsed = parseCorrections(assistantContent);
           saveMessage(conversationId, {
             role: 'assistant',
             content: parsed.content,
