@@ -61,6 +61,7 @@ export function BrainwaveProvider({ children }: { children: ReactNode }) {
 
   const startBehavioral = useCallback(() => {
     sessionStartRef.current = Date.now();
+    behaviorRef.current = { messageCount: 0, avgChars: 0 }; // reset stale counts from prior session
     const compute = () => {
       const sig = getCurrentBehaviorSignals(
         sessionStartRef.current,
@@ -112,6 +113,7 @@ export function BrainwaveProvider({ children }: { children: ReactNode }) {
     museRef.current = null;
     simRef.current = null;
     behaviorTimerRef.current = null;
+    behaviorRef.current = { messageCount: 0, avgChars: 0 };
     setMode('disconnected');
     setBands(EMPTY_BANDS);
     setBrainState('neutral');

@@ -14,8 +14,10 @@ import { loadVARKProfile } from '@/lib/vark-service';
 import { VARKProfile } from '@/lib/vark-analyzer';
 import { LearningStyle } from '@/lib/learning-styles';
 import { getStylePercentages, getDominantStyle } from '@/lib/vark-analyzer';
-import { getMaterialsByStyle, PracticeMaterial } from '@/lib/vark-materials-library';
+import { getMaterialsByStyle, getRecommendedMaterials, PracticeMaterial } from '@/lib/vark-materials-library';
 import { useNavigate } from 'react-router-dom';
+import { loadProgress, saveProgress, markCompleted } from '@/lib/material-progress';
+import { Check } from 'lucide-react';
 
 export default function BrainLab() {
   const { mode, bands, brainState, history, inferred } = useBrainwave();
@@ -34,11 +36,21 @@ export default function BrainLab() {
   }, [user]);
 
   const dominantStyle = varkProfile ? getDominantStyle(varkProfile) : null;
+  const userId = user?.id ?? 'guest';
+  const [progress, setProgress] = useState(() => loadProgress(user?.id ?? 'guest'));
+
+  // Reload progress when auth resolves (user was null on first render)
+  useEffect(() => {
+    setProgress(loadProgress(user?.id ?? 'guest'));
+  }, [user?.id]);
   const allMaterials = getMaterialsByStyle(materialStyle);
   const categories = ['All', ...new Set(allMaterials.map(m => m.categoryZh))];
   const filteredMaterials = materialCategory === 'All'
     ? allMaterials
     : allMaterials.filter(m => m.categoryZh === materialCategory);
+  const recommended = dominantStyle
+    ? getRecommendedMaterials(dominantStyle, brainState, progress.completed, 3)
+    : [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -152,6 +164,40 @@ export default function BrainLab() {
 
           {/* Tab 2: Practice Materials Library */}
           <TabsContent value="materials" className="space-y-4">
+
+            {/* Recommended section */}
+            {recommended.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold">今日推薦</span>
+                  <Badge variant="outline" className="text-xs gap-1">
+                    {brainState === 'focus' ? '🎯' : brainState === 'relaxed' ? '🌊' : brainState === 'creative' ? '✨' : brainState === 'alert' ? '⚡' : '🧠'}
+                    {brainState === 'focus' ? '深度專注' : brainState === 'relaxed' ? '放鬆專注' : brainState === 'creative' ? '創意流動' : brainState === 'alert' ? '高度警覺' : '一般'} 模式
+                  </Badge>
+                  <span className="text-xs text-muted-foreground ml-auto">只顯示未完成</span>
+                </div>
+                <div className="flex gap-3 overflow-x-auto pb-1">
+                  {recommended.map(mat => (
+                    <Card key={mat.id} className="shrink-0 w-56 border-primary/30 bg-primary/5">
+                      <CardContent className="pt-3 pb-3 space-y-2">
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="text-xs font-semibold line-clamp-1">{mat.titleZh}</p>
+                          <Badge variant="secondary" className="text-xs shrink-0">{mat.duration}分</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{mat.descriptionZh}</p>
+                        <button
+                          className="text-xs text-primary font-medium hover:underline w-full text-left"
+                          onClick={() => navigate(`/practice?prompt=${encodeURIComponent(mat.prompt)}&materialId=${mat.id}`)}
+                        >
+                          → 立即練習
+                        </button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Style filter */}
             <div className="flex gap-2 flex-wrap">
               {(['visual', 'auditory', 'reading', 'kinesthetic'] as LearningStyle[]).map(style => (
@@ -185,50 +231,84 @@ export default function BrainLab() {
             </div>
 
             <div className="grid sm:grid-cols-2 gap-3">
-              {filteredMaterials.map(mat => (
-                <Card key={mat.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <CardTitle className="text-sm">{mat.titleZh}</CardTitle>
-                        <p className="text-xs text-muted-foreground">{mat.title}</p>
+              {filteredMaterials.map(mat => {
+                const done = progress.completed.includes(mat.id);
+                return (
+                  <Card key={mat.id} className={`hover:shadow-md transition-shadow ${done ? 'opacity-70' : ''}`}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2 min-w-0">
+                          {done && (
+                            <span className="mt-0.5 shrink-0 w-4 h-4 rounded-full bg-emerald-100 border border-emerald-400 flex items-center justify-center">
+                              <Check className="w-2.5 h-2.5 text-emerald-600" />
+                            </span>
+                          )}
+                          <div className="min-w-0">
+                            <CardTitle className="text-sm">{mat.titleZh}</CardTitle>
+                            <p className="text-xs text-muted-foreground">{mat.title}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1 shrink-0 flex-wrap justify-end">
+                          <Badge variant="outline" className="text-xs">{mat.difficulty === 'beginner' ? '初級' : mat.difficulty === 'intermediate' ? '中級' : '高級'}</Badge>
+                          <Badge variant="secondary" className="text-xs">{mat.duration}分</Badge>
+                        </div>
                       </div>
-                      <div className="flex gap-1 shrink-0 flex-wrap justify-end">
-                        <Badge variant="outline" className="text-xs capitalize">{mat.difficulty === 'beginner' ? '初級' : mat.difficulty === 'intermediate' ? '中級' : '高級'}</Badge>
-                        <Badge variant="secondary" className="text-xs">{mat.duration}分</Badge>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <p className="text-xs text-muted-foreground">{mat.descriptionZh}</p>
+                      <div className="flex gap-1 flex-wrap">
+                        <Badge variant="outline" className="text-xs">{mat.categoryZh}</Badge>
+                        {mat.bestBrainStates.map(s => (
+                          <Badge key={s} variant="outline" className="text-xs opacity-70">
+                            {s === 'focus' ? '🎯' : s === 'relaxed' ? '🌊' : s === 'creative' ? '✨' : s === 'alert' ? '⚡' : '🧠'} {s === 'focus' ? '專注' : s === 'relaxed' ? '放鬆' : s === 'creative' ? '創意' : s === 'alert' ? '警覺' : '一般'}
+                          </Badge>
+                        ))}
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <p className="text-xs text-muted-foreground">{mat.descriptionZh}</p>
-                    <div className="flex gap-1 flex-wrap">
-                      <Badge variant="outline" className="text-xs">{mat.categoryZh}</Badge>
-                      {mat.bestBrainStates.map(s => (
-                        <Badge key={s} variant="outline" className="text-xs opacity-70">
-                          {s === 'focus' ? '🎯' : s === 'relaxed' ? '🌊' : s === 'creative' ? '✨' : s === 'alert' ? '⚡' : '🧠'} {s === 'focus' ? '專注' : s === 'relaxed' ? '放鬆' : s === 'creative' ? '創意' : s === 'alert' ? '警覺' : '一般'}
-                        </Badge>
-                      ))}
-                    </div>
-                    <details className="text-xs">
-                      <summary className="cursor-pointer text-primary hover:underline">查看 AI 練習提示</summary>
-                      <div className="mt-2 bg-slate-50 p-2.5 rounded space-y-2">
-                        <p className="text-muted-foreground leading-relaxed">{mat.prompt}</p>
-                        <button
-                          onClick={() => navigate('/practice')}
-                          className="text-primary font-medium hover:underline"
-                        >
-                          → 前往練習頁使用此提示
-                        </button>
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-primary hover:underline">查看 AI 練習提示</summary>
+                        <div className="mt-2 bg-slate-50 p-2.5 rounded space-y-2">
+                          <p className="text-muted-foreground leading-relaxed">{mat.prompt}</p>
+                          <button
+                            onClick={() => navigate(`/practice?prompt=${encodeURIComponent(mat.prompt)}&materialId=${mat.id}`)}
+                            className="text-primary font-medium hover:underline"
+                          >
+                            → 前往練習頁使用此提示
+                          </button>
+                        </div>
+                      </details>
+                      <div className="flex items-center justify-between flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1">
+                          {mat.tags.map(tag => (
+                            <span key={tag} className="text-xs px-1.5 py-0.5 bg-muted rounded text-muted-foreground">#{tag}</span>
+                          ))}
+                        </div>
+                        {done ? (
+                          <button
+                            className="text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              const next = { ...progress, completed: progress.completed.filter(id => id !== mat.id) };
+                              saveProgress(userId, next);
+                              setProgress(next);
+                            }}
+                          >
+                            取消完成
+                          </button>
+                        ) : (
+                          <button
+                            className="text-xs text-emerald-600 font-medium hover:underline"
+                            onClick={() => {
+                              const p = markCompleted(userId, mat.id);
+                              setProgress({ ...p });
+                            }}
+                          >
+                            ✓ 標記完成
+                          </button>
+                        )}
                       </div>
-                    </details>
-                    <div className="flex flex-wrap gap-1">
-                      {mat.tags.map(tag => (
-                        <span key={tag} className="text-xs px-1.5 py-0.5 bg-muted rounded text-muted-foreground">#{tag}</span>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </TabsContent>
 
