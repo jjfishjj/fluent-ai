@@ -19,7 +19,7 @@ interface BrainwaveContextType {
   connectMuse: () => Promise<void>;
   startSimulation: () => void;
   disconnect: () => void;
-  updateBehaviorSignals: (messageCount: number, avgChars: number) => void;
+  updateBehaviorSignals: (messageCount: number, avgChars: number, recentErrorRate?: number) => void;
 }
 
 const defaultStatus: DeviceStatus = {
@@ -78,10 +78,10 @@ export function BrainwaveProvider({ children }: { children: ReactNode }) {
     setDeviceStatus({ connected: true, deviceName: 'Behavioral Analysis', batteryLevel: null, electrodeQuality: [], isStreaming: true });
   }, [handleBands]);
 
-  const updateBehaviorSignals = useCallback((messageCount: number, avgChars: number) => {
+  const updateBehaviorSignals = useCallback((messageCount: number, avgChars: number, recentErrorRate = 0.15) => {
     behaviorRef.current = { messageCount, avgChars };
     if (mode === 'behavioral') {
-      const sig = getCurrentBehaviorSignals(sessionStartRef.current, messageCount, avgChars);
+      const sig = getCurrentBehaviorSignals(sessionStartRef.current, messageCount, avgChars, recentErrorRate);
       const result = inferBrainState(sig);
       setInferred(result);
       handleBands(result.bands);
