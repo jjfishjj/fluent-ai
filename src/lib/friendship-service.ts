@@ -1,6 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
+import { Tables } from '@/integrations/supabase/types';
 
-interface FriendshipWithProfile {
+type FriendshipRow = Tables<'friendships'>;
+type ProfileRow = Pick<Tables<'profiles'>, 'user_id' | 'display_name' | 'avatar_url'>;
+
+export interface FriendshipWithProfile {
   id: string;
   friendId: string;
   friendName: string;
@@ -33,16 +37,16 @@ export async function getFriendships(userId: string): Promise<FriendshipWithProf
   if (error) throw error;
   if (!data) return [];
 
-  const friendIds = data.map((f: any) => f.user_a_id === userId ? f.user_b_id : f.user_a_id);
+  const friendIds = data.map((f: FriendshipRow) => f.user_a_id === userId ? f.user_b_id : f.user_a_id);
   
   const { data: profiles } = await supabase
     .from('profiles')
     .select('user_id, display_name, avatar_url')
     .in('user_id', friendIds);
 
-  const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+  const profileMap = new Map((profiles || []).map((p: ProfileRow) => [p.user_id, p]));
 
-  return data.map((f: any) => {
+  return data.map((f: FriendshipRow) => {
     const friendId = f.user_a_id === userId ? f.user_b_id : f.user_a_id;
     const profile = profileMap.get(friendId);
     const titleInfo = getTitleForScore(f.intimacy_score);

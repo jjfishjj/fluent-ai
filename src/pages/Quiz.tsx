@@ -41,7 +41,7 @@ const Quiz = () => {
         setSaving(true);
         supabase
           .from('profiles')
-          .update({ learning_style: res.primary } as any)
+          .update({ learning_style: res.primary })
           .eq('user_id', user.id)
           .then(({ error }) => {
             setSaving(false);

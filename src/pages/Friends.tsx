@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/layout/Header';
+import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { Sparkles, Heart, X, Zap, Users, RefreshCw } from 'lucide-react';
-import { drawMatch, getTodayMatches, acceptMatch, rejectMatch } from '@/lib/matching-service';
+import { drawMatch, getTodayMatches, acceptMatch, rejectMatch, MatchResult } from '@/lib/matching-service';
 import { getEnergyBalance, claimDailyLogin } from '@/lib/energy-service';
-import { getFriendships } from '@/lib/friendship-service';
+import { getFriendships, FriendshipWithProfile } from '@/lib/friendship-service';
 import { getTitleForScore } from '@/lib/friendship-service';
 
 const LEARNING_GOAL_LABELS: Record<string, string> = {
@@ -26,8 +27,8 @@ const Friends = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, signOut } = useAuth();
   const [energy, setEnergy] = useState<{ balance: number; lifetime_earned: number } | null>(null);
-  const [matchResult, setMatchResult] = useState<any>(null);
-  const [friendships, setFriendships] = useState<any[]>([]);
+  const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
+  const [friendships, setFriendships] = useState<FriendshipWithProfile[]>([]);
   const [todayMatchCount, setTodayMatchCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<'draw' | 'friends'>('draw');
@@ -80,8 +81,8 @@ const Friends = () => {
       } else {
         toast.info('目前沒有可配對的語伴，請稍後再試！');
       }
-    } catch (err: any) {
-      toast.error(err.message || '配對失敗');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '配對失敗');
     }
     setLoading(false);
   };
@@ -122,6 +123,7 @@ const Friends = () => {
         onLogin={() => navigate('/auth')}
         onLogout={signOut}
       />
+      <PullToRefresh onRefresh={loadData}>
       <div className="container mx-auto px-4 py-8 max-w-3xl">
         {/* Energy Bar */}
         <div className="flex items-center justify-between mb-6 bg-card rounded-xl p-4 border border-border shadow-soft">
@@ -258,7 +260,7 @@ const Friends = () => {
                 <p className="text-muted-foreground">還沒有語伴，快去抽一個吧！</p>
               </div>
             ) : (
-              friendships.map((f: any) => {
+              friendships.map((f) => {
                 const titleInfo = getTitleForScore(f.intimacyScore);
                 const nextThreshold = [21, 51, 101, 200].find(t => t > f.intimacyScore) || 200;
                 const prevThreshold = [0, 21, 51, 101, 200].reverse().find(t => t <= f.intimacyScore) || 0;
@@ -292,6 +294,7 @@ const Friends = () => {
           </div>
         )}
       </div>
+      </PullToRefresh>
     </div>
   );
 };

@@ -1,7 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
 import { spendEnergy } from './energy-service';
+import { Tables } from '@/integrations/supabase/types';
 
-interface MatchResult {
+type DailyMatchRow = Tables<'daily_matches'>;
+type UserInterestRow = Tables<'user_interests'>;
+
+export interface MatchResult {
   matchedUserId: string;
   matchedUserName: string;
   matchedUserAvatar: string | null;
@@ -40,7 +44,7 @@ export async function drawMatch(userId: string): Promise<MatchResult | null> {
   if (!myInterests) throw new Error('請先設定興趣資料');
 
   // Get all other users' interests
-  const excludeIds = [userId, ...todayMatches.map((m: any) => m.matched_user_id)];
+  const excludeIds = [userId, ...todayMatches.map((m: DailyMatchRow) => m.matched_user_id)];
   const { data: candidates } = await supabase
     .from('user_interests')
     .select('*')
@@ -49,7 +53,7 @@ export async function drawMatch(userId: string): Promise<MatchResult | null> {
   if (!candidates || candidates.length === 0) return null;
 
   // Calculate compatibility
-  const scored = candidates.map((c: any) => {
+  const scored = candidates.map((c: UserInterestRow) => {
     const langMatch = c.target_language === myInterests.target_language ? 30 : 0;
     const goalOverlap = (myInterests.learning_goals || []).filter((g: string) => (c.learning_goals || []).includes(g));
     const topicOverlap = (myInterests.interest_topics || []).filter((t: string) => (c.interest_topics || []).includes(t));

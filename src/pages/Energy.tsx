@@ -2,10 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/layout/Header';
+import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Zap, TrendingUp, TrendingDown, ArrowLeft } from 'lucide-react';
 import { getEnergyBalance, getTransactionHistory } from '@/lib/energy-service';
+import type { Tables } from '@/integrations/supabase/types';
+
+type EnergyBalance = Tables<'energy_points'>;
+type EnergyTransaction = Tables<'energy_transactions'>;
 
 const TYPE_LABELS: Record<string, { label: string; icon: string }> = {
   daily_login: { label: '每日簽到', icon: '📅' },
@@ -19,18 +24,22 @@ const TYPE_LABELS: Record<string, { label: string; icon: string }> = {
 const Energy = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, signOut } = useAuth();
-  const [energy, setEnergy] = useState<any>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [energy, setEnergy] = useState<EnergyBalance | null>(null);
+  const [transactions, setTransactions] = useState<EnergyTransaction[]>([]);
+
+  const loadData = async () => {
+    if (!user) return;
+    const [e, t] = await Promise.all([
+      getEnergyBalance(user.id),
+      getTransactionHistory(user.id, 50),
+    ]);
+    setEnergy(e);
+    setTransactions(t);
+  };
 
   useEffect(() => {
     if (!user) return;
-    Promise.all([
-      getEnergyBalance(user.id),
-      getTransactionHistory(user.id, 50),
-    ]).then(([e, t]) => {
-      setEnergy(e);
-      setTransactions(t);
-    });
+    loadData();
   }, [user]);
 
   if (!user) {
@@ -47,6 +56,7 @@ const Energy = () => {
         onLogin={() => navigate('/auth')}
         onLogout={signOut}
       />
+      <PullToRefresh onRefresh={loadData}>
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/friends')}>
           <ArrowLeft className="w-4 h-4 mr-1" /> 返回交友大廳
@@ -66,7 +76,7 @@ const Energy = () => {
           {transactions.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">暫無紀錄</p>
           ) : (
-            transactions.map((tx: any) => {
+            transactions.map((tx) => {
               const typeInfo = TYPE_LABELS[tx.type] || { label: tx.type, icon: '📌' };
               const isPositive = tx.amount > 0;
               return (
@@ -90,6 +100,7 @@ const Energy = () => {
           )}
         </div>
       </div>
+      </PullToRefresh>
     </div>
   );
 };

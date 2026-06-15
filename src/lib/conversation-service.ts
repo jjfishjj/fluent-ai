@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { ConversationSettings, Message } from '@/lib/types';
+import { TablesUpdate } from '@/integrations/supabase/types';
 
 export async function createConversation(settings: ConversationSettings, userId: string) {
   const { data, error } = await supabase
@@ -46,7 +47,7 @@ export async function endConversation(conversationId: string, score?: {
   overall: number;
   feedback: string;
 }) {
-  const update: any = { ended_at: new Date().toISOString() };
+  const update: TablesUpdate<'conversations'> = { ended_at: new Date().toISOString() };
   if (score) {
     update.score_fluency = score.fluency;
     update.score_grammar = score.grammar;

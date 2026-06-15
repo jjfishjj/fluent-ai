@@ -127,7 +127,7 @@ ${styleInstruction}${romanizationNote}
         },
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
-          messages: [{ role: "system", content: systemPrompt }, ...messages.map((m: any) => {
+          messages: [{ role: "system", content: systemPrompt }, ...messages.map((m: { role: string; content: unknown }) => {
             // Support multimodal messages (text + image)
             if (Array.isArray(m.content)) {
               return { role: m.role, content: m.content };

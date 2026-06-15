@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/layout/Header';
+import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -9,6 +10,10 @@ import { toast } from 'sonner';
 import { ShoppingBag, Zap, Clock, Package, ArrowLeft } from 'lucide-react';
 import { getShopItems, purchaseItem, getUserPurchases } from '@/lib/shop-service';
 import { getEnergyBalance } from '@/lib/energy-service';
+
+type ShopItem = Awaited<ReturnType<typeof getShopItems>>[number];
+type UserPurchase = Awaited<ReturnType<typeof getUserPurchases>>[number];
+type EnergyBalance = Awaited<ReturnType<typeof getEnergyBalance>>;
 
 const TYPE_ICONS: Record<string, string> = {
   avatar_frame: '🖼️',
@@ -20,10 +25,10 @@ const TYPE_ICONS: Record<string, string> = {
 const Shop = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, signOut } = useAuth();
-  const [items, setItems] = useState<any[]>([]);
-  const [purchases, setPurchases] = useState<any[]>([]);
-  const [energy, setEnergy] = useState<any>(null);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [items, setItems] = useState<ShopItem[]>([]);
+  const [purchases, setPurchases] = useState<UserPurchase[]>([]);
+  const [energy, setEnergy] = useState<EnergyBalance>(null);
+  const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null);
   const [purchasing, setPurchasing] = useState(false);
 
   useEffect(() => {
@@ -51,8 +56,8 @@ const Shop = () => {
       toast.success(`成功兌換「${selectedItem.name}」！🎉`);
       setSelectedItem(null);
       loadData();
-    } catch (err: any) {
-      toast.error(err.message || '兌換失敗');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '兌換失敗');
     }
     setPurchasing(false);
   };
@@ -71,6 +76,7 @@ const Shop = () => {
         onLogin={() => navigate('/auth')}
         onLogout={signOut}
       />
+      <PullToRefresh onRefresh={loadData}>
       <div className="container mx-auto px-4 py-8 max-w-3xl">
         <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/friends')}>
           <ArrowLeft className="w-4 h-4 mr-1" /> 返回交友大廳
@@ -88,8 +94,8 @@ const Shop = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {items.map((item: any) => {
-            const owned = purchases.some((p: any) => p.shop_item_id === item.id);
+          {items.map((item) => {
+            const owned = purchases.some((p) => p.shop_item_id === item.id);
             return (
               <div key={item.id} className="bg-card rounded-xl border border-border shadow-soft p-4 flex flex-col">
                 <div className="text-3xl mb-3">{TYPE_ICONS[item.type] || '🎁'}</div>
@@ -128,6 +134,7 @@ const Shop = () => {
           )}
         </div>
       </div>
+      </PullToRefresh>
 
       <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
         <DialogContent>

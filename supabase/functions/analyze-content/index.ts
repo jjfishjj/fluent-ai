@@ -94,7 +94,7 @@ serve(async (req) => {
           if (captionMatch) {
             try {
               const tracks = JSON.parse(`[${captionMatch[1]}]`);
-              const track = tracks.find((t: any) => t.baseUrl) || tracks[0];
+              const track = tracks.find((t: { baseUrl?: string }) => t.baseUrl) || tracks[0];
               if (track?.baseUrl) {
                 const captionUrl = track.baseUrl.replace(/\\u0026/g, "&");
                 const captionResp2 = await fetch(captionUrl);

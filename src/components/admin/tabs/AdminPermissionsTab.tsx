@@ -44,14 +44,14 @@ export function AdminPermissionsTab() {
       // Downgrade to user
       const { error } = await supabase
         .from('user_roles')
-        .update({ role: 'user' as any })
+        .update({ role: 'user' as const })
         .eq('user_id', userId);
       if (error) { toast.error('更新失敗'); return; }
     } else {
       // Upgrade to admin
       const { error } = await supabase
         .from('user_roles')
-        .update({ role: 'admin' as any })
+        .update({ role: 'admin' as const })
         .eq('user_id', userId);
       if (error) { toast.error('更新失敗'); return; }
     }

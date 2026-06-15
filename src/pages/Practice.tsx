@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+
+type ChatContentPart = { type: string; text?: string; image_url?: { url: string } };
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { useAuth } from '@/contexts/AuthContext';
@@ -203,7 +205,7 @@ const Practice = () => {
       const lastMsg = chatHistory[chatHistory.length - 1];
       const frameParts = videoFrames.map(f => ({ type: 'image_url' as const, image_url: { url: f } }));
       if (Array.isArray(lastMsg.content)) {
-        (lastMsg.content as any[]).push(...frameParts);
+        (lastMsg.content as ChatContentPart[]).push(...frameParts);
       } else {
         lastMsg.content = [
           { type: 'text', text: lastMsg.content as string },
@@ -217,11 +219,11 @@ const Practice = () => {
       const lastMsg = chatHistory[chatHistory.length - 1];
       const contextPrefix = `[The user shared a link. Here is the content from that link for context:\n${urlContext}\n]\n\n`;
       if (Array.isArray(lastMsg.content)) {
-        const textPart = (lastMsg.content as any[]).find((p: any) => p.type === 'text');
+        const textPart = (lastMsg.content as ChatContentPart[]).find((p) => p.type === 'text');
         if (textPart) {
           textPart.text = contextPrefix + (textPart.text || '');
         } else {
-          (lastMsg.content as any[]).unshift({ type: 'text', text: contextPrefix });
+          (lastMsg.content as ChatContentPart[]).unshift({ type: 'text', text: contextPrefix });
         }
       } else {
         lastMsg.content = contextPrefix + (lastMsg.content as string);
