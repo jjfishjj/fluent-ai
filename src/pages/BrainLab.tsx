@@ -8,6 +8,8 @@ import { BrainwaveChart } from '@/components/brainwave/BrainwaveChart';
 import { BrainStateCard } from '@/components/brainwave/BrainStateCard';
 import { LearningAdvisor } from '@/components/brainwave/LearningAdvisor';
 import { NBackGame } from '@/components/brain-training/NBackGame';
+import { AttentionGame } from '@/components/brain-training/AttentionGame';
+import { SpeedMatchGame } from '@/components/brain-training/SpeedMatchGame';
 import { useBrainwave } from '@/contexts/BrainwaveContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { loadVARKProfile } from '@/lib/vark-service';
@@ -24,6 +26,7 @@ export default function BrainLab() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [varkProfile, setVarkProfile] = useState<VARKProfile | null>(null);
+  const [selectedGame, setSelectedGame] = useState<'nback' | 'attention' | 'speed'>('nback');
   const [materialStyle, setMaterialStyle] = useState<LearningStyle>('visual');
   const [materialCategory, setMaterialCategory] = useState<string>('All');
 
@@ -314,36 +317,65 @@ export default function BrainLab() {
 
           {/* Tab 3: Brain Training */}
           <TabsContent value="training" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">2-Back 工作記憶訓練</CardTitle>
-                <CardDescription>
-                  訓練工作記憶容量，研究顯示可提升語言學習的語法保留率和詞彙記憶速度
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <NBackGame onComplete={(results) => {
-                  console.log('N-back results:', results);
-                }} />
-              </CardContent>
-            </Card>
-
-            <div className="grid sm:grid-cols-3 gap-3">
+            {/* Game selector */}
+            <div className="grid grid-cols-3 gap-3">
               {[
-                { emoji: '🧠', title: '工作記憶', desc: '2-Back 任務', status: '可使用', available: true },
-                { emoji: '⚡', title: '注意力訓練', desc: '視覺追蹤遊戲', status: '即將推出', available: false },
-                { emoji: '🎯', title: '處理速度', desc: '快速詞彙配對', status: '即將推出', available: false },
+                { key: 'nback' as const,     emoji: '🧠', title: '工作記憶', desc: '2-Back 任務' },
+                { key: 'attention' as const, emoji: '⚡', title: '注意力訓練', desc: '視覺追蹤遊戲' },
+                { key: 'speed' as const,     emoji: '🎯', title: '處理速度', desc: '快速詞彙配對' },
               ].map(ex => (
-                <Card key={ex.title} className={ex.available ? '' : 'opacity-60'}>
-                  <CardContent className="pt-4 text-center space-y-1">
-                    <div className="text-3xl">{ex.emoji}</div>
-                    <p className="text-sm font-medium">{ex.title}</p>
-                    <p className="text-xs text-muted-foreground">{ex.desc}</p>
-                    <Badge variant={ex.available ? 'default' : 'secondary'} className="text-xs">{ex.status}</Badge>
-                  </CardContent>
-                </Card>
+                <button
+                  key={ex.key}
+                  onClick={() => setSelectedGame(ex.key)}
+                  className={`rounded-xl border-2 p-3 text-center space-y-1 transition-all ${
+                    selectedGame === ex.key
+                      ? 'border-primary bg-primary/5 shadow-sm'
+                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="text-2xl">{ex.emoji}</div>
+                  <p className="text-xs font-semibold">{ex.title}</p>
+                  <p className="text-xs text-muted-foreground">{ex.desc}</p>
+                </button>
               ))}
             </div>
+
+            {/* Active game */}
+            <Card>
+              {selectedGame === 'nback' && (
+                <>
+                  <CardHeader>
+                    <CardTitle className="text-base">2-Back 工作記憶訓練</CardTitle>
+                    <CardDescription>訓練工作記憶容量，可提升語法保留率和詞彙記憶速度</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <NBackGame onComplete={(r) => console.log('nback', r)} />
+                  </CardContent>
+                </>
+              )}
+              {selectedGame === 'attention' && (
+                <>
+                  <CardHeader>
+                    <CardTitle className="text-base">注意力訓練 · 視覺追蹤</CardTitle>
+                    <CardDescription>訓練視覺注意力與反應速度，有助提升閱讀流暢度</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <AttentionGame onComplete={(r) => console.log('attention', r)} />
+                  </CardContent>
+                </>
+              )}
+              {selectedGame === 'speed' && (
+                <>
+                  <CardHeader>
+                    <CardTitle className="text-base">處理速度 · 快速詞彙配對</CardTitle>
+                    <CardDescription>快速識別英中詞義，強化語言自動化處理能力</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <SpeedMatchGame onComplete={(r) => console.log('speed', r)} />
+                  </CardContent>
+                </>
+              )}
+            </Card>
           </TabsContent>
 
           {/* Tab 4: Real-time EEG (moved last) */}
