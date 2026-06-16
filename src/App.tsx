@@ -16,6 +16,9 @@ import Friends from "./pages/Friends";
 import Energy from "./pages/Energy";
 import Shop from "./pages/Shop";
 import Interests from "./pages/Interests";
+import Review from "./pages/Review";
+import VARKQuizPage from "./pages/VARKQuizPage";
+import VARKProfile from "./pages/VARKProfile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +43,9 @@ const App = () => (
               <Route path="/energy" element={<Energy />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/interests" element={<Interests />} />
+              <Route path="/review" element={<Review />} />
+              <Route path="/vark-quiz" element={<VARKQuizPage />} />
+              <Route path="/vark-profile" element={<VARKProfile />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

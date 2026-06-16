@@ -1,15 +1,15 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, MessageSquare, Users, ShoppingBag, User } from 'lucide-react';
+import { Home, MessageSquare, Users, Calendar, User } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { cn } from '@/lib/utils';
 
 const TABS = [
-  { to: '/', label: 'Home', icon: Home },
+  { to: '/',         label: 'Home',     icon: Home },
   { to: '/practice', label: 'Practice', icon: MessageSquare },
-  { to: '/friends', label: 'Friends', icon: Users },
-  { to: '/shop', label: 'Shop', icon: ShoppingBag },
-  { to: '/profile', label: 'Profile', icon: User },
+  { to: '/review',   label: '複習',     icon: Calendar },
+  { to: '/friends',  label: 'Friends',  icon: Users },
+  { to: '/profile',  label: 'Profile',  icon: User },
 ];
 
 export function BottomNav() {
@@ -36,18 +36,8 @@ export function BottomNav() {
               onClick={handleTap}
               className="flex flex-col items-center justify-center gap-1 flex-1 h-full"
             >
-              <Icon
-                className={cn(
-                  'w-5 h-5 transition-colors',
-                  isActive ? 'text-primary' : 'text-muted-foreground'
-                )}
-              />
-              <span
-                className={cn(
-                  'text-[11px] font-medium transition-colors',
-                  isActive ? 'text-primary' : 'text-muted-foreground'
-                )}
-              >
+              <Icon className={cn('w-5 h-5 transition-colors', isActive ? 'text-primary' : 'text-muted-foreground')} />
+              <span className={cn('text-[11px] font-medium transition-colors', isActive ? 'text-primary' : 'text-muted-foreground')}>
                 {label}
               </span>
             </Link>
