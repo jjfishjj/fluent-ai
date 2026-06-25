@@ -10,6 +10,8 @@ import { LearningAdvisor } from '@/components/brainwave/LearningAdvisor';
 import { NBackGame } from '@/components/brain-training/NBackGame';
 import { AttentionGame } from '@/components/brain-training/AttentionGame';
 import { SpeedMatchGame } from '@/components/brain-training/SpeedMatchGame';
+import { TrainingAnalytics } from '@/components/brain-training/TrainingAnalytics';
+import { loadHistory, saveRecord, getFocusIndex, TrainingGame } from '@/lib/brain-training/training-history';
 import { useBrainwave } from '@/contexts/BrainwaveContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { loadVARKProfile } from '@/lib/vark-service';
@@ -27,6 +29,25 @@ export default function BrainLab() {
   const navigate = useNavigate();
   const [varkProfile, setVarkProfile] = useState<VARKProfile | null>(null);
   const [selectedGame, setSelectedGame] = useState<'nback' | 'attention' | 'speed'>('nback');
+  const [trainingHistory, setTrainingHistory] = useState(() => loadHistory(user?.id ?? 'guest'));
+
+  // Reload training history when auth resolves
+  useEffect(() => {
+    setTrainingHistory(loadHistory(user?.id ?? 'guest'));
+  }, [user?.id]);
+
+  // Persist a training session with the brain state + band-power snapshot at play time
+  const recordTraining = (game: TrainingGame, accuracy: number, detail: Record<string, number>) => {
+    const updated = saveRecord(user?.id ?? 'guest', {
+      game,
+      accuracy,
+      detail,
+      brainState,
+      bands,
+      timestamp: new Date().toISOString(),
+    });
+    setTrainingHistory([...updated]);
+  };
   const [materialStyle, setMaterialStyle] = useState<LearningStyle>('visual');
   const [materialCategory, setMaterialCategory] = useState<string>('All');
 
@@ -349,7 +370,7 @@ export default function BrainLab() {
                     <CardDescription>訓練工作記憶容量，可提升語法保留率和詞彙記憶速度</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <NBackGame onComplete={(r) => console.log('nback', r)} />
+                    <NBackGame onComplete={(r) => recordTraining('nback', r.accuracy, { hits: r.hits, misses: r.misses, falseAlarms: r.falseAlarms })} />
                   </CardContent>
                 </>
               )}
@@ -360,7 +381,7 @@ export default function BrainLab() {
                     <CardDescription>訓練視覺注意力與反應速度，有助提升閱讀流暢度</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <AttentionGame onComplete={(r) => console.log('attention', r)} />
+                    <AttentionGame onComplete={(r) => recordTraining('attention', r.accuracy, { hits: r.hits, misses: r.misses, avgReactionMs: r.avgReactionMs })} />
                   </CardContent>
                 </>
               )}
@@ -371,11 +392,14 @@ export default function BrainLab() {
                     <CardDescription>快速識別英中詞義，強化語言自動化處理能力</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <SpeedMatchGame onComplete={(r) => console.log('speed', r)} />
+                    <SpeedMatchGame onComplete={(r) => recordTraining('speed', r.accuracy, { correct: r.correct, wrong: r.wrong, avgSpeedMs: r.avgSpeedMs })} />
                   </CardContent>
                 </>
               )}
             </Card>
+
+            {/* Quantified analytics across all training sessions */}
+            <TrainingAnalytics history={trainingHistory} />
           </TabsContent>
 
           {/* Tab 4: Real-time EEG (moved last) */}
@@ -394,6 +418,64 @@ export default function BrainLab() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Quantified brainwave metrics */}
+            {mode !== 'disconnected' && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">腦波量化指標</CardTitle>
+                  <CardDescription className="text-xs">即時頻帶功率的量化分析</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div className="text-center bg-blue-50 rounded-lg p-2">
+                      <p className="text-xl font-bold text-blue-600">{getFocusIndex(bands)}</p>
+                      <p className="text-xs text-muted-foreground">專注指數</p>
+                      <p className="text-[10px] text-muted-foreground">(β+γ)/(α+θ+δ)</p>
+                    </div>
+                    <div className="text-center bg-violet-50 rounded-lg p-2">
+                      <p className="text-xl font-bold text-violet-600">
+                        {(() => {
+                          const entries = Object.entries(bands) as [string, number][];
+                          const top = entries.reduce((a, b) => (b[1] > a[1] ? b : a));
+                          const labels: Record<string, string> = { delta: 'δ', theta: 'θ', alpha: 'α', beta: 'β', gamma: 'γ' };
+                          return labels[top[0]] ?? '—';
+                        })()}
+                      </p>
+                      <p className="text-xs text-muted-foreground">主導頻帶</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {Math.round(Math.max(...Object.values(bands)) * 100)}% 佔比
+                      </p>
+                    </div>
+                    <div className="text-center bg-emerald-50 rounded-lg p-2">
+                      <p className="text-xl font-bold text-emerald-600">{trainingHistory.length}</p>
+                      <p className="text-xs text-muted-foreground">訓練紀錄</p>
+                      <p className="text-[10px] text-muted-foreground">可供分析</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {([
+                      { key: 'delta', label: 'δ Delta', color: '#9ca3af' },
+                      { key: 'theta', label: 'θ Theta', color: '#8b5cf6' },
+                      { key: 'alpha', label: 'α Alpha', color: '#10b981' },
+                      { key: 'beta', label: 'β Beta', color: '#3b82f6' },
+                      { key: 'gamma', label: 'γ Gamma', color: '#f59e0b' },
+                    ] as const).map(b => {
+                      const pct = Math.round((bands[b.key] ?? 0) * 100);
+                      return (
+                        <div key={b.key} className="flex items-center gap-2">
+                          <span className="text-xs w-16 shrink-0">{b.label}</span>
+                          <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: b.color }} />
+                          </div>
+                          <span className="text-xs font-medium w-9 text-right">{pct}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Band legend */}
             <Card>
