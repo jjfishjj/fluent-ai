@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Brain, Activity, BookOpen, Zap, Library } from 'lucide-react';
+import { Brain, Activity, BookOpen, Zap, Library, Sparkles } from 'lucide-react';
 import { DeviceConnector } from '@/components/brainwave/DeviceConnector';
 import { BrainwaveChart } from '@/components/brainwave/BrainwaveChart';
 import { BrainStateCard } from '@/components/brainwave/BrainStateCard';
@@ -22,6 +22,11 @@ import { getMaterialsByStyle, getRecommendedMaterials, PracticeMaterial } from '
 import { useNavigate } from 'react-router-dom';
 import { loadProgress, saveProgress, markCompleted } from '@/lib/material-progress';
 import { Check } from 'lucide-react';
+import { MemoryGeniusQuiz } from '@/components/memory-genius/MemoryGeniusQuiz';
+import { MemoryGeniusResult } from '@/components/memory-genius/MemoryGeniusResult';
+import { computeResult } from '@/lib/memory-genius/scoring';
+import { saveMGResult, loadMGResult, clearMGResult } from '@/lib/memory-genius/storage';
+import { MGResult } from '@/lib/memory-genius/types';
 
 export default function BrainLab() {
   const { mode, bands, brainState, history, inferred } = useBrainwave();
@@ -48,6 +53,35 @@ export default function BrainLab() {
     });
     setTrainingHistory([...updated]);
   };
+  // Memory Genius state
+  type MGPhase = 'landing' | 'quiz' | 'result';
+  const [mgPhase, setMGPhase] = useState<MGPhase>(() =>
+    loadMGResult(user?.id ?? 'guest') ? 'result' : 'landing'
+  );
+  const [mgResult, setMGResult] = useState<MGResult | null>(() =>
+    loadMGResult(user?.id ?? 'guest')
+  );
+
+  // Reload MG result when auth resolves
+  useEffect(() => {
+    const r = loadMGResult(user?.id ?? 'guest');
+    setMGResult(r);
+    setMGPhase(r ? 'result' : 'landing');
+  }, [user?.id]);
+
+  const handleMGComplete = (answers: number[]) => {
+    const r = computeResult(answers, trainingHistory);
+    saveMGResult(user?.id ?? 'guest', r);
+    setMGResult(r);
+    setMGPhase('result');
+  };
+
+  const handleMGRetake = () => {
+    clearMGResult(user?.id ?? 'guest');
+    setMGResult(null);
+    setMGPhase('quiz');
+  };
+
   const [materialStyle, setMaterialStyle] = useState<LearningStyle>('visual');
   const [materialCategory, setMaterialCategory] = useState<string>('All');
 
@@ -106,18 +140,21 @@ export default function BrainLab() {
         </section>
 
         <Tabs defaultValue="advisor" className="space-y-4">
-          <TabsList className="grid grid-cols-4 w-full">
-            <TabsTrigger value="advisor" className="gap-1.5 text-xs sm:text-sm">
-              <Zap className="w-3.5 h-3.5" /> 學習建議
+          <TabsList className="grid grid-cols-5 w-full">
+            <TabsTrigger value="advisor" className="gap-1 text-[10px] sm:text-xs px-1">
+              <Zap className="w-3 h-3 shrink-0" /> 學習建議
             </TabsTrigger>
-            <TabsTrigger value="materials" className="gap-1.5 text-xs sm:text-sm">
-              <Library className="w-3.5 h-3.5" /> 素材庫
+            <TabsTrigger value="materials" className="gap-1 text-[10px] sm:text-xs px-1">
+              <Library className="w-3 h-3 shrink-0" /> 素材庫
             </TabsTrigger>
-            <TabsTrigger value="training" className="gap-1.5 text-xs sm:text-sm">
-              <Brain className="w-3.5 h-3.5" /> 腦力訓練
+            <TabsTrigger value="training" className="gap-1 text-[10px] sm:text-xs px-1">
+              <Brain className="w-3 h-3 shrink-0" /> 腦力訓練
             </TabsTrigger>
-            <TabsTrigger value="realtime" className="gap-1.5 text-xs sm:text-sm">
-              <Activity className="w-3.5 h-3.5" /> 腦波圖
+            <TabsTrigger value="genius" className="gap-1 text-[10px] sm:text-xs px-1">
+              <Sparkles className="w-3 h-3 shrink-0" /> 天才測定
+            </TabsTrigger>
+            <TabsTrigger value="realtime" className="gap-1 text-[10px] sm:text-xs px-1">
+              <Activity className="w-3 h-3 shrink-0" /> 腦波圖
             </TabsTrigger>
           </TabsList>
 
@@ -402,7 +439,55 @@ export default function BrainLab() {
             <TrainingAnalytics history={trainingHistory} />
           </TabsContent>
 
-          {/* Tab 4: Real-time EEG (moved last) */}
+          {/* Tab 4: Memory Genius */}
+          <TabsContent value="genius" className="space-y-4">
+            {mgPhase === 'landing' && (
+              <div className="space-y-5 py-2">
+                <div className="text-center space-y-3">
+                  <div className="w-16 h-16 rounded-2xl bg-indigo-100 flex items-center justify-center mx-auto">
+                    <Sparkles className="w-8 h-8 text-indigo-600" />
+                  </div>
+                  <h2 className="text-xl font-bold">記憶天才測定</h2>
+                  <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                    透過 28 道行為情境題，找出你的記憶天才類型，並獲得個人化 12 週學習計劃。
+                  </p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-4 space-y-2.5 text-sm">
+                  {[
+                    { icon: '🧠', text: '2 軸評分：記憶觸發方式 × 學習節奏' },
+                    { icon: '🎭', text: '8 種天才類型 — 找出主類型 + 副類型' },
+                    { icon: '📅', text: '個人化 12 週語言學習計劃' },
+                    ...(trainingHistory.length > 0
+                      ? [{ icon: '✓', text: `你有 ${trainingHistory.length} 筆腦力訓練紀錄，自動校準結果準確度` }]
+                      : [{ icon: '💡', text: '完成腦力訓練後可提升結果準確度' }]),
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-start gap-2.5">
+                      <span className="shrink-0 text-base">{item.icon}</span>
+                      <span className="text-muted-foreground">{item.text}</span>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setMGPhase('quiz')}
+                  className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors"
+                >
+                  開始測定（約 5–8 分鐘）
+                </button>
+              </div>
+            )}
+            {mgPhase === 'quiz' && (
+              <MemoryGeniusQuiz
+                onComplete={handleMGComplete}
+                onCancel={() => setMGPhase('landing')}
+                trainingCount={trainingHistory.length}
+              />
+            )}
+            {mgPhase === 'result' && mgResult && (
+              <MemoryGeniusResult result={mgResult} onRetake={handleMGRetake} />
+            )}
+          </TabsContent>
+
+          {/* Tab 5: Real-time EEG */}
           <TabsContent value="realtime" className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-3">
