@@ -14,10 +14,11 @@ name: Deploy quizzes to GitHub Pages
 # settings change — see vercel.json.)
 
 on:
+  # Auto-deploys once merged to main (and after Pages is enabled, see note above).
+  # Feature-branch previews are covered by Vercel, so we don't run Pages there.
   push:
     branches:
       - main
-      - claude/brave-clarke-7PopL
     paths:
       - 'quizzes/**'
       - '.github/workflows/deploy-quizzes.yml'
