@@ -29,8 +29,13 @@
 2. 由 X/Y 正負確定**象限** → 縮小到 2 個候選類型
 3. 次要分數（K/A/R/V、cn/pf/an/na）決定**精確主類型**
 4. 輸出**副類型**（同象限的另一個）
-5. *(App 版專屬)* Brain Lab 數據自動校準：注意力遊戲反應時間、N-back 分數、
-   錯誤率 → 微調軸分。此獨立頁採純問卷評分。
+5. **Brain Lab 校準**（內建）：問卷後跑兩個自包含小測驗——
+   - **反應測驗**（5 次點擊）：平均反應 `<650ms → im+3`、`650–850 → im+1`、`>1100ms → d+2`
+   - **記憶測驗**（記 6 圖再回選）：準確率 `≥80% → ab+2`、`<50% → s+1`
+
+   校準分數會疊加到軸分後再判定類型，可在略過後改為純問卷評分。
+   App 也可用真實腦力訓練數據深度連結：`?rt=<毫秒>&acc=<0..1 或 0..100>`，
+   會跳過小測驗直接套用 EEG／遊戲數據。
 
 ## 每個類型報告
 
@@ -39,7 +44,17 @@
 
 ## 部署到 GitHub Pages
 
-Repo → **Settings → Pages → Deploy from a branch**，上線後網址為
+本 repo 內含 GitHub Actions 工作流程 `.github/workflows/deploy-quizzes.yml`，
+推送時自動把兩個測驗 + 入口頁組裝並發佈到 Pages：
+
+```
+/                      入口頁（quiz-hub）
+/memory-quiz/          記憶語言天賦測驗
+/memory-genius-quiz/   記憶天才測定
+```
+
+啟用方式：Repo → **Settings → Pages → Source 選「GitHub Actions」**
+（工作流程也會嘗試自動啟用）。上線後本測驗網址為
 `https://<user>.github.io/<repo>/memory-genius-quiz/`。
 
-> 與 `memory-quiz/`（8 種記憶天份版）為兩個獨立測驗，可分別部署。
+> 與 `memory-quiz/`（8 種記憶天份版）為兩個獨立測驗，共用同一個 Pages 站、各自路徑。

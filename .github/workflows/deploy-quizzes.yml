@@ -1,0 +1,68 @@
+name: Deploy quizzes to GitHub Pages
+
+# Publishes the two standalone quizzes (and a landing hub) to GitHub Pages.
+# Site layout once deployed:
+#   /                      -> landing hub (quiz-hub/index.html)
+#   /memory-quiz/          -> 記憶語言天賦測驗
+#   /memory-genius-quiz/   -> 記憶天才測定
+#
+# Note: GitHub Pages serves ONE site per repo, so the two quizzes live at
+# separate paths under the same Pages domain. To go live, the Pages "Source"
+# must be set to "GitHub Actions" (this workflow tries to enable it automatically).
+
+on:
+  push:
+    branches:
+      - main
+      - claude/brave-clarke-7PopL
+    paths:
+      - 'memory-quiz/**'
+      - 'memory-genius-quiz/**'
+      - 'quiz-hub/**'
+      - '.github/workflows/deploy-quizzes.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp quiz-hub/index.html _site/index.html
+          mkdir -p _site/memory-quiz _site/memory-genius-quiz
+          cp memory-quiz/index.html _site/memory-quiz/index.html
+          cp memory-genius-quiz/index.html _site/memory-genius-quiz/index.html
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

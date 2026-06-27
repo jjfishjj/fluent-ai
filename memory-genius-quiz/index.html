@@ -92,6 +92,16 @@
   .infobox{background:#f8fafc;border-radius:14px;padding:16px;font-size:14.5px;color:#475569;line-height:1.6}
   .infobox b{color:var(--ink)}
   .footer-note{color:#94a3b8;font-size:12.5px;text-align:center;margin-top:28px;line-height:1.7}
+  .rt-box{display:flex;align-items:center;justify-content:center;border-radius:20px;min-height:230px;
+    font-size:22px;font-weight:800;color:#fff;cursor:pointer;user-select:none;text-align:center;padding:24px;line-height:1.4}
+  .rt-wait{background:#475569}.rt-go{background:#10b981}.rt-early{background:#ef4444}
+  .rt-meta{text-align:center;color:#64748b;font-size:14px;margin-top:14px}
+  .mem-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px}
+  .mem-cell{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:30px;
+    border-radius:14px;background:#f1f5f9;border:2px solid transparent;cursor:pointer;transition:all .12s}
+  .mem-cell.tgt{background:#ede9fe;border-color:#a855f7}
+  .mem-cell.sel{border-color:#7c3aed;background:#f3e8ff;transform:scale(.95)}
+  .mem-cell.blank{visibility:hidden}
 </style>
 </head>
 <body>
@@ -273,6 +283,7 @@ function intro(){
     </div>
     <div class="features">
       <div class="feat"><span class="ic">🧠</span><span>8 類型 × VARK × 腦波 × 最佳時段</span></div>
+      <div class="feat"><span class="ic">🔬</span><span>Brain Lab 校準：反應力 + 記憶廣度小測驗微調軸分</span></div>
       <div class="feat"><span class="ic">🪪</span><span>天賦身份卡 + 記憶特徵 + 金句</span></div>
       <div class="feat"><span class="ic">📅</span><span>個人化 12 週語言學習計畫</span></div>
     </div>
@@ -306,9 +317,117 @@ function choose(i){
   if(locked) return; answers[idx]=i; locked=true;
   const o=document.getElementById("o"),q=document.getElementById("q");
   o.classList.remove("show");q.classList.remove("show");
-  setTimeout(()=>{locked=false; if(idx>=ALL.length-1) result(); else {idx++;question();}},260);
+  setTimeout(()=>{locked=false; if(idx>=ALL.length-1) afterQuiz(); else {idx++;question();}},260);
 }
 function back(){ if(idx>0){idx--;question();} else intro(); }
+
+/* ---------------- Brain Lab calibration (self-contained) ---------------- */
+let calib={done:false, avgRt:null, memAcc:null, source:null};
+const RT_TRIALS=5;
+let rtTimes=[], rtState='idle', rtStart=0, rtTimer=null, rtRound=0;
+const MEM_POOL=['🍎','🚀','🎸','🌙','⚡','🎲','🔑','🌵','🎯','🧩','🍀','⏰'];
+let memTargets=[], memSel=[], memPool=[];
+
+function afterQuiz(){
+  if(calib.source==='app' && calib.done){ result(); return; } // app supplied real EEG/game data
+  calibIntro();
+}
+function calibIntro(){
+  render(`
+  <div class="card center">
+    <div class="hero-emoji">🔬</div>
+    <div class="badge">Brain Lab 校準</div>
+    <h1 style="font-size:24px">用反應力校準你的結果</h1>
+    <p class="sub">兩個小測驗——反應速度與記憶廣度，會微調你的<br>
+      「即時 ↔ 深度」與「感官 ↔ 抽象」軸分，讓類型判定更準。</p>
+    <div class="axisnote">
+      <div class="row">⚡ <b>反應測驗</b>：5 次點擊，測處理速度 → 即時／深度傾向</div>
+      <div class="row">🧠 <b>記憶測驗</b>：記住 6 個圖案再回選 → 抽象／感官記憶</div>
+    </div>
+    <button class="btn" onclick="startReaction()">開始校準（約 30 秒）</button>
+    <button class="btn ghost sm" style="margin-top:10px;width:100%" onclick="skipCalib()">略過，直接看結果</button>
+  </div>`);
+}
+function skipCalib(){ calib.done=false; calib.source=null; result(); }
+
+function startReaction(){ rtTimes=[]; rtRound=0; reactionRound(); }
+function reactionRound(){
+  rtState='wait';
+  render(`
+  <div class="card">
+    <div class="qgroup" style="background:#ede9fe;color:#6d28d9">反應測驗 ${rtRound+1}/${RT_TRIALS}</div>
+    <div class="rt-box rt-wait" onclick="reactionTap()">準備……<br>變綠色就立刻點擊</div>
+    <div class="rt-meta">看到綠色再點；太早點會重來</div>
+  </div>`);
+  const delay=900+Math.random()*1900;
+  rtTimer=setTimeout(()=>{
+    rtState='go'; rtStart=performance.now();
+    render(`
+    <div class="card">
+      <div class="qgroup" style="background:#ede9fe;color:#6d28d9">反應測驗 ${rtRound+1}/${RT_TRIALS}</div>
+      <div class="rt-box rt-go" onclick="reactionTap()">點擊！</div>
+      <div class="rt-meta">越快越好</div>
+    </div>`);
+  }, delay);
+}
+function reactionTap(){
+  if(rtState==='wait'){
+    clearTimeout(rtTimer); rtState='idle';
+    render(`
+    <div class="card center">
+      <div class="rt-box rt-early">太早了！<br>這一輪重來</div>
+      <button class="btn sm" style="margin-top:16px" onclick="reactionRound()">再試一次</button>
+    </div>`);
+    return;
+  }
+  if(rtState==='go'){
+    const ms=performance.now()-rtStart; rtTimes.push(ms); rtState='idle'; rtRound++;
+    if(rtRound>=RT_TRIALS){
+      calib.avgRt=Math.round(rtTimes.reduce((a,b)=>a+b,0)/rtTimes.length);
+      startMemory();
+    } else reactionRound();
+  }
+}
+
+function shuffle(arr){ const a=[...arr];
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function startMemory(){ memSel=[]; memTargets=shuffle(MEM_POOL).slice(0,6); memShow(); }
+function memShow(){
+  render(`
+  <div class="card">
+    <div class="qgroup" style="background:#dcfce7;color:#15803d">記憶測驗 · 記住這 6 個</div>
+    <div class="qtext" style="text-align:center">記住下面 6 個圖案（3 秒）</div>
+    <div class="mem-grid">
+      ${memTargets.map(s=>`<div class="mem-cell tgt">${s}</div>`).join("")}
+      <div class="mem-cell blank"></div><div class="mem-cell blank"></div>
+    </div>
+    <div class="rt-meta" id="cd" style="font-size:22px;font-weight:800;color:#7c3aed">3</div>
+  </div>`);
+  let n=3; const t=setInterval(()=>{ n--; const cd=document.getElementById('cd');
+    if(cd) cd.textContent=n>0?n:'…'; if(n<=0){ clearInterval(t); memRecall(); } },1000);
+}
+function memRecall(){ memPool=shuffle(MEM_POOL); drawRecall(); }
+function drawRecall(){
+  render(`
+  <div class="card">
+    <div class="qgroup" style="background:#dcfce7;color:#15803d">記憶測驗 · 回選</div>
+    <div class="qtext" style="text-align:center">剛剛出現了哪 6 個？（已選 ${memSel.length}/6）</div>
+    <div class="mem-grid">
+      ${memPool.map(s=>`<div class="mem-cell ${memSel.includes(s)?'sel':''}" onclick="memToggle('${s}')">${s}</div>`).join("")}
+    </div>
+    <button class="btn sm" style="margin-top:18px;width:100%;${memSel.length===6?'':'opacity:.45;pointer-events:none'}" onclick="memSubmit()">完成校準，看結果</button>
+  </div>`);
+}
+function memToggle(s){
+  if(memSel.includes(s)) memSel=memSel.filter(x=>x!==s);
+  else if(memSel.length<6) memSel.push(s);
+  drawRecall();
+}
+function memSubmit(){
+  const hits=memSel.filter(s=>memTargets.includes(s)).length;
+  calib.memAcc=hits/6; calib.done=true; calib.source='self';
+  result();
+}
 
 /* ---------------- Scoring (5 steps) ---------------- */
 function compute(){
@@ -317,6 +436,18 @@ function compute(){
     const ai=answers[qi]; if(ai<0) return;
     const key=item.opts[ai][1]; d[key]=(d[key]||0)+2;
   });
+  // step 5: Brain Lab calibration — reaction time & memory span nudge the axes
+  if(calib.done){
+    if(calib.avgRt!=null){
+      if(calib.avgRt<650) d.im+=3;        // very fast → 即時反應
+      else if(calib.avgRt<850) d.im+=1;
+      else if(calib.avgRt>1100) d.d+=2;   // deliberate → 深度沉浸
+    }
+    if(calib.memAcc!=null){
+      if(calib.memAcc>=0.8) d.ab+=2;       // strong structural memory → 抽象
+      else if(calib.memAcc<0.5) d.s+=1;    // → 感官
+    }
+  }
   // step 1: axis scores
   const xScore=d.ab-d.s;     // >0 抽象, <0 感官
   const yScore=d.d-d.im;     // >0 深度, <0 即時
@@ -353,10 +484,15 @@ function draw(){
 
   render(`
   <div class="card">
+    ${calib.done ? `
     <div class="calib">
       <span class="ic">🔬</span>
-      <span class="t">在 <b>fluent-ai App</b> 中，此結果會用你的腦力訓練數據（注意力反應時間、N-back 分數、錯誤率）自動校準軸分，準確度更高。此頁為獨立版本，採純問卷評分。</span>
-    </div>
+      <span class="t">已用 <b>Brain Lab ${calib.source==='app'?'腦力訓練數據':'校準測驗'}</b> 微調軸分：${calib.avgRt!=null?`平均反應 <b>${calib.avgRt}ms</b>${calib.avgRt<700?'（即時傾向）':calib.avgRt>1100?'（深度傾向）':''}`:''}${calib.avgRt!=null&&calib.memAcc!=null?'、':''}${calib.memAcc!=null?`記憶廣度 <b>${Math.round(calib.memAcc*100)}%</b>${calib.memAcc>=0.8?'（抽象記憶強）':''}`:''}。</span>
+    </div>` : `
+    <div class="calib">
+      <span class="ic">🔬</span>
+      <span class="t">此結果為純問卷評分（你略過了校準）。在 <b>fluent-ai App</b> 中可用腦力訓練數據自動校準，提高準確度。</span>
+    </div>`}
 
     <div class="identity" style="background:${P.grad}">
       <div class="label">你的記憶天才類型</div>
@@ -435,6 +571,21 @@ function shareResult(name){
 
 window.start=start;window.choose=choose;window.back=back;window.intro=intro;
 window.setWeek=setWeek;window.shareResult=shareResult;
+window.startReaction=startReaction;window.reactionRound=reactionRound;window.reactionTap=reactionTap;
+window.skipCalib=skipCalib;window.memToggle=memToggle;window.memSubmit=memSubmit;
+
+// Optional: App deep-link with real Brain Lab data — ?rt=<ms>&acc=<0..1 or 0..100>
+(function(){
+  try{
+    const p=new URLSearchParams(location.search);
+    const rt=parseFloat(p.get('rt')), acc=parseFloat(p.get('acc'));
+    if(!isNaN(rt)||!isNaN(acc)){
+      calib.source='app'; calib.done=true;
+      if(!isNaN(rt)) calib.avgRt=Math.round(rt);
+      if(!isNaN(acc)) calib.memAcc=acc>1?acc/100:acc;
+    }
+  }catch(e){}
+})();
 intro();
 </script>
 </body>

@@ -29,14 +29,24 @@
 語言學習路線、推薦策略、複習節奏、最佳應用場景、錯誤修正方法、
 阻礙破解法、30 天養成計畫。
 
+## Brain Lab 校準（內建）
+
+問卷後可跑兩個自包含小測驗微調結果：
+- **反應測驗**（5 次點擊）：反應快 `<700ms` → 加權「情境行動／社交輸出」；
+  慢而穩 `>1100ms` → 加權「系統累積／文字整理」
+- **記憶測驗**（記 6 圖再回選）：準確率 `≥80%` → 加權「系統累積／圖像建構」
+
+App 也可深度連結真實數據：`?rt=<毫秒>&acc=<0..1 或 0..100>`，跳過小測驗直接套用。
+
 ## 使用方式
 
 直接用瀏覽器開啟 `index.html` 即可，無需安裝任何套件。
 
 ## 部署到 GitHub Pages
 
-1. Repo → **Settings → Pages**
-2. Source 選 **Deploy from a branch**，挑選此分支
-3. 上線後網址為 `https://<user>.github.io/<repo>/memory-quiz/`
+本 repo 內含 `.github/workflows/deploy-quizzes.yml`，推送時自動發佈到 Pages。
+啟用：Repo → **Settings → Pages → Source 選「GitHub Actions」**。
+上線後網址為 `https://<user>.github.io/<repo>/memory-quiz/`，
+入口頁在站台根目錄（`quiz-hub`）。
 
 > 24 題、約 5 分鐘。沒有對錯，選最像自己自然反應的選項即可。
