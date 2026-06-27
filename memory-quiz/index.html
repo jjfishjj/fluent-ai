@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>記憶語言天賦測驗 · Memory Language Talent</title>
+<meta name="description" content="找出你的記憶天份類型，獲得個人化語言學習路線、複習節奏與 30 天養成計畫。" />
+<style>
+  :root{
+    --bg1:#0f172a; --bg2:#1e1b4b; --accent:#6366f1; --accent2:#8b5cf6;
+    --card:#ffffff; --ink:#1e293b; --muted:#64748b; --line:#e2e8f0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+    color:var(--ink); line-height:1.6;
+    background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#312e81 100%);
+    background-attachment:fixed; min-height:100vh;
+  }
+  .wrap{max-width:680px;margin:0 auto;padding:24px 16px 64px}
+  .card{background:var(--card);border-radius:24px;padding:28px 22px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+  .center{text-align:center}
+  .badge{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:#a5b4fc;background:rgba(99,102,241,.15);padding:6px 14px;border-radius:999px;margin-bottom:18px}
+  h1{font-size:30px;font-weight:900;letter-spacing:-.02em;line-height:1.2}
+  .sub{color:var(--muted);font-size:15px;margin-top:12px}
+  .hero-emoji{font-size:56px;margin-bottom:8px}
+  .features{margin:22px 0;text-align:left;display:flex;flex-direction:column;gap:12px}
+  .feat{display:flex;gap:12px;align-items:flex-start;font-size:14.5px;color:#475569}
+  .feat .ic{font-size:18px;flex:0 0 auto;line-height:1.4}
+  .btn{display:block;width:100%;border:0;cursor:pointer;font-weight:800;font-size:16px;
+    color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    padding:16px;border-radius:16px;transition:transform .15s, box-shadow .15s;
+    box-shadow:0 8px 24px rgba(99,102,241,.4)}
+  .btn:active{transform:scale(.98)}
+  .btn.ghost{background:#f1f5f9;color:#475569;box-shadow:none}
+  .btn.sm{font-size:14px;padding:12px;width:auto;display:inline-block;padding-left:22px;padding-right:22px}
+  .meta{color:#94a3b8;font-size:13px;margin-top:14px}
+
+  /* progress */
+  .pbar-row{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .pbar{flex:1;height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden}
+  .pfill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:999px;transition:width .35s ease;width:0}
+  .pcount{font-size:13px;color:var(--muted);flex:0 0 auto;font-variant-numeric:tabular-nums}
+  .qgroup{display:inline-block;font-size:12px;font-weight:700;padding:4px 12px;border-radius:999px;margin-bottom:14px}
+  .qtext{font-size:20px;font-weight:800;line-height:1.45;margin-bottom:20px;letter-spacing:-.01em}
+  .opts{display:flex;flex-direction:column;gap:11px}
+  .opt{display:flex;gap:13px;align-items:center;text-align:left;width:100%;cursor:pointer;
+    border:2px solid var(--line);background:#fff;border-radius:15px;padding:15px 15px;
+    font-size:15.5px;color:var(--ink);transition:all .15s;font-family:inherit}
+  .opt:hover{border-color:#a5b4fc;background:#f8faff}
+  .opt:active{transform:scale(.99)}
+  .opt .dot{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#f1f5f9;color:#94a3b8;
+    font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center}
+  .fade{opacity:0;transform:translateY(8px);transition:opacity .25s, transform .25s}
+  .show{opacity:1;transform:none}
+
+  /* result */
+  .identity{border-radius:22px;padding:26px 22px;color:#fff;margin-bottom:20px;position:relative;overflow:hidden}
+  .identity .label{font-size:12px;font-weight:700;opacity:.85;letter-spacing:.06em}
+  .identity .tname{font-size:34px;font-weight:900;letter-spacing:-.02em;margin:4px 0}
+  .identity .ten{font-size:15px;font-weight:700;opacity:.9}
+  .identity .tline{font-size:14.5px;opacity:.92;margin-top:12px;line-height:1.6}
+  .identity .combo{margin-top:14px;font-size:13px;opacity:.85;background:rgba(255,255,255,.15);
+    padding:10px 14px;border-radius:12px;line-height:1.55}
+  .sec-title{font-size:13px;font-weight:800;color:#a5b4fc;letter-spacing:.06em;text-transform:uppercase;
+    margin:26px 0 12px}
+  .block{background:#fff;border-radius:16px;padding:18px;margin-bottom:0}
+  .bars{display:flex;flex-direction:column;gap:11px}
+  .bar-row{display:flex;align-items:center;gap:10px;font-size:13.5px}
+  .bar-row .bl{flex:0 0 64px;color:#475569;font-weight:600}
+  .bar-track{flex:1;height:9px;background:#eef2f7;border-radius:999px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:999px}
+  .bar-row .bv{flex:0 0 38px;text-align:right;font-weight:700;color:#64748b;font-variant-numeric:tabular-nums}
+  .route{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .step{background:#eef2ff;color:#4338ca;font-weight:700;font-size:13.5px;padding:8px 14px;border-radius:12px}
+  .arrow{color:#a5b4fc;font-weight:800}
+  .li{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;color:#475569;margin-bottom:10px}
+  .li .ck{flex:0 0 auto;color:#10b981;font-weight:900}
+  .pill{display:inline-block;font-size:13px;font-weight:700;padding:6px 14px;border-radius:999px;
+    background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;margin:4px 6px 0 0}
+  .plan-phase{border-left:3px solid var(--accent);padding:4px 0 4px 16px;margin-bottom:16px}
+  .plan-phase .pw{font-size:13px;font-weight:800;color:var(--accent)}
+  .plan-phase .pc{font-size:14.5px;color:#475569;margin-top:3px}
+  .warn{background:#fff7ed;border:1px solid #fed7aa;border-radius:16px;padding:18px;margin-bottom:0}
+  .warn .wt{font-weight:800;color:#c2410c;font-size:14.5px;margin-bottom:6px}
+  .warn .wc{font-size:14px;color:#9a3412;line-height:1.6}
+  .infobox{background:#f8fafc;border-radius:14px;padding:16px;font-size:14.5px;color:#475569;line-height:1.6}
+  .infobox b{color:var(--ink)}
+  .footer-note{color:#94a3b8;font-size:12.5px;text-align:center;margin-top:28px;line-height:1.7}
+  .footer-note a{color:#a5b4fc}
+  .gridtwo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:520px){.gridtwo{grid-template-columns:1fr}}
+  .quad{position:relative;border:1px solid #e2e8f0;border-radius:16px;aspect-ratio:1/1;background:#fafbff;margin-top:6px}
+  .quad .axisx,.quad .axisy{position:absolute;background:#e2e8f0}
+  .quad .axisx{left:0;right:0;top:50%;height:1px}
+  .quad .axisy{top:0;bottom:0;left:50%;width:1px}
+  .quad .ql{position:absolute;font-size:10.5px;color:#94a3b8}
+  .quad .dot2{position:absolute;width:18px;height:18px;border-radius:50%;border:3px solid #fff;
+    box-shadow:0 4px 12px rgba(0,0,0,.25);transform:translate(-50%,-50%);transition:all .5s}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+/* ============================================================
+   記憶語言天賦測驗  ·  Memory Language Talent Assessment
+   8 種記憶天份 × 5 大學習指標 · 個人化語言學習報告
+   ============================================================ */
+
+const TYPES = {
+  img: {
+    name:"圖像建構者", en:"IMAGE BUILDER", emoji:"🎨",
+    color:"#6366f1", grad:"linear-gradient(135deg,#6366f1,#4f46e5)",
+    tagline:"你的大腦把語言儲存成畫面。看到圖像、空間與顏色，記憶就被牢牢釘住。",
+    talent:"靠畫面、空間、顏色記憶。抽象的詞彙一旦視覺化，就能長期保留。",
+    strategies:["心智圖 (mind map) 整理詞彙網路","圖像單字卡：一詞配一張圖","記憶宮殿／空間記憶法","看影片學語言，搭配字幕與場景截圖"],
+    route:["視覺輸入","圖像聯想","場景記憶","圖解輸出","真實應用"],
+    rhythm:"低頻深練——每個概念配一張圖，看圖快速複習比讀文字省 3 倍時間。",
+    errorFix:"把錯誤畫成「錯 vs 對」對比圖，用顏色標記關鍵差異，視覺記住更牢。",
+    scenarios:["看影片／圖文學習","圖解筆記","簡報視覺化","場景式詞彙本"],
+    plan:[
+      ["第 1 週","建立視覺詞彙系統：每個新詞配一張圖像或場景截圖，做成數位卡片。"],
+      ["第 2 週","用心智圖整理同主題詞彙，畫出詞與詞之間的關係網。"],
+      ["第 3 週","沉浸影片學習：每天一段帶字幕的影片，截圖你記得的畫面當複習卡。"],
+      ["第 4 週","圖解輸出：把學到的文法規則與詞彙網路畫成一張總圖，講給自己聽。"],
+    ],
+  },
+  snd: {
+    name:"聲音模仿者", en:"SOUND MIMIC", emoji:"🎵",
+    color:"#f59e0b", grad:"linear-gradient(135deg,#f59e0b,#d97706)",
+    tagline:"語音、節奏、語調是你的記憶鉤子。聽過、唸過，就記住了。",
+    talent:"靠語音、節奏、語調記憶。對音韻極度敏感，模仿口音的天賦很強。",
+    strategies:["Shadowing 跟讀模仿（核心練習）","朗讀並錄音，對比原版","音檔循環：同一段聽 7–10 次","用歌曲記憶詞彙與語感"],
+    route:["聽力輸入","跟讀模仿","語調內化","口說輸出","真實對話"],
+    rhythm:"高頻短練——利用通勤、零碎時間循環聽，讓聲音在腦中自動播放。",
+    errorFix:"聽正確發音、立刻跟讀修正。錯誤往往是「聽起來不對」，靠耳朵校正最快。",
+    scenarios:["Podcast 沉浸","跟讀練習","歌曲學習","語音訊息對話"],
+    plan:[
+      ["第 1 週","選定 3–5 段核心音檔，每天 Shadowing 跟讀，模仿到自然為止。"],
+      ["第 2 週","錄下自己的朗讀，與原版逐句對比，標出語調差異。"],
+      ["第 3 週","每週一首目標語言歌曲，唱熟並拆解其中的常用句型。"],
+      ["第 4 週","和 AI 或語伴語音對話，把跟讀練熟的句型實際說出來。"],
+    ],
+  },
+  txt: {
+    name:"文字整理者", en:"TEXT ORGANIZER", emoji:"📝",
+    color:"#0ea5e9", grad:"linear-gradient(135deg,#0ea5e9,#0284c7)",
+    tagline:"寫下來才安心。定義、分類、結構化整理是你的記憶引擎。",
+    talent:"靠筆記、定義、分類記憶。喜歡把零散資訊歸檔成清晰的知識系統。",
+    strategies:["摘要與表格整理","系統化文法規則筆記","錯題本：分類記錄並回顧","精讀文章，做結構化筆記"],
+    route:["文字輸入","定義整理","規則歸納","寫作輸出","精準應用"],
+    rhythm:"低頻深練——每週一次完整整理與回顧，把新知歸進既有的筆記系統。",
+    errorFix:"建立錯題本，按文法／詞彙／用法分類，每週回顧分析錯誤模式。",
+    scenarios:["閱讀精讀","寫作練習","語法整理","考試準備"],
+    plan:[
+      ["第 1 週","建立個人筆記系統：文法、詞彙、句型分開歸檔，確保每條都理解。"],
+      ["第 2 週","精讀 2–3 篇文章，做結構化摘要，標註生詞與用法。"],
+      ["第 3 週","開始錯題本，記錄並分類每個錯誤，找出規律。"],
+      ["第 4 週","寫作輸出：用整理過的句型寫一篇短文，把框架轉成流暢表達。"],
+    ],
+  },
+  act: {
+    name:"情境行動者", en:"SITUATIONAL ACTOR", emoji:"🎭",
+    color:"#10b981", grad:"linear-gradient(135deg,#10b981,#059669)",
+    tagline:"做過才真懂。操作、角色扮演、實用任務是你最強的記憶通道。",
+    talent:"靠操作、角色扮演、實用任務記憶。在真實情境中學得最快、忘得最慢。",
+    strategies:["對話演練、角色扮演","任務式學習（點餐、問路、預訂）","沉浸式情境練習","邊做邊學，先用再修"],
+    route:["進入場景","任務操作","句型拆解","間隔複習","真實輸出"],
+    rhythm:"任務驅動——以真實任務為里程碑推進，完成一個情境再進下一個。",
+    errorFix:"在對話／任務中即時被糾正，當場修正並立刻再用一次，最有效。",
+    scenarios:["角色扮演","任務式學習","旅行沉浸","實境對話"],
+    plan:[
+      ["第 1 週","設定 4 個真實生活場景（點餐、問路…），每個練到能流暢應對。"],
+      ["第 2 週","角色扮演進階情境，把常用句型從對話中拆出來複習。"],
+      ["第 3 週","沉浸挑戰：進入一個你從未嘗試的場景，逼自己即興應對。"],
+      ["第 4 週","真實輸出：找語伴或實際情境，用學到的句型完成一次完整對話任務。"],
+    ],
+  },
+  soc: {
+    name:"社交輸出者", en:"SOCIAL SPEAKER", emoji:"💬",
+    color:"#ec4899", grad:"linear-gradient(135deg,#ec4899,#db2777)",
+    tagline:"說出來、教別人，你才真的記住。互動與即時回饋是你的核心驅動。",
+    talent:"靠分享、教人、互動記憶。獨自學習效率最低，有觀眾就學得飛快。",
+    strategies:["小組討論與會話練習","教學輸出：把學到的教給別人","口說陪跑、語言交換","參加學習社群，當活躍成員"],
+    route:["互動輸入","開口表達","教學輸出","社群回饋","流暢對話"],
+    rhythm:"任務驅動——以「每天一次輸出」為節奏：語音日記、對話、教學皆可。",
+    errorFix:"在對話中即時被糾正，或教別人時自己發現盲點——輸出即修正。",
+    scenarios:["真人對話","教學分享","語言交換","社群互動"],
+    plan:[
+      ["第 1 週","每天至少一次語言輸出：語音訊息、AI 對話或錄音日記。"],
+      ["第 2 週","參加語言交換或會話課，每週至少兩次真人互動。"],
+      ["第 3 週","教學輸出：用目標語言解釋一個你學會的概念給別人聽。"],
+      ["第 4 週","公開展演：做一次分享、表演或線上對話，把輸出變成習慣。"],
+    ],
+  },
+  sys: {
+    name:"系統累積者", en:"SYSTEM BUILDER", emoji:"📊",
+    color:"#8b5cf6", grad:"linear-gradient(135deg,#8b5cf6,#7c3aed)",
+    tagline:"靠規律、數據與複習節奏記憶。穩定累積的力量是你最大的武器。",
+    talent:"靠規律、數據、複習節奏記憶。重視進度與一致性，能長期堅持。",
+    strategies:["Anki 等間隔複習系統","連續打卡 (streak) 維持動力","固定每日進度與數據追蹤","間隔複習：1→3→7→14 天"],
+    route:["系統輸入","間隔複習","數據追蹤","穩定累積","長期精進"],
+    rhythm:"高頻短練——每天固定時段、固定份量，靠複利效應穩定成長。",
+    errorFix:"把錯題放回間隔複習隊列，提高出現頻率，直到完全掌握。",
+    scenarios:["間隔複習","進度追蹤","系統自學","長期計畫"],
+    plan:[
+      ["第 1 週","建立每日複習系統（Anki／App），設定固定時段與每日份量。"],
+      ["第 2 週","導入間隔複習節奏（1→3→7→14 天），讓記憶曲線為你工作。"],
+      ["第 3 週","加入數據追蹤：記錄連續天數、正確率，視覺化你的成長。"],
+      ["第 4 週","回顧數據，找出薄弱項，調整複習權重，優化系統效率。"],
+    ],
+  },
+  cre: {
+    name:"創意連結者", en:"CREATIVE CONNECTOR", emoji:"🧩",
+    color:"#14b8a6", grad:"linear-gradient(135deg,#14b8a6,#0d9488)",
+    tagline:"靠比喻、故事與聯想記憶。你的大腦像一張無邊的網，新知都能找到節點。",
+    talent:"靠比喻、故事、聯想記憶。擅長跨領域連結，越荒誕的聯想記得越牢。",
+    strategies:["記憶宮殿與故事化單字","用比喻、聯想串連新詞","跨領域連結（用語言學興趣）","把單字編進自己的故事"],
+    route:["輸入素材","聯想連結","故事編碼","跨域整合","創意輸出"],
+    rhythm:"低頻深練——一次連結一組概念，編成故事，比死背省力且持久。",
+    errorFix:"把容易混淆的詞編成一個對比故事或誇張畫面，用聯想拆開混淆點。",
+    scenarios:["故事化學習","跨領域整合","聯想記憶","創意寫作"],
+    plan:[
+      ["第 1 週","把每組新詞編成一個誇張、好笑或私人的小故事來記。"],
+      ["第 2 週","建一座記憶宮殿，把詞彙放進熟悉空間的固定位置。"],
+      ["第 3 週","跨領域連結：用目標語言探索一個你的興趣，讓詞彙自然出現。"],
+      ["第 4 週","創意輸出：寫一段用上本月所學的故事或貼文，把連結變成作品。"],
+    ],
+  },
+  biz: {
+    name:"商業應用者", en:"BUSINESS APPLIER", emoji:"💼",
+    color:"#ef4444", grad:"linear-gradient(135deg,#ef4444,#dc2626)",
+    tagline:"靠目標、成果與場景壓力記憶。有明確用途時，你的學習效率最高。",
+    talent:"靠目標、成果、場景壓力記憶。目標導向，能把語言快速轉成戰力。",
+    strategies:["商業簡報與職場英文","銷售腳本／談判句型","考試任務與模擬實戰","以成果為導向的專案式學習"],
+    route:["設定目標","場景演練","成果輸出","壓力測試","實戰應用"],
+    rhythm:"期限驅動——用考試、簡報或截止日創造效率高峰，目標明確時最專注。",
+    errorFix:"模擬真實高壓場景（簡報、面試），錄影回看，針對致命錯誤重點修正。",
+    scenarios:["商業簡報","職場溝通","考試衝刺","談判實戰"],
+    plan:[
+      ["第 1 週","設定一個明確目標（簡報／考試／面試）與截止日，倒推學習計畫。"],
+      ["第 2 週","蒐集該場景的高頻句型與專業詞彙，建立你的「戰術手冊」。"],
+      ["第 3 週","模擬實戰：完整演練一次目標場景，錄影自評。"],
+      ["第 4 週","真實應用或正式測驗，用成果驗收，並記錄可複用的句型資產。"],
+    ],
+  },
+};
+
+/* per-type indicator weights — 輸入偏好 & 記憶形成方式 (0-3) */
+const PROFILE = {
+  img:{input:{v:3,a:0,t:1,k:1}, mem:{image:3,sound:0,logic:1,situation:1,emotion:1,social:0}},
+  snd:{input:{v:0,a:3,t:1,k:1}, mem:{image:0,sound:3,logic:0,situation:1,emotion:1,social:1}},
+  txt:{input:{v:1,a:0,t:3,k:0}, mem:{image:1,sound:0,logic:3,situation:0,emotion:0,social:0}},
+  act:{input:{v:1,a:1,t:0,k:3}, mem:{image:1,sound:1,logic:0,situation:3,emotion:1,social:1}},
+  soc:{input:{v:0,a:2,t:0,k:2}, mem:{image:0,sound:1,logic:0,situation:1,emotion:2,social:3}},
+  sys:{input:{v:1,a:0,t:3,k:1}, mem:{image:0,sound:0,logic:3,situation:1,emotion:0,social:0}},
+  cre:{input:{v:2,a:1,t:2,k:1}, mem:{image:2,sound:0,logic:1,situation:1,emotion:3,social:1}},
+  biz:{input:{v:1,a:1,t:2,k:2}, mem:{image:0,sound:0,logic:1,situation:3,emotion:1,social:2}},
+};
+
+/* X axis: 具體感官(左) ↔ 抽象結構(右) ; Y axis: 即時反應(下) ↔ 深度沉浸(上) */
+const AXIS = {
+  img:{x:-1, y: 1}, snd:{x:-1, y: 0}, txt:{x: 1, y: 1}, act:{x:-1, y:-1},
+  soc:{x: 0, y:-1}, sys:{x: 1, y: 0}, cre:{x: 0, y: 1}, biz:{x: 1, y:-1},
+};
+
+const OBSTACLES = {
+  procrastinate:{t:"拖延啟動困難", c:"把目標拆成 15 分鐘的微任務，綁定固定時段降低開始門檻。用打卡與小獎勵啟動慣性——開始永遠比完美重要。"},
+  forget:{t:"學了就忘", c:"問題不在記憶力，而在複習節奏。導入間隔複習（1→3→7→14 天），並把單字放進真實句子，提取練習比重複閱讀有效 5 倍。"},
+  grammar:{t:"卡文法不敢組句", c:"別追求完美文法。先用「句型模板」開口，文法會在大量輸入中自然內化。先求溝通成功，錯了再修，流暢度優先於正確率。"},
+  fear:{t:"怕開口、怕說錯", c:"從低壓力輸出開始——錄語音給自己、跟 AI 對話。把「說錯」重新定義為「正在學」。先求被理解，再求精準。"},
+  persist:{t:"無法持續、半途而廢", c:"綁定既有習慣（通勤、睡前），用連續天數與社群監督維持動力。每天只要求最低限度，靠一致性而非爆發力取勝。"},
+};
+
+const RHYTHMS = {
+  high:{t:"高頻短練", c:"每天 15–20 分鐘，少量多餐。零碎時間就是你的黃金複習時段。"},
+  deep:{t:"低頻深練", c:"每週幾次長時段沉浸，進入心流。一次學透一個主題比天天淺嚐有效。"},
+  task:{t:"任務驅動", c:"設定真實任務作為里程碑，完成一個情境再推進下一個。"},
+  exam:{t:"期限驅動", c:"用考試或截止日創造效率高峰，壓力下你的專注力最強。"},
+};
+
+const OUTPUTS = {
+  speaking:"口說對話", writing:"寫作整理", teaching:"教學分享", business:"商業／解題應用",
+};
+
+/* ---------------- Questions ---------------- */
+// type questions: each option -> {label,text,type}
+const TQ = [
+  ["看到一個新單字，你最自然會做什麼？",[
+    ["在腦中想像它的畫面或場景","img"],["唸出來、感受它的發音","snd"],
+    ["寫下它的定義和例句","txt"],["立刻造句、用在對話裡","act"]]],
+  ["你最容易記住的是？",[
+    ["一張圖、一個畫面","img"],["一段旋律、一句話的語調","snd"],
+    ["一條規則、一個分類","sys"],["一個跟別人互動的時刻","soc"]]],
+  ["學語言時，哪種方式讓你最有成就感？",[
+    ["把知識整理成漂亮的筆記表格","txt"],["教別人、跟人分享我學到的","soc"],
+    ["完成一個真實任務（點餐、問路）","act"],["連續打卡、看到進度條成長","sys"]]],
+  ["忘記一個詞時，你通常靠什麼想起來？",[
+    ["它出現的畫面或顏色","img"],["它的發音或在哪聽過","snd"],
+    ["它的故事或我聯想到的東西","cre"],["我用它達成過的目標或場景","biz"]]],
+  ["如果要背 20 個單字，你會？",[
+    ["做成圖像單字卡","img"],["錄成音檔反覆聽","snd"],
+    ["用間隔複習 App 排程","sys"],["編成一個故事串起來","cre"]]],
+  ["哪種課堂活動你最投入？",[
+    ["看影片、圖解教學","img"],["跟讀、朗讀練習","snd"],
+    ["小組討論、角色扮演","soc"],["把學的東西用在工作／考試模擬","biz"]]],
+  ["你做筆記的風格比較像？",[
+    ["畫圖、心智圖、配色","img"],["條列定義、分類整理","txt"],
+    ["寫下規則和例外","sys"],["用比喻和聯想連起來","cre"]]],
+  ["學會一句新表達後，你最想？",[
+    ["在真實情境用出來","act"],["講給朋友聽、教別人","soc"],
+    ["在簡報或工作上用","biz"],["把它記進複習系統","sys"]]],
+  ["哪種 App 功能最吸引你？",[
+    ["圖像／影片學習卡","img"],["發音跟讀評分","snd"],
+    ["連續天數、間隔複習","sys"],["真人對話陪練","soc"]]],
+  ["你記語調和發音的能力？",[
+    ["很強，聽一次就能模仿","snd"],["一般，但看口型有幫助","img"],
+    ["需要寫成拼音才記得住","txt"],["在對話中自然就學會","act"]]],
+  ["你比較喜歡哪種複習方式？",[
+    ["看圖快速掃過","img"],["聽音檔循環","snd"],
+    ["做題、寫摘要","txt"],["實際對話演練","act"]]],
+  ["學語言的動力主要來自？",[
+    ["想看懂喜歡的影片／圖文","img"],["想唱歌、模仿口音","snd"],
+    ["想跟人交流、交朋友","soc"],["工作、升遷、考試需要","biz"]]],
+  ["遇到複雜文法你會？",[
+    ["畫成圖表理解結構","img"],["找出規則和模式","sys"],
+    ["拆解定義、寫筆記","txt"],["直接在句子裡感覺用法","act"]]],
+  ["哪個情境你學最快？",[
+    ["沉浸在真實場景任務","act"],["跟母語者聊天","soc"],
+    ["安靜自學、系統推進","sys"],["用故事和聯想記憶","cre"]]],
+  ["你理想的學習成果是？",[
+    ["能流暢對話","act"],["能教別人、輸出內容","soc"],
+    ["能在職場／商業場合應用","biz"],["能有系統地持續精進","sys"]]],
+  ["哪句話最像你？",[
+    ["「看到就記得」","img"],["「聽到就記得」","snd"],
+    ["「寫下來才安心」","txt"],["「做過才真懂」","act"]]],
+  ["你最常用的記憶技巧？",[
+    ["聯想、比喻、故事化","cre"],["記憶宮殿、空間記憶","img"],
+    ["教學輸出、講給別人","soc"],["規律複習、累積數據","sys"]]],
+  ["哪種錯誤修正對你最有效？",[
+    ["看對比圖、視覺標記","img"],["聽正確發音、跟讀修正","snd"],
+    ["整理錯題本、分析原因","txt"],["在對話中即時被糾正","soc"]]],
+  ["學新語言，你最想先掌握？",[
+    ["能在商業／職場場景應對","biz"],["把所學連結成一張知識網","cre"],
+    ["完整的文法與詞彙體系","txt"],["日常生活實用對話","act"]]],
+  ["你最強的記憶天份是？",[
+    ["把抽象變成生動的比喻故事","cre"],["把目標拆成可執行任務","biz"],
+    ["把零散資訊分類歸檔","txt"],["把語音語調精準複製","snd"]]],
+];
+
+// special questions: rhythm, output, obstacle x2
+const SQ = [
+  {kind:"rhythm", q:"你比較適合哪種複習節奏？", opts:[
+    ["每天高頻短練（約 15 分鐘）","high"],["少次但深度沉浸","deep"],
+    ["有真實任務才衝刺","task"],["考試／期限下效率最高","exam"]]},
+  {kind:"output", q:"你最想用語言「做什麼」？", opts:[
+    ["流利口說對話","speaking"],["寫作、整理文章","writing"],
+    ["教學、分享內容","teaching"],["商業簡報、解決問題","business"]]},
+  {kind:"obstacle", q:"你最大的學習障礙是？", opts:[
+    ["容易拖延、提不起勁","procrastinate"],["學了就忘","forget"],
+    ["卡在文法、不敢組句","grammar"],["怕開口、怕說錯","fear"]]},
+  {kind:"obstacle", q:"過去學習最常失敗在？", opts:[
+    ["無法持續、半途而廢","persist"],["背了很多卻用不出來","forget"],
+    ["沒有方向、不知從何開始","procrastinate"],["練習太少、缺乏實戰","fear"]]},
+];
+
+const ALL = [
+  ...TQ.map(([q,opts])=>({kind:"type", q, opts})),
+  ...SQ,
+];
+const LETTERS = ["A","B","C","D","E"];
+
+/* ---------------- State ---------------- */
+let idx = 0;
+const answers = new Array(ALL.length).fill(-1);
+const app = document.getElementById("app");
+
+function render(html){ app.innerHTML = html; window.scrollTo({top:0,behavior:"smooth"}); }
+
+/* ---------------- Screens ---------------- */
+function intro(){
+  render(`
+  <div class="card center">
+    <div class="hero-emoji">🧠</div>
+    <div class="badge">Memory Language Talent</div>
+    <h1>記憶語言天賦測驗</h1>
+    <p class="sub">每個人記住語言的方式都不一樣。<br>24 道情境題，找出你的記憶天份，
+      拿到專屬的學習路線與 30 天養成計畫。</p>
+    <div class="features">
+      <div class="feat"><span class="ic">🎯</span><span>8 種記憶天份類型 — 找出你的主類型 + 副類型</span></div>
+      <div class="feat"><span class="ic">📊</span><span>5 大學習指標：輸入偏好、記憶形成、複習節奏、輸出方式、阻礙模式</span></div>
+      <div class="feat"><span class="ic">🗺️</span><span>個人化語言學習路線 + 錯誤修正方法</span></div>
+      <div class="feat"><span class="ic">📅</span><span>專屬 30 天記憶效率養成計畫</span></div>
+    </div>
+    <button class="btn" onclick="start()">開始測驗（約 5 分鐘）</button>
+    <p class="meta">沒有對錯答案 · 選最像你自然反應的選項</p>
+  </div>`);
+}
+
+function start(){ idx=0; answers.fill(-1); question(); }
+
+function question(){
+  const item = ALL[idx];
+  const pct = Math.round((idx/ALL.length)*100);
+  const groupMap = {type:["記憶天份","#eef2ff","#4338ca"], rhythm:["複習節奏","#fef3c7","#b45309"],
+    output:["輸出方式","#dcfce7","#15803d"], obstacle:["阻礙診斷","#fee2e2","#b91c1c"]};
+  const g = groupMap[item.kind];
+  render(`
+  <div class="card">
+    <div class="pbar-row">
+      <button class="opt" style="border:0;padding:6px 8px;width:auto;background:transparent"
+        onclick="back()" ${idx===0?'disabled style="opacity:.3;border:0;background:transparent;padding:6px 8px;width:auto"':''}>←</button>
+      <div class="pbar"><div class="pfill" style="width:${pct}%"></div></div>
+      <span class="pcount">${idx+1}/${ALL.length}</span>
+    </div>
+    <span class="qgroup" style="background:${g[1]};color:${g[2]}">${g[0]}</span>
+    <div class="qtext fade" id="q">${item.q}</div>
+    <div class="opts fade" id="o">
+      ${item.opts.map((o,i)=>`
+        <button class="opt" onclick="choose(${i})">
+          <span class="dot">${LETTERS[i]}</span><span>${o[0]}</span>
+        </button>`).join("")}
+    </div>
+  </div>`);
+  requestAnimationFrame(()=>{ document.getElementById("q").classList.add("show");
+    document.getElementById("o").classList.add("show"); });
+}
+
+let locked=false;
+function choose(i){
+  if(locked) return;
+  answers[idx]=i;
+  locked=true;
+  const o=document.getElementById("o"), q=document.getElementById("q");
+  o.classList.remove("show"); q.classList.remove("show");
+  setTimeout(()=>{ locked=false;
+    if(idx>=ALL.length-1){ result(); } else { idx++; question(); }
+  },260);
+}
+function back(){ if(idx>0){ idx--; question(); } else { intro(); } }
+
+/* ---------------- Scoring ---------------- */
+function compute(){
+  const score={img:0,snd:0,txt:0,act:0,soc:0,sys:0,cre:0,biz:0};
+  let rhythm=null, output=null;
+  const obst={};
+  ALL.forEach((item,qi)=>{
+    const a=answers[qi]; if(a<0) return;
+    const val=item.opts[a][1];
+    if(item.kind==="type"){ score[val]++; }
+    else if(item.kind==="rhythm"){ rhythm=val; }
+    else if(item.kind==="output"){ output=val; }
+    else if(item.kind==="obstacle"){ obst[val]=(obst[val]||0)+1; }
+  });
+  const ranked=Object.entries(score).sort((a,b)=>b[1]-a[1]);
+  const primary=ranked[0][0], secondary=ranked[1][0];
+  const total=Object.values(score).reduce((s,v)=>s+v,0)||1;
+
+  // blended indicators
+  const inp={v:0,a:0,t:0,k:0};
+  const mem={image:0,sound:0,logic:0,situation:0,emotion:0,social:0};
+  Object.keys(score).forEach(t=>{
+    const w=score[t]/total;
+    const p=PROFILE[t];
+    for(const k in inp) inp[k]+=w*p.input[k];
+    for(const k in mem) mem[k]+=w*p.mem[k];
+  });
+  const norm=o=>{const m=Math.max(...Object.values(o))||1;
+    const r={}; for(const k in o) r[k]=Math.round((o[k]/m)*100); return r;};
+
+  // obstacle: most weighted (tie -> first)
+  let obstacle=null,best=-1;
+  for(const k in obst){ if(obst[k]>best){best=obst[k];obstacle=k;} }
+
+  // axis position (blended, -1..1 scaled to -10..10)
+  let ax=0, ay=0;
+  Object.keys(score).forEach(t=>{ const w=score[t]/total; ax+=w*AXIS[t].x; ay+=w*AXIS[t].y; });
+
+  return {score,primary,secondary,inp:norm(inp),mem:norm(mem),rhythm,output,obstacle,ax,ay};
+}
+
+/* ---------------- Result ---------------- */
+function comboLine(p,s){
+  return `你不是單一類型——你是「${TYPES[p].name} + ${TYPES[s].name}」的混合學習者。
+    以「${TYPES[p].name}」為主記憶通道，並善用「${TYPES[s].name}」的方式輔助，會讓你的效率最大化。`;
+}
+
+function result(){
+  const R=compute();
+  const P=TYPES[R.primary], S=TYPES[R.secondary];
+  try{ localStorage.setItem("memo_lang_result", JSON.stringify({p:R.primary,s:R.secondary,t:Date.now()})); }catch(e){}
+
+  const inpRows=[["視覺","v","#6366f1"],["聽覺","a","#f59e0b"],["文字","t","#0ea5e9"],["動作","k","#10b981"]];
+  const memRows=[["圖像","image","#6366f1"],["聲音","sound","#f59e0b"],["邏輯","logic","#0ea5e9"],
+    ["情境","situation","#10b981"],["情緒","emotion","#ec4899"],["社交","social","#8b5cf6"]];
+
+  const dotLeft=((Math.max(-10,Math.min(10,R.ax*10))+10)/20)*100;
+  const dotTop=((10-Math.max(-10,Math.min(10,R.ay*10)))/20)*100;
+
+  const rh=RHYTHMS[R.rhythm]||{t:P.rhythm,c:""};
+  const ob=OBSTACLES[R.obstacle];
+
+  render(`
+  <div class="card">
+    <div class="identity" style="background:${P.grad}">
+      <div class="label">你的記憶天份</div>
+      <div class="tname">${P.emoji} ${P.name}</div>
+      <div class="ten">${P.en}</div>
+      <div class="tline">${P.tagline}</div>
+      <div class="combo">🔗 ${comboLine(R.primary,R.secondary)}</div>
+    </div>
+
+    <div class="sec-title">你的記憶座標</div>
+    <div class="quad">
+      <div class="axisx"></div><div class="axisy"></div>
+      <span class="ql" style="top:6px;left:8px">感官·深度</span>
+      <span class="ql" style="top:6px;right:8px">結構·深度</span>
+      <span class="ql" style="bottom:6px;left:8px">感官·即時</span>
+      <span class="ql" style="bottom:6px;right:8px">結構·即時</span>
+      <div class="dot2" style="left:${dotLeft}%;top:${dotTop}%;background:${P.color}"></div>
+    </div>
+
+    <div class="sec-title">學習指標分數 · 輸入偏好</div>
+    <div class="block"><div class="bars">
+      ${inpRows.map(([l,k,c])=>barRow(l,R.inp[k],c)).join("")}
+    </div></div>
+
+    <div class="sec-title">學習指標分數 · 記憶形成方式</div>
+    <div class="block"><div class="bars">
+      ${memRows.map(([l,k,c])=>barRow(l,R.mem[k],c)).join("")}
+    </div></div>
+
+    <div class="sec-title">你的語言學習路線</div>
+    <div class="block"><div class="route">
+      ${P.route.map((s,i)=>`<span class="step">${s}</span>${i<P.route.length-1?'<span class="arrow">→</span>':''}`).join("")}
+    </div></div>
+
+    <div class="sec-title">推薦學習策略</div>
+    <div class="block">
+      ${P.strategies.map(s=>`<div class="li"><span class="ck">✓</span><span>${s}</span></div>`).join("")}
+    </div>
+
+    <div class="sec-title">你的複習節奏</div>
+    <div class="block"><div class="infobox"><b>${rh.t}</b>　${rh.c||P.rhythm}</div></div>
+
+    <div class="sec-title">輸出方式 · 最佳應用場景</div>
+    <div class="block">
+      <div style="margin-bottom:10px;font-size:14.5px;color:#475569">你偏好的輸出：<b style="color:${P.color}">${OUTPUTS[R.output]||"口說對話"}</b></div>
+      <div>${P.scenarios.map(s=>`<span class="pill">${s}</span>`).join("")}</div>
+    </div>
+
+    <div class="sec-title">錯誤修正方法</div>
+    <div class="block"><div class="infobox">${P.errorFix}</div></div>
+
+    ${ob?`
+    <div class="sec-title">你的阻礙模式 · 破解法</div>
+    <div class="warn"><div class="wt">⚠️ ${ob.t}</div><div class="wc">${ob.c}</div></div>`:""}
+
+    <div class="sec-title">你的 30 天養成計畫</div>
+    <div class="block">
+      ${P.plan.map(([w,c])=>`<div class="plan-phase"><div class="pw">${w}</div><div class="pc">${c}</div></div>`).join("")}
+    </div>
+
+    <div class="sec-title">副類型補充 · ${S.emoji} ${S.name}</div>
+    <div class="block"><div class="infobox">
+      <b>${S.name}</b>：${S.talent}<br><br>
+      可在主路線中穿插：${S.strategies.slice(0,2).join("、")}。
+    </div></div>
+
+    <div style="margin-top:28px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+      <button class="btn ghost sm" onclick="intro()">重新測驗</button>
+      <button class="btn sm" onclick="shareResult('${P.name}')">分享我的類型</button>
+    </div>
+
+    <div class="footer-note">
+      本測驗以記憶天份 × 學習指標為架構，結果僅供學習規劃參考。<br>
+      記憶語言天賦測驗 · Memory Language Talent
+    </div>
+  </div>`);
+}
+
+function barRow(label,val,color){
+  return `<div class="bar-row">
+    <span class="bl">${label}</span>
+    <span class="bar-track"><span class="bar-fill" style="width:${val}%;background:${color}"></span></span>
+    <span class="bv">${val}</span></div>`;
+}
+
+function shareResult(name){
+  const text=`我的記憶語言天賦是「${name}」！來測測你的 👉`;
+  const url=location.href;
+  if(navigator.share){ navigator.share({title:"記憶語言天賦測驗",text,url}).catch(()=>{}); }
+  else { navigator.clipboard?.writeText(`${text} ${url}`).then(()=>alert("已複製分享文字！"),()=>{}); }
+}
+
+window.start=start; window.choose=choose; window.back=back;
+window.intro=intro; window.shareResult=shareResult;
+intro();
+</script>
+</body>
+</html>
