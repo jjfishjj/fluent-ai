@@ -1,14 +1,17 @@
 name: Deploy quizzes to GitHub Pages
 
 # Publishes the two standalone quizzes (and a landing hub) to GitHub Pages.
-# Site layout once deployed:
-#   /                      -> landing hub (quiz-hub/index.html)
+# Single source of truth: /quizzes. Site layout once deployed:
+#   /                      -> landing hub (quizzes/index.html)
 #   /memory-quiz/          -> 記憶語言天賦測驗
 #   /memory-genius-quiz/   -> 記憶天才測定
 #
-# Note: GitHub Pages serves ONE site per repo, so the two quizzes live at
-# separate paths under the same Pages domain. To go live, the Pages "Source"
-# must be set to "GitHub Actions" (this workflow tries to enable it automatically).
+# ONE-TIME SETUP: this requires GitHub Pages to be enabled with the
+# "GitHub Actions" source (Repo → Settings → Pages → Source: GitHub Actions).
+# The Actions token cannot enable Pages automatically on this repo, so that
+# toggle must be flipped once by a repo admin; afterwards every push deploys.
+# (The quizzes also deploy automatically via Vercel at /quizzes/* with no
+# settings change — see vercel.json.)
 
 on:
   push:
@@ -16,9 +19,7 @@ on:
       - main
       - claude/brave-clarke-7PopL
     paths:
-      - 'memory-quiz/**'
-      - 'memory-genius-quiz/**'
-      - 'quiz-hub/**'
+      - 'quizzes/**'
       - '.github/workflows/deploy-quizzes.yml'
   workflow_dispatch:
 
@@ -40,16 +41,13 @@ jobs:
 
       - name: Assemble site
         run: |
-          mkdir -p _site
-          cp quiz-hub/index.html _site/index.html
           mkdir -p _site/memory-quiz _site/memory-genius-quiz
-          cp memory-quiz/index.html _site/memory-quiz/index.html
-          cp memory-genius-quiz/index.html _site/memory-genius-quiz/index.html
+          cp quizzes/index.html _site/index.html
+          cp quizzes/memory-quiz/index.html _site/memory-quiz/index.html
+          cp quizzes/memory-genius-quiz/index.html _site/memory-genius-quiz/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

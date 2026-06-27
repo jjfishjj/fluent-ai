@@ -42,19 +42,13 @@
 一句定義 + 記憶特徵、腦波傾向 + 最佳時段、最有效／應避免的學法、
 12 週課程重點、天賦身份卡金句、記憶座標定位、副類型補充。
 
-## 部署到 GitHub Pages
+## 部署
 
-本 repo 內含 GitHub Actions 工作流程 `.github/workflows/deploy-quizzes.yml`，
-推送時自動把兩個測驗 + 入口頁組裝並發佈到 Pages：
+兩種方式（詳見上層 `quizzes/README.md`）：
 
-```
-/                      入口頁（quiz-hub）
-/memory-quiz/          記憶語言天賦測驗
-/memory-genius-quiz/   記憶天才測定
-```
+- **Vercel（自動，免設定）**：推送即可用，網址
+  `https://<app>.vercel.app/quizzes/memory-genius-quiz/`
+- **GitHub Pages（需一次性開關）**：Repo → Settings → Pages → Source 選「GitHub Actions」，
+  之後網址 `https://<user>.github.io/<repo>/memory-genius-quiz/`
 
-啟用方式：Repo → **Settings → Pages → Source 選「GitHub Actions」**
-（工作流程也會嘗試自動啟用）。上線後本測驗網址為
-`https://<user>.github.io/<repo>/memory-genius-quiz/`。
-
-> 與 `memory-quiz/`（8 種記憶天份版）為兩個獨立測驗，共用同一個 Pages 站、各自路徑。
+> 與 `memory-quiz/`（8 種記憶天份版）為兩個獨立測驗，各自路徑。
