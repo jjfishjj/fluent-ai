@@ -11,7 +11,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, settings, learningStyle } = await req.json();
+    const { messages, settings, learningStyle, geniusType } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -85,6 +85,50 @@ This helps the learner read and pronounce the text.`
       ? `\n\n## Learning Style Adaptation\n${learningStyleGuide[learningStyle]}`
       : '';
 
+    // 記憶天才類型 (Memory Genius type) — 8 talent roles from the assessment quiz.
+    // Each role gets a concrete, English-learning-focused teaching strategy so the
+    // partner's behaviour visibly changes per user type.
+    const geniusTypeGuide: Record<string, string> = {
+      explorer: `The user's Memory-Genius type is 探索者 / EXPLORER (kinesthetic, θ creative state). They remember English through lived experience and situational "aha" moments.
+- Lead with role-play and concrete real-world scenarios; drop them into a situation and let them react, then teach from what came up.
+- Anchor new vocabulary to vivid personal stories, travel, or memorable moments — not abstract lists.
+- Favour bold, exploratory free conversation; reward attempts even when imperfect. Keep it adventurous and varied; avoid repeating the same drill.`,
+      architect: `The user's Memory-Genius type is 建築師 / ARCHITECT (read/write, β focus). They remember English through logical frameworks and structure.
+- Explain the underlying rule or pattern WHY before drilling; give organised, structured explanations and clear example sets.
+- Surface grammar systematically; group related words (roots, families) so they slot into a mental system.
+- Offer written structure (short lists, patterns). They dislike unframed input — give a framework first, then practice.`,
+      melodist: `The user's Memory-Genius type is 旋律人 / MELODIST (auditory, α relaxed). They remember English through sound, rhythm and intonation.
+- Emphasise pronunciation, stress and intonation; mark phonetics for new words and encourage reading aloud / shadowing.
+- Use rhythmic, natural spoken phrasing; point out how things "sound right" vs. off.
+- Suggest listening repetition and chants/songs. Keep written grammar light — lead with the ear.`,
+      narrator: `The user's Memory-Genius type is 敘事者 / NARRATOR (A+K, story-driven). They remember English through stories and emotional connection.
+- Wrap vocabulary and grammar inside short narratives with characters, feelings and stakes.
+- Have genuine, emotionally engaged conversations (not drills); ask about their experiences and feelings.
+- Encourage them to retell content as a story or personal anecdote. Avoid dry, decontextualised repetition.`,
+      connector: `The user's Memory-Genius type is 織網者 / CONNECTOR (A+R, cross-domain). They remember English by linking it to what they already know.
+- Use analogies, metaphors and links to their other interests; connect new words to related concepts.
+- Compare English expressions with their native language and across topics to build a web of associations.
+- Range across themes rather than drilling one topic; let vocabulary recur in different contexts.`,
+      analyst: `The user's Memory-Genius type is 分析師 / ANALYST (R+K, principle-driven, output). They remember English by fully understanding the mechanics and by teaching/output.
+- Give precise explanations of WHY an error is wrong and the rule behind it; analyse patterns deeply.
+- Invite them to explain rules back to you or produce/output; analysing their own mistakes works better than rote repetition.
+- Keep a sharp focus on error analysis and root causes. Avoid shallow "just repeat it" practice.`,
+      performer: `The user's Memory-Genius type is 表演者 / PERFORMER (K+A, interactive output). They remember English the moment they say it out loud, with feedback.
+- Maximise back-and-forth speaking; keep prompting them to respond, perform, and improvise lines.
+- Give quick, frequent interactive feedback; make it lively and social, like a real exchange.
+- Push gentle "just say it" challenges. Avoid long monologue explanations — keep them talking.`,
+      visionary: `The user's Memory-Genius type is 圖像家 / VISIONARY (visual, γ alert). They remember English through images, space and visualisation.
+- Paint vivid mental pictures and spatial scenes for new vocabulary; describe contexts they can "see".
+- Use visual structure (emoji, layout, grouping) and suggest image flashcards / mind maps / memory-palace placement.
+- When correcting, contrast wrong vs. right visibly. Avoid audio-only, image-less explanation.`,
+    };
+
+    // Genius-type adaptation is currently scoped to English practice only.
+    const isEnglish = settings?.language === 'english';
+    const geniusInstruction = isEnglish && geniusType && geniusTypeGuide[geniusType]
+      ? `\n\n## Memory-Genius Type Adaptation (PRIORITY)\n${geniusTypeGuide[geniusType]}\nLet this talent type shape HOW you teach throughout the whole conversation, not just once.`
+      : '';
+
     const systemPrompt = `You are a language practice partner helping users practice ${langName}.
 
 ## Context
@@ -93,7 +137,7 @@ This helps the learner read and pronounce the text.`
 - Tone: ${settings?.tone || "semi-formal"}
 - Mode: ${settings?.mode || "practice"}
 - Speech Speed: ${settings?.speed || "normal"}${variantNote}
-${styleInstruction}${romanizationNote}
+${geniusInstruction}${styleInstruction}${romanizationNote}
 
 ## Rules
 1. ALWAYS respond primarily in ${langName}. Add a brief translation or explanation in the user's native language only when helpful.
