@@ -1,10 +1,11 @@
 name: Deploy quizzes to GitHub Pages
 
 # Publishes the two standalone quizzes (and a landing hub) to GitHub Pages.
-# Single source of truth: /quizzes. Site layout once deployed:
+# Site layout once deployed:
 #   /                      -> landing hub (quizzes/index.html)
 #   /memory-quiz/          -> 記憶語言天賦測驗
 #   /memory-genius-quiz/   -> 記憶天才測定
+#   /pitch/                -> Fluent AI × Brain Lab pitch deck
 #
 # ONE-TIME SETUP: this requires GitHub Pages to be enabled with the
 # "GitHub Actions" source (Repo → Settings → Pages → Source: GitHub Actions).
@@ -42,10 +43,11 @@ jobs:
 
       - name: Assemble site
         run: |
-          mkdir -p _site/memory-quiz _site/memory-genius-quiz
+          mkdir -p _site/memory-quiz _site/memory-genius-quiz _site/pitch
           cp quizzes/index.html _site/index.html
           cp quizzes/memory-quiz/index.html _site/memory-quiz/index.html
           cp quizzes/memory-genius-quiz/index.html _site/memory-genius-quiz/index.html
+          cp pitch/index.html _site/pitch/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
