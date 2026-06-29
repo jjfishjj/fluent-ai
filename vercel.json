@@ -1,5 +1,9 @@
 {
+  "buildCommand": "vite build && node scripts/copy-quizzes.mjs",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/quizzes", "destination": "/quizzes/index.html" },
+    { "source": "/quizzes/memory-quiz", "destination": "/quizzes/memory-quiz/index.html" },
+    { "source": "/quizzes/memory-genius-quiz", "destination": "/quizzes/memory-genius-quiz/index.html" },
+    { "source": "/((?!quizzes/).*)", "destination": "/index.html" }
   ]
 }

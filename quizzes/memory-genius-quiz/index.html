@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>記憶天才測定 · Memory Genius Type</title>
+<meta name="description" content="兩軸 28 題，從 8 種記憶天才類型中找出你的主／副類型，對應 VARK 學習風格與最佳腦波時段，附 12 週學習計畫。" />
+<style>
+  :root{ --card:#fff; --ink:#1e293b; --muted:#64748b; --line:#e2e8f0; --accent:#7c3aed; --accent2:#a855f7; }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+    color:var(--ink);line-height:1.6;min-height:100vh;
+    background:radial-gradient(1200px 600px at 50% -10%,#3b0764 0%,transparent 60%),
+               linear-gradient(160deg,#0b1020 0%,#1e1b4b 55%,#3b0764 100%);
+    background-attachment:fixed;
+  }
+  .wrap{max-width:680px;margin:0 auto;padding:24px 16px 64px}
+  .card{background:var(--card);border-radius:24px;padding:28px 22px;box-shadow:0 24px 70px rgba(0,0,0,.45)}
+  .center{text-align:center}
+  .badge{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:#c4b5fd;background:rgba(124,58,237,.15);padding:6px 14px;border-radius:999px;margin-bottom:18px}
+  h1{font-size:30px;font-weight:900;letter-spacing:-.02em;line-height:1.2}
+  .sub{color:var(--muted);font-size:15px;margin-top:12px}
+  .hero-emoji{font-size:54px;margin-bottom:6px}
+  .features{margin:22px 0;text-align:left;display:flex;flex-direction:column;gap:12px}
+  .feat{display:flex;gap:12px;align-items:flex-start;font-size:14.5px;color:#475569}
+  .feat .ic{font-size:18px;flex:0 0 auto}
+  .btn{display:block;width:100%;border:0;cursor:pointer;font-weight:800;font-size:16px;color:#fff;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));padding:16px;border-radius:16px;
+    transition:transform .15s;box-shadow:0 8px 24px rgba(124,58,237,.45)}
+  .btn:active{transform:scale(.98)}
+  .btn.ghost{background:#f1f5f9;color:#475569;box-shadow:none}
+  .btn.sm{font-size:14px;padding:12px 22px;width:auto;display:inline-block}
+  .meta{color:#94a3b8;font-size:13px;margin-top:14px}
+  .axisnote{background:#faf5ff;border:1px solid #e9d5ff;border-radius:14px;padding:14px;margin:18px 0;text-align:left}
+  .axisnote .row{display:flex;align-items:center;gap:8px;font-size:13px;color:#6b21a8;margin:4px 0}
+
+  .pbar-row{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .pbar{flex:1;height:8px;background:#ede9fe;border-radius:999px;overflow:hidden}
+  .pfill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:999px;transition:width .35s;width:0}
+  .pcount{font-size:13px;color:var(--muted);flex:0 0 auto;font-variant-numeric:tabular-nums}
+  .qgroup{display:inline-block;font-size:12px;font-weight:700;padding:4px 12px;border-radius:999px;margin-bottom:14px}
+  .qtext{font-size:20px;font-weight:800;line-height:1.45;margin-bottom:20px;letter-spacing:-.01em}
+  .opts{display:flex;flex-direction:column;gap:11px}
+  .opt{display:flex;gap:13px;align-items:center;text-align:left;width:100%;cursor:pointer;
+    border:2px solid var(--line);background:#fff;border-radius:15px;padding:15px;font-size:15.5px;color:var(--ink);
+    transition:all .15s;font-family:inherit}
+  .opt:hover{border-color:#c4b5fd;background:#faf7ff}
+  .opt:active{transform:scale(.99)}
+  .opt .dot{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#f1f5f9;color:#94a3b8;
+    font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center}
+  .fade{opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s}
+  .show{opacity:1;transform:none}
+
+  .calib{display:flex;gap:12px;align-items:flex-start;background:#ecfdf5;border:1px solid #a7f3d0;
+    border-radius:14px;padding:14px;margin-bottom:6px}
+  .calib .ic{font-size:18px}
+  .calib .t{font-size:13.5px;color:#065f46;line-height:1.55}
+
+  .identity{border-radius:22px;padding:26px 22px;color:#fff;margin-bottom:18px}
+  .identity .label{font-size:12px;font-weight:700;opacity:.85;letter-spacing:.06em}
+  .identity .tname{font-size:32px;font-weight:900;letter-spacing:-.02em;margin:4px 0}
+  .identity .ten{font-size:14px;font-weight:700;opacity:.9;letter-spacing:.05em}
+  .identity .tline{font-size:14.5px;opacity:.92;margin-top:12px;line-height:1.6}
+  .identity .tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .identity .tag{font-size:12.5px;font-weight:600;background:rgba(255,255,255,.18);padding:6px 12px;border-radius:999px}
+  .identity .quote{margin-top:14px;border-left:3px solid rgba(255,255,255,.5);padding-left:12px;
+    font-size:14px;font-style:italic;opacity:.9}
+  .sec-title{font-size:13px;font-weight:800;color:#c4b5fd;letter-spacing:.06em;text-transform:uppercase;margin:26px 0 12px}
+  .block{background:#fff;border-radius:16px;padding:18px}
+  .li{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;color:#475569;margin-bottom:10px}
+  .li:last-child{margin-bottom:0}
+  .li .nk{flex:0 0 auto;width:22px;height:22px;border-radius:50%;color:#fff;font-size:12px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .li .ck{flex:0 0 auto;color:#10b981;font-weight:900}
+  .warn{background:#fef2f2;border:1px solid #fecaca;border-radius:16px;padding:16px}
+  .warn .wx{display:flex;gap:8px;align-items:flex-start;font-size:14px;color:#b91c1c;margin-bottom:8px}
+  .warn .wx:last-child{margin-bottom:0}
+  .quad{position:relative;border:1px solid #e2e8f0;border-radius:16px;background:#fafbff;margin-top:4px}
+  .quad .axisx,.quad .axisy{position:absolute;background:#e2e8f0}
+  .quad .axisx{left:0;right:0;top:50%;height:1px}.quad .axisy{top:0;bottom:0;left:50%;width:1px}
+  .quad .ql{position:absolute;font-size:10.5px;color:#94a3b8;max-width:46%}
+  .quad .ax{position:absolute;font-size:10px;color:#c084fc;font-weight:700}
+  .quad .dot2{position:absolute;width:18px;height:18px;border-radius:50%;border:3px solid #fff;
+    box-shadow:0 4px 12px rgba(0,0,0,.3);transform:translate(-50%,-50%);transition:all .5s}
+  .weekbtns{display:flex;gap:8px;margin-bottom:10px}
+  .weekbtn{flex:1;padding:9px;font-size:12.5px;font-weight:700;border-radius:11px;border:1px solid var(--line);
+    background:#fff;color:#64748b;cursor:pointer;font-family:inherit;transition:all .15s}
+  .weekbtn.on{color:#fff;border-color:transparent}
+  .weekbody{background:#f8fafc;border-radius:12px;padding:15px;font-size:14.5px;color:#475569;line-height:1.65}
+  .infobox{background:#f8fafc;border-radius:14px;padding:16px;font-size:14.5px;color:#475569;line-height:1.6}
+  .infobox b{color:var(--ink)}
+  .footer-note{color:#94a3b8;font-size:12.5px;text-align:center;margin-top:28px;line-height:1.7}
+  .rt-box{display:flex;align-items:center;justify-content:center;border-radius:20px;min-height:230px;
+    font-size:22px;font-weight:800;color:#fff;cursor:pointer;user-select:none;text-align:center;padding:24px;line-height:1.4}
+  .rt-wait{background:#475569}.rt-go{background:#10b981}.rt-early{background:#ef4444}
+  .rt-meta{text-align:center;color:#64748b;font-size:14px;margin-top:14px}
+  .mem-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px}
+  .mem-cell{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:30px;
+    border-radius:14px;background:#f1f5f9;border:2px solid transparent;cursor:pointer;transition:all .12s}
+  .mem-cell.tgt{background:#ede9fe;border-color:#a855f7}
+  .mem-cell.sel{border-color:#7c3aed;background:#f3e8ff;transform:scale(.95)}
+  .mem-cell.blank{visibility:hidden}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+/* ============================================================
+   記憶天才測定 · Memory Genius Type
+   8 類型 × VARK × 腦波 · 兩軸 28 題 · 12 週計畫
+   ============================================================ */
+
+const TYPES = {
+  explorer:{ name:"探索者", en:"EXPLORER", emoji:"🔵", color:"#6366f1",
+    grad:"linear-gradient(135deg,#6366f1,#4f46e5)", quadrant:"innovation",
+    vark:"K 動覺為主", brainwave:"θ 創意波（4–8 Hz）", bestTime:"早晨 / 傍晚",
+    tagline:"靠直覺與體驗連結記憶，在不熟悉的情境中突然「頓悟」。",
+    traits:["記憶點常與特殊體驗、旅行、突破性事件綁定","情境記憶強，非線性學習，跳躍式頓悟","在全新陌生環境中反而學得更快"],
+    best:["角色扮演和沉浸式情境練習","去實際使用語言的地方（旅行、語言交換）","把新詞彙連結到親身故事或難忘的冒險","自由對話優先於結構化練習"],
+    avoid:["純背單字表（無情境連結）","長時間重複同樣的材料"],
+    w1:"每週一個全新主題，強調情境沉浸，挑戰自己進入從未嘗試的場景",
+    w5:"旅行情境、角色扮演、與母語者的真實對話",
+    w9:"整合輸出——用目標語言寫旅遊日記、講述親身故事",
+    quote:"你的記憶活在故事裡，越真實的體驗，越永恆的記憶。" },
+
+  architect:{ name:"建築師", en:"ARCHITECT", emoji:"🟣", color:"#8b5cf6",
+    grad:"linear-gradient(135deg,#8b5cf6,#7c3aed)", quadrant:"perception",
+    vark:"R 讀寫為主", brainwave:"β 專注波（13–30 Hz）", bestTime:"9–11am / 2–4pm",
+    tagline:"系統性架構記憶，需要清晰的邏輯框架才能長期保留。",
+    traits:["善於建立知識體系，筆記與結構化整理是主要工具","需要理解原理才能真正記住，不喜歡「照單全收」","框架記憶，邏輯驅動，理解例外規則後記得更牢"],
+    best:["系統學習文法規則，理解每條規則的原因","詞根詞彙分析，建立詞彙知識網路","精讀文章，做結構化筆記","思維導圖整理語法點和詞彙關係"],
+    avoid:["沒有框架的大量輸入","太快跳到口說（需要先建立內部系統）"],
+    w1:"文法框架建立，做完整的語法筆記系統，確保理解每條規則的邏輯",
+    w5:"詞彙詞根分析，閱讀理解精讀，擴展知識體系",
+    w9:"寫作輸出，把腦中的框架轉化為流暢的語言運用",
+    quote:"你的大腦是一座精密建築，每塊磚都有邏輯位置。" },
+
+  melodist:{ name:"旋律人", en:"MELODIST", emoji:"🟠", color:"#f59e0b",
+    grad:"linear-gradient(135deg,#f59e0b,#d97706)", quadrant:"innovation",
+    vark:"A 聽覺為主", brainwave:"α 放鬆波（8–13 Hz）", bestTime:"下午 / 傍晚",
+    tagline:"音調、韻律、語感是主要記憶鉤子，透過聲音形成長期記憶。",
+    traits:["最容易透過重複聆聽和跟讀記住內容","節奏感強的輸入效果最好，音韻記憶","說錯的地方往往因為「聽起來不對」才察覺"],
+    best:["Shadowing（跟讀模仿）是核心練習方式","每天聽同一段音頻 7–10 次，感受韻律變化","學目標語言的歌曲，利用旋律記憶詞彙","Podcast 沉浸法，不求全懂，先感受語感"],
+    avoid:["靜態閱讀為主的學習","大量書面語法練習"],
+    w1:"Shadowing 訓練，選定 3–5 段核心音頻反覆操練，模仿到自然為止",
+    w5:"歌曲學習 + 語調模仿，每週一首新歌深度學習",
+    w9:"錄音自評，對比原版，持續調整語感和發音",
+    quote:"語言對你來說是音樂，當你感受到節奏，記憶就自然流入。" },
+
+  narrator:{ name:"敘事者", en:"NARRATOR", emoji:"🟡", color:"#eab308",
+    grad:"linear-gradient(135deg,#eab308,#ca8a04)", quadrant:"perception",
+    vark:"A+K 混合", brainwave:"α+θ 雙波", bestTime:"傍晚 / 夜間",
+    tagline:"透過故事與情感連結記憶，對話與敘事是最強的輸入通道。",
+    traits:["能把抽象概念轉化成有人物情節的故事來儲存","情感連結越強，記憶越深，越持久","對話和敘事是最強的輸入通道"],
+    best:["用目標語言讀小說、看電影、聽有聲書","和語言夥伴深入聊天（不是練習，是真正的對話）","把新詞彙編進自己的生命故事或想像的劇情","閱讀後寫下你的感受和情感聯想"],
+    avoid:["抽離情境的枯燥重複","純粹記憶詞表或語法規則"],
+    w1:"每週選一部電影 / 小說，深度沉浸，不求全懂，先感受情感",
+    w5:"語言日記，每天用目標語言寫一段故事或心情",
+    w9:"找語言夥伴，每週一次深度對話，聊真實的人生故事",
+    quote:"你用故事理解世界，也用故事記住語言。" },
+
+  connector:{ name:"織網者", en:"CONNECTOR", emoji:"🟢", color:"#10b981",
+    grad:"linear-gradient(135deg,#10b981,#059669)", quadrant:"integration",
+    vark:"A+R 混合", brainwave:"α 放鬆波", bestTime:"午後",
+    tagline:"跨領域連結能力強，記憶時自動與已有知識形成網狀關係。",
+    traits:["最適合用類比、隱喻、跨學科整合來學習","學習時自動尋找不同領域的連結點","關聯記憶，知識網路越豐富，新知越容易記住"],
+    best:["把語言學習和其他興趣整合（用目標語言學烹飪、音樂等）","雙語閱讀，對比兩種語言的表達差異和共通點","跨話題的廣泛閱讀，讓詞彙在不同語境中自然出現","透過討論和社群形成知識網路"],
+    avoid:["單一主題的長期深度反覆（容易無聊）","孤立地背單字"],
+    w1:"用目標語言探索 3 個不同興趣領域，建立多角度詞彙",
+    w5:"雙語內容對比，找語言差異和共通點，建立跨語言理解",
+    w9:"主題整合輸出——用目標語言做一個跨領域的分享或討論",
+    quote:"你的記憶像一張無邊的網，每個新知識都是一個節點。" },
+
+  analyst:{ name:"分析師", en:"ANALYST", emoji:"🔴", color:"#ef4444",
+    grad:"linear-gradient(135deg,#ef4444,#dc2626)", quadrant:"action",
+    vark:"R+K 混合", brainwave:"β 專注波", bestTime:"上午",
+    tagline:"深度分析後才能真正記住，透過教學來強化記憶。",
+    traits:["淺層重複對他們幾乎無效，需要完全理解原理","透過教別人、輸出來強化記憶","原理記憶，輸出驅動，分析錯誤比重複正確更有效"],
+    best:["深度分析語言錯誤，找出規律和根本原因","費曼學習法——把學到的規則教給別人","精讀文章，分析作者的表達選擇和邏輯結構","建立「錯誤日誌」，每週回顧分析自己的錯誤模式"],
+    avoid:["看完就過、不求甚解的大量輸入","只聽不分析"],
+    w1:"系統分析目標語言的核心文法邏輯，建立個人語法分析筆記",
+    w5:"精讀分析，深度研究詞彙用法，建立詞彙使用資料庫",
+    w9:"教學輸出——錄製語言解說影片，或寫語言分析文章",
+    quote:"你不只是在學語言，你在理解語言如何運作。" },
+
+  performer:{ name:"表演者", en:"PERFORMER", emoji:"🌸", color:"#ec4899",
+    grad:"linear-gradient(135deg,#ec4899,#db2777)", quadrant:"integration",
+    vark:"K+A 混合", brainwave:"γ 警覺波（30–50 Hz）", bestTime:"早上 / 中午",
+    tagline:"透過表達與互動鞏固記憶，說出來、演出來是記住的時刻。",
+    traits:["語言課的最佳學習者類型，互動和即時反饋是核心驅動","說出來之後才真的記住，輸出記憶","需要觀眾或互動對象，獨自學習效率最低"],
+    best:["頻繁的真人對話練習，越多越好","語言角色扮演和即興對話練習","用目標語言做簡報、拍影片、或教別人","參加語言學習社群，成為活躍成員"],
+    avoid:["長時間獨自學習沒有互動","過度追求「準備好再開口」"],
+    w1:"每天至少一次語言輸出（錄音日記、語音訊息、網路對話）",
+    w5:"參加語言交換或會話課，每週至少兩次真人互動",
+    w9:"公開展演——用目標語言做一個分享、表演或教學",
+    quote:"語言在你開口的那一刻活了起來。" },
+
+  visionary:{ name:"圖像家", en:"VISIONARY", emoji:"🔶", color:"#f97316",
+    grad:"linear-gradient(135deg,#f97316,#ea580c)", quadrant:"action",
+    vark:"V 視覺為主", brainwave:"γ 警覺波", bestTime:"早上",
+    tagline:"視覺化是主要記憶通道，空間記憶法和圖解天生有效。",
+    traits:["看到圖就能記住複雜概念，空間記憶法特別有效","圖像驅動，腦中的視覺化越清晰，記憶越持久","說明白就能記住，描述出來比讀出來更有效"],
+    best:["視覺化詞彙學習（圖片 + 單字 + 場景）","看電影、影片學語言（搭配字幕）","心智圖和圖解筆記，把知識畫出來","記憶宮殿法——把詞彙放進空間位置"],
+    avoid:["純音頻學習（無視覺支撐）","大量純文字閱讀"],
+    w1:"建立視覺詞彙系統，每個詞彙配一張圖像或場景截圖",
+    w5:"電影和影片沉浸，製作場景截圖詞彙本，一格一格學",
+    w9:"圖解輸出——把學到的語法規則和詞彙網路畫成圖表",
+    quote:"你用眼睛記住世界，圖像就是你的語言。" },
+};
+
+const QUADRANTS = {
+  innovation:{ zh:"創新象限", desc:"感官觸發 × 深度沉浸", pair:["explorer","melodist"] },
+  perception:{ zh:"感知象限", desc:"抽象思維 × 深度沉浸", pair:["architect","narrator"] },
+  integration:{zh:"整合象限", desc:"感官觸發 × 即時反應", pair:["connector","performer"] },
+  action:{     zh:"行動象限", desc:"抽象思維 × 即時反應", pair:["analyst","visionary"] },
+};
+
+/* ---- 28 questions ----
+   group X (Q1-10): 感官 s ↔ 抽象 ab
+   group Y (Q11-20): 深度 d ↔ 即時 im
+   group P (Q21-28): 象限內精確定位 — K/A/R/V + cn/pf/an/na  */
+const X_Q = [
+  ["記住一個新概念，你比較靠：",["具體的畫面、聲音或動作","s"],["它的邏輯、定義或結構","ab"]],
+  ["回想昨天學的內容，先浮現的是：",["當時的情景、顏色、聲音","s"],["重點摘要、條理框架","ab"]],
+  ["新單字最容易記住，當它：",["連結到一個畫面或真實體驗","s"],["拆解出字根、規則或分類","ab"]],
+  ["你偏好的教材是：",["影片、圖像、實境對話","s"],["文法書、結構化筆記","ab"]],
+  ["學習時你更相信：",["親身感受到的","s"],["理解原理後推導的","ab"]],
+  ["記一串數字，你會：",["想成節奏或畫面","s"],["找數字之間的規律","ab"]],
+  ["看一部外語影片，你先抓住：",["角色情緒、語氣、畫面","s"],["劇情結構、台詞邏輯","ab"]],
+  ["你做筆記偏向：",["塗鴉、圖示、顏色標記","s"],["大綱、表格、條列","ab"]],
+  ["解釋一件事給別人，你會：",["舉具體例子、演出來","s"],["講清楚原則和架構","ab"]],
+  ["你覺得自己更像：",["感官型——靠體驗記憶","s"],["思考型——靠理解記憶","ab"]],
+];
+const Y_Q = [
+  ["你學得最好，當：",["長時間深入鑽研一個主題","d"],["快節奏、即時互動回饋","im"]],
+  ["面對新材料，你傾向：",["慢慢消化、徹底搞懂","d"],["先用起來、邊做邊修","im"]],
+  ["理想的學習時段是：",["不被打擾的長時段","d"],["零碎時間、短衝刺","im"]],
+  ["你比較享受：",["沉浸到忘記時間","d"],["快速見到成果","im"]],
+  ["遇到難點你會：",["停下來徹底弄懂再前進","d"],["先跳過、之後再回頭","im"]],
+  ["你偏好的練習：",["深度精練少量內容","d"],["大量快速反覆接觸","im"]],
+  ["學語言，你想先：",["打好系統基礎","d"],["馬上能開口溝通","im"]],
+  ["你的專注模式：",["慢熱但持久","d"],["爆發力強、節奏快","im"]],
+  ["完成一個任務，你重視：",["做到精緻完整","d"],["做得快、能交付","im"]],
+  ["你覺得自己更像：",["深潛者——沉浸式學習","d"],["衝刺者——即時反應","im"]],
+];
+const P_Q = [
+  ["最讓你「記住」的學習活動：",[["親手操作、角色扮演","k"],["跟讀、聽音模仿","a"],["閱讀、做筆記","r"],["看圖、視覺化","v"]]],
+  ["你最自然的輸出方式：",[["動手做、實境演練","k"],["開口說、討論","a"],["寫下來、整理成文","r"],["畫出來、圖解","v"]]],
+  ["哪種記憶鉤子對你最強？",[["身體動作與情境","k"],["聲音、語調、節奏","a"],["文字、定義、結構","r"],["影像、空間、顏色","v"]]],
+  ["安靜獨處時，你更想：",[["動手做點什麼","k"],["聽音樂或 Podcast","a"],["讀書或寫東西","r"],["看影片或圖片","v"]]],
+  ["你學習時最像哪種人？",[["把知識連成一張網","cn"],["站上舞台表達、感染他人","pf"],["拆解到底、追根究柢","an"],["把一切編成故事","na"]]],
+  ["你最享受的時刻：",[["發現兩個領域意外的關聯","cn"],["即興演出、現場互動","pf"],["找出規律、解開謎題","an"],["講一個動人的故事","na"]]],
+  ["朋友會說你擅長：",[["觸類旁通、整合資訊","cn"],["帶動氣氛、表達力強","pf"],["邏輯清晰、分析透徹","an"],["敘事生動、有畫面感","na"]]],
+  ["你的學習超能力是：",[["把零散知識織成網","cn"],["在壓力下即興發揮","pf"],["把複雜變簡單、看穿本質","an"],["用故事讓抽象變難忘","na"]]],
+];
+
+const ALL = [
+  ...X_Q.map(([q,a,b])=>({g:"X", q, opts:[a,b]})),
+  ...Y_Q.map(([q,a,b])=>({g:"Y", q, opts:[a,b]})),
+  ...P_Q.map(([q,opts])=>({g:"P", q, opts})),
+];
+const LETTERS=["A","B","C","D"];
+
+let idx=0, locked=false;
+const answers=new Array(ALL.length).fill(-1);
+const app=document.getElementById("app");
+function render(h){ app.innerHTML=h; window.scrollTo({top:0,behavior:"smooth"}); }
+
+function intro(){
+  render(`
+  <div class="card center">
+    <div class="hero-emoji">✨</div>
+    <div class="badge">Memory Genius Type</div>
+    <h1>記憶天才測定</h1>
+    <p class="sub">兩軸 28 題，從 8 種記憶天才類型中找出你的<b>主類型 + 副類型</b>，
+      對應 VARK 學習風格與最佳腦波時段，附 12 週學習計畫。</p>
+    <div class="axisnote">
+      <div class="row">🧭 <b>X 軸</b>：記憶觸發方式（感官 ↔ 抽象）</div>
+      <div class="row">🌊 <b>Y 軸</b>：學習節奏（深度沉浸 ↔ 即時反應）</div>
+      <div class="row">🎯 <b>象限定位</b>：K / A / R / V × 連結 / 展演 / 分析 / 敘事</div>
+    </div>
+    <div class="features">
+      <div class="feat"><span class="ic">🧠</span><span>8 類型 × VARK × 腦波 × 最佳時段</span></div>
+      <div class="feat"><span class="ic">🔬</span><span>Brain Lab 校準：反應力 + 記憶廣度小測驗微調軸分</span></div>
+      <div class="feat"><span class="ic">🪪</span><span>天賦身份卡 + 記憶特徵 + 金句</span></div>
+      <div class="feat"><span class="ic">📅</span><span>個人化 12 週語言學習計畫</span></div>
+    </div>
+    <button class="btn" onclick="start()">開始測定（約 5–8 分鐘）</button>
+    <p class="meta">沒有對錯答案 · 選最像你自然反應的選項</p>
+  </div>`);
+}
+function start(){ idx=0; answers.fill(-1); question(); }
+
+function question(){
+  const item=ALL[idx];
+  const pct=Math.round((idx/ALL.length)*100);
+  const gm={X:["記憶觸發","#ede9fe","#6d28d9"],Y:["學習節奏","#dbeafe","#1d4ed8"],P:["象限定位","#dcfce7","#15803d"]};
+  const g=gm[item.g];
+  render(`
+  <div class="card">
+    <div class="pbar-row">
+      <button class="opt" style="border:0;background:transparent;padding:6px 8px;width:auto;${idx===0?'opacity:.3':''}" onclick="back()">←</button>
+      <div class="pbar"><div class="pfill" style="width:${pct}%"></div></div>
+      <span class="pcount">${idx+1}/${ALL.length}</span>
+    </div>
+    <span class="qgroup" style="background:${g[1]};color:${g[2]}">${g[0]}</span>
+    <div class="qtext fade" id="q">${item.q}</div>
+    <div class="opts fade" id="o">
+      ${item.opts.map((o,i)=>`<button class="opt" onclick="choose(${i})"><span class="dot">${LETTERS[i]}</span><span>${o[0]}</span></button>`).join("")}
+    </div>
+  </div>`);
+  requestAnimationFrame(()=>{document.getElementById("q").classList.add("show");document.getElementById("o").classList.add("show");});
+}
+function choose(i){
+  if(locked) return; answers[idx]=i; locked=true;
+  const o=document.getElementById("o"),q=document.getElementById("q");
+  o.classList.remove("show");q.classList.remove("show");
+  setTimeout(()=>{locked=false; if(idx>=ALL.length-1) afterQuiz(); else {idx++;question();}},260);
+}
+function back(){ if(idx>0){idx--;question();} else intro(); }
+
+/* ---------------- Brain Lab calibration (self-contained) ---------------- */
+let calib={done:false, avgRt:null, memAcc:null, source:null};
+const RT_TRIALS=5;
+let rtTimes=[], rtState='idle', rtStart=0, rtTimer=null, rtRound=0;
+const MEM_POOL=['🍎','🚀','🎸','🌙','⚡','🎲','🔑','🌵','🎯','🧩','🍀','⏰'];
+let memTargets=[], memSel=[], memPool=[];
+
+function afterQuiz(){
+  if(calib.source==='app' && calib.done){ result(); return; } // app supplied real EEG/game data
+  calibIntro();
+}
+function calibIntro(){
+  render(`
+  <div class="card center">
+    <div class="hero-emoji">🔬</div>
+    <div class="badge">Brain Lab 校準</div>
+    <h1 style="font-size:24px">用反應力校準你的結果</h1>
+    <p class="sub">兩個小測驗——反應速度與記憶廣度，會微調你的<br>
+      「即時 ↔ 深度」與「感官 ↔ 抽象」軸分，讓類型判定更準。</p>
+    <div class="axisnote">
+      <div class="row">⚡ <b>反應測驗</b>：5 次點擊，測處理速度 → 即時／深度傾向</div>
+      <div class="row">🧠 <b>記憶測驗</b>：記住 6 個圖案再回選 → 抽象／感官記憶</div>
+    </div>
+    <button class="btn" onclick="startReaction()">開始校準（約 30 秒）</button>
+    <button class="btn ghost sm" style="margin-top:10px;width:100%" onclick="skipCalib()">略過，直接看結果</button>
+  </div>`);
+}
+function skipCalib(){ calib.done=false; calib.source=null; result(); }
+
+function startReaction(){ rtTimes=[]; rtRound=0; reactionRound(); }
+function reactionRound(){
+  rtState='wait';
+  render(`
+  <div class="card">
+    <div class="qgroup" style="background:#ede9fe;color:#6d28d9">反應測驗 ${rtRound+1}/${RT_TRIALS}</div>
+    <div class="rt-box rt-wait" onclick="reactionTap()">準備……<br>變綠色就立刻點擊</div>
+    <div class="rt-meta">看到綠色再點；太早點會重來</div>
+  </div>`);
+  const delay=900+Math.random()*1900;
+  rtTimer=setTimeout(()=>{
+    rtState='go'; rtStart=performance.now();
+    render(`
+    <div class="card">
+      <div class="qgroup" style="background:#ede9fe;color:#6d28d9">反應測驗 ${rtRound+1}/${RT_TRIALS}</div>
+      <div class="rt-box rt-go" onclick="reactionTap()">點擊！</div>
+      <div class="rt-meta">越快越好</div>
+    </div>`);
+  }, delay);
+}
+function reactionTap(){
+  if(rtState==='wait'){
+    clearTimeout(rtTimer); rtState='idle';
+    render(`
+    <div class="card center">
+      <div class="rt-box rt-early">太早了！<br>這一輪重來</div>
+      <button class="btn sm" style="margin-top:16px" onclick="reactionRound()">再試一次</button>
+    </div>`);
+    return;
+  }
+  if(rtState==='go'){
+    const ms=performance.now()-rtStart; rtTimes.push(ms); rtState='idle'; rtRound++;
+    if(rtRound>=RT_TRIALS){
+      calib.avgRt=Math.round(rtTimes.reduce((a,b)=>a+b,0)/rtTimes.length);
+      startMemory();
+    } else reactionRound();
+  }
+}
+
+function shuffle(arr){ const a=[...arr];
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function startMemory(){ memSel=[]; memTargets=shuffle(MEM_POOL).slice(0,6); memShow(); }
+function memShow(){
+  render(`
+  <div class="card">
+    <div class="qgroup" style="background:#dcfce7;color:#15803d">記憶測驗 · 記住這 6 個</div>
+    <div class="qtext" style="text-align:center">記住下面 6 個圖案（3 秒）</div>
+    <div class="mem-grid">
+      ${memTargets.map(s=>`<div class="mem-cell tgt">${s}</div>`).join("")}
+      <div class="mem-cell blank"></div><div class="mem-cell blank"></div>
+    </div>
+    <div class="rt-meta" id="cd" style="font-size:22px;font-weight:800;color:#7c3aed">3</div>
+  </div>`);
+  let n=3; const t=setInterval(()=>{ n--; const cd=document.getElementById('cd');
+    if(cd) cd.textContent=n>0?n:'…'; if(n<=0){ clearInterval(t); memRecall(); } },1000);
+}
+function memRecall(){ memPool=shuffle(MEM_POOL); drawRecall(); }
+function drawRecall(){
+  render(`
+  <div class="card">
+    <div class="qgroup" style="background:#dcfce7;color:#15803d">記憶測驗 · 回選</div>
+    <div class="qtext" style="text-align:center">剛剛出現了哪 6 個？（已選 ${memSel.length}/6）</div>
+    <div class="mem-grid">
+      ${memPool.map(s=>`<div class="mem-cell ${memSel.includes(s)?'sel':''}" onclick="memToggle('${s}')">${s}</div>`).join("")}
+    </div>
+    <button class="btn sm" style="margin-top:18px;width:100%;${memSel.length===6?'':'opacity:.45;pointer-events:none'}" onclick="memSubmit()">完成校準，看結果</button>
+  </div>`);
+}
+function memToggle(s){
+  if(memSel.includes(s)) memSel=memSel.filter(x=>x!==s);
+  else if(memSel.length<6) memSel.push(s);
+  drawRecall();
+}
+function memSubmit(){
+  const hits=memSel.filter(s=>memTargets.includes(s)).length;
+  calib.memAcc=hits/6; calib.done=true; calib.source='self';
+  result();
+}
+
+/* ---------------- Scoring (5 steps) ---------------- */
+function compute(){
+  const d={s:0,ab:0,d:0,im:0,k:0,a:0,r:0,v:0,cn:0,pf:0,an:0,na:0};
+  ALL.forEach((item,qi)=>{
+    const ai=answers[qi]; if(ai<0) return;
+    const key=item.opts[ai][1]; d[key]=(d[key]||0)+2;
+  });
+  // step 5: Brain Lab calibration — reaction time & memory span nudge the axes
+  if(calib.done){
+    if(calib.avgRt!=null){
+      if(calib.avgRt<650) d.im+=3;        // very fast → 即時反應
+      else if(calib.avgRt<850) d.im+=1;
+      else if(calib.avgRt>1100) d.d+=2;   // deliberate → 深度沉浸
+    }
+    if(calib.memAcc!=null){
+      if(calib.memAcc>=0.8) d.ab+=2;       // strong structural memory → 抽象
+      else if(calib.memAcc<0.5) d.s+=1;    // → 感官
+    }
+  }
+  // step 1: axis scores
+  const xScore=d.ab-d.s;     // >0 抽象, <0 感官
+  const yScore=d.d-d.im;     // >0 深度, <0 即時
+  // step 2: quadrant
+  let quad;
+  if(xScore<=0 && yScore>=0) quad="innovation";
+  else if(xScore>0 && yScore>=0) quad="perception";
+  else if(xScore<=0 && yScore<0) quad="integration";
+  else quad="action";
+  // step 3-4: primary + secondary within quadrant
+  let primary,secondary;
+  if(quad==="innovation"){ if(d.k>=d.a){primary="explorer";secondary="melodist";} else {primary="melodist";secondary="explorer";} }
+  else if(quad==="perception"){ if((d.r+d.an)>=(d.na+d.a)){primary="architect";secondary="narrator";} else {primary="narrator";secondary="architect";} }
+  else if(quad==="integration"){ if(d.cn>=d.pf){primary="connector";secondary="performer";} else {primary="performer";secondary="connector";} }
+  else { if(d.an>=d.v){primary="analyst";secondary="visionary";} else {primary="visionary";secondary="analyst";} }
+  return {d,xScore,yScore,quad,primary,secondary};
+}
+
+/* ---------------- Result ---------------- */
+let weekTab=1, R=null;
+function result(){
+  R=compute(); weekTab=1;
+  try{ localStorage.setItem("memo_genius_result",JSON.stringify({p:R.primary,s:R.secondary,t:Date.now()})); }catch(e){}
+  draw();
+}
+function setWeek(w){ weekTab=w; draw(); }
+
+function draw(){
+  const P=TYPES[R.primary], S=TYPES[R.secondary], Q=QUADRANTS[R.quad];
+  // dot position: x -20..20, y -20..20
+  const cx=Math.max(-20,Math.min(20,R.xScore)), cy=Math.max(-20,Math.min(20,R.yScore));
+  const left=((cx+20)/40)*100, top=((20-cy)/40)*100;
+  const weeks=[[1,"第 1–4 週",P.w1],[2,"第 5–8 週",P.w5],[3,"第 9–12 週",P.w9]];
+
+  render(`
+  <div class="card">
+    ${calib.done ? `
+    <div class="calib">
+      <span class="ic">🔬</span>
+      <span class="t">已用 <b>Brain Lab ${calib.source==='app'?'腦力訓練數據':'校準測驗'}</b> 微調軸分：${calib.avgRt!=null?`平均反應 <b>${calib.avgRt}ms</b>${calib.avgRt<700?'（即時傾向）':calib.avgRt>1100?'（深度傾向）':''}`:''}${calib.avgRt!=null&&calib.memAcc!=null?'、':''}${calib.memAcc!=null?`記憶廣度 <b>${Math.round(calib.memAcc*100)}%</b>${calib.memAcc>=0.8?'（抽象記憶強）':''}`:''}。</span>
+    </div>` : `
+    <div class="calib">
+      <span class="ic">🔬</span>
+      <span class="t">此結果為純問卷評分（你略過了校準）。在 <b>fluent-ai App</b> 中可用腦力訓練數據自動校準，提高準確度。</span>
+    </div>`}
+
+    <div class="identity" style="background:${P.grad}">
+      <div class="label">你的記憶天才類型</div>
+      <div class="tname">${P.emoji} ${P.name}</div>
+      <div class="ten">${P.en} · ${Q.zh}（${Q.desc}）</div>
+      <div class="tline">${P.tagline}</div>
+      <div class="tags">
+        <span class="tag">📚 ${P.vark}</span>
+        <span class="tag">🧠 ${P.brainwave}</span>
+        <span class="tag">⏰ ${P.bestTime}</span>
+      </div>
+      <div class="quote">「${P.quote}」</div>
+    </div>
+
+    <div class="sec-title">你的記憶座標</div>
+    <div class="quad" style="aspect-ratio:1/1">
+      <div class="axisx"></div><div class="axisy"></div>
+      <span class="ax" style="top:4px;left:50%;transform:translateX(-50%)">深度沉浸</span>
+      <span class="ax" style="bottom:4px;left:50%;transform:translateX(-50%)">即時反應</span>
+      <span class="ax" style="left:4px;top:50%;transform:translateY(-50%)">感官</span>
+      <span class="ax" style="right:4px;top:50%;transform:translateY(-50%)">抽象</span>
+      <span class="ql" style="top:8px;left:8px">創新</span>
+      <span class="ql" style="top:8px;right:8px;text-align:right">感知</span>
+      <span class="ql" style="bottom:8px;left:8px">整合</span>
+      <span class="ql" style="bottom:8px;right:8px;text-align:right">行動</span>
+      <div class="dot2" style="left:${left}%;top:${top}%;background:${P.color}"></div>
+    </div>
+    <div class="infobox" style="margin-top:10px">
+      X 軸（感官 ↔ 抽象）：<b>${R.xScore>0?"+"+R.xScore:R.xScore}</b>　·
+      Y 軸（即時 ↔ 深度）：<b>${R.yScore>0?"+"+R.yScore:R.yScore}</b>
+    </div>
+
+    <div class="sec-title">你的記憶特徵</div>
+    <div class="block">
+      ${P.traits.map((t,i)=>`<div class="li"><span class="nk" style="background:${P.color}">${i+1}</span><span>${t}</span></div>`).join("")}
+    </div>
+
+    <div class="sec-title">最有效的學法</div>
+    <div class="block">
+      ${P.best.map(m=>`<div class="li"><span class="ck">✓</span><span>${m}</span></div>`).join("")}
+    </div>
+
+    <div class="sec-title">應避免的學法</div>
+    <div class="warn">
+      ${P.avoid.map(m=>`<div class="wx"><span>✗</span><span>${m}</span></div>`).join("")}
+    </div>
+
+    <div class="sec-title">12 週學習計畫</div>
+    <div class="weekbtns">
+      ${weeks.map(([w,l])=>`<button class="weekbtn ${weekTab===w?'on':''}" style="${weekTab===w?'background:'+P.color:''}" onclick="setWeek(${w})">${l}</button>`).join("")}
+    </div>
+    <div class="weekbody">${weeks.find(w=>w[0]===weekTab)[2]}</div>
+
+    <div class="sec-title">副類型 · ${S.emoji} ${S.name}（${S.en}）</div>
+    <div class="infobox">
+      <b>${S.name}</b>：${S.tagline}<br><br>
+      可在主路線中穿插：${S.best.slice(0,2).join("、")}。
+    </div>
+
+    <div style="margin-top:28px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+      <button class="btn ghost sm" onclick="intro()">重新測驗</button>
+      <button class="btn sm" onclick="shareResult('${P.name}')">分享我的類型</button>
+    </div>
+    <div class="footer-note">
+      記憶天才測定 · Memory Genius Type　|　8 類型 × VARK × 腦波<br>
+      結果僅供學習規劃參考。
+    </div>
+  </div>`);
+}
+
+function shareResult(name){
+  const text=`我的記憶天才類型是「${name}」！來測測你的 👉`;
+  if(navigator.share){ navigator.share({title:"記憶天才測定",text,url:location.href}).catch(()=>{}); }
+  else { navigator.clipboard?.writeText(`${text} ${location.href}`).then(()=>alert("已複製分享文字！"),()=>{}); }
+}
+
+window.start=start;window.choose=choose;window.back=back;window.intro=intro;
+window.setWeek=setWeek;window.shareResult=shareResult;
+window.startReaction=startReaction;window.reactionRound=reactionRound;window.reactionTap=reactionTap;
+window.skipCalib=skipCalib;window.memToggle=memToggle;window.memSubmit=memSubmit;
+
+// Optional: App deep-link with real Brain Lab data — ?rt=<ms>&acc=<0..1 or 0..100>
+(function(){
+  try{
+    const p=new URLSearchParams(location.search);
+    const rt=parseFloat(p.get('rt')), acc=parseFloat(p.get('acc'));
+    if(!isNaN(rt)||!isNaN(acc)){
+      calib.source='app'; calib.done=true;
+      if(!isNaN(rt)) calib.avgRt=Math.round(rt);
+      if(!isNaN(acc)) calib.memAcc=acc>1?acc/100:acc;
+    }
+  }catch(e){}
+})();
+intro();
+</script>
+</body>
+</html>
