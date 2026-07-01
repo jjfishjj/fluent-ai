@@ -173,17 +173,33 @@ function suggestNextTime(currentHour: number, state: BrainState): { nextBestTime
   };
 }
 
+/** Returns YYYY-MM-DD in the user's local timezone (not UTC). */
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Calendar-day difference in local time.
+ * Math.round (not floor) absorbs the ±1 h shift from DST transitions.
+ */
+function localCalendarDaysDiff(later: Date, earlier: Date): number {
+  const a = new Date(later.getFullYear(),   later.getMonth(),   later.getDate());
+  const b = new Date(earlier.getFullYear(), earlier.getMonth(), earlier.getDate());
+  return Math.round((a.getTime() - b.getTime()) / 86400000);
+}
+
 export function getCurrentBehaviorSignals(
   sessionStartTime: number,
   messageCount: number,
   avgResponseChars: number,
+  recentErrorRate = 0.15,
 ): BehaviorSignals {
   const now = new Date();
   const sessionDurationMin = (Date.now() - sessionStartTime) / 60000;
   const lastSessionStr = localStorage.getItem('fluent_last_session');
   const lastSession = lastSessionStr ? new Date(lastSessionStr) : null;
   const daysSinceLastSession = lastSession
-    ? Math.floor((Date.now() - lastSession.getTime()) / 86400000)
+    ? localCalendarDaysDiff(now, lastSession)
     : 999; // no recorded session → treat as long absence
   const streak = Number(localStorage.getItem('fluent_streak') ?? 0);
 
@@ -192,12 +208,30 @@ export function getCurrentBehaviorSignals(
     sessionDurationMin,
     messageCount,
     avgResponseChars,
-    recentErrorRate: 0.15,
+    recentErrorRate,
     daysSinceLastSession,
     consecutiveDays: streak,
   };
 }
 
-export function recordSessionEnd() {
-  localStorage.setItem('fluent_last_session', new Date().toISOString());
+export function recordSessionEnd(): void {
+  const now = new Date();
+  const lastSessionStr = localStorage.getItem('fluent_last_session');
+  const currentStreak = Number(localStorage.getItem('fluent_streak') ?? 0);
+
+  let newStreak = 1;
+  if (lastSessionStr) {
+    const lastDate = new Date(lastSessionStr);
+    const diff = localCalendarDaysDiff(now, lastDate);
+
+    if (diff === 0) {
+      newStreak = currentStreak || 1; // same local calendar day → keep streak
+    } else if (diff === 1) {
+      newStreak = currentStreak + 1; // consecutive local day → extend
+    }
+    // diff ≥ 2: gap in practice → reset to 1 (default)
+  }
+
+  localStorage.setItem('fluent_last_session', now.toISOString());
+  localStorage.setItem('fluent_streak', String(newStreak));
 }

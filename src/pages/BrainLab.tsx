@@ -2,12 +2,16 @@ import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Brain, Activity, BookOpen, Zap, Library } from 'lucide-react';
+import { Brain, Activity, BookOpen, Zap, Library, Sparkles } from 'lucide-react';
 import { DeviceConnector } from '@/components/brainwave/DeviceConnector';
 import { BrainwaveChart } from '@/components/brainwave/BrainwaveChart';
 import { BrainStateCard } from '@/components/brainwave/BrainStateCard';
 import { LearningAdvisor } from '@/components/brainwave/LearningAdvisor';
 import { NBackGame } from '@/components/brain-training/NBackGame';
+import { AttentionGame } from '@/components/brain-training/AttentionGame';
+import { SpeedMatchGame } from '@/components/brain-training/SpeedMatchGame';
+import { TrainingAnalytics } from '@/components/brain-training/TrainingAnalytics';
+import { loadHistory, saveRecord, getFocusIndex, TrainingGame } from '@/lib/brain-training/training-history';
 import { useBrainwave } from '@/contexts/BrainwaveContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { loadVARKProfile } from '@/lib/vark-service';
@@ -18,12 +22,66 @@ import { getMaterialsByStyle, getRecommendedMaterials, PracticeMaterial } from '
 import { useNavigate } from 'react-router-dom';
 import { loadProgress, saveProgress, markCompleted } from '@/lib/material-progress';
 import { Check } from 'lucide-react';
+import { MemoryGeniusQuiz } from '@/components/memory-genius/MemoryGeniusQuiz';
+import { MemoryGeniusResult } from '@/components/memory-genius/MemoryGeniusResult';
+import { computeResult } from '@/lib/memory-genius/scoring';
+import { saveMGResult, loadMGResult, clearMGResult } from '@/lib/memory-genius/storage';
+import { MGResult } from '@/lib/memory-genius/types';
 
 export default function BrainLab() {
   const { mode, bands, brainState, history, inferred } = useBrainwave();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [varkProfile, setVarkProfile] = useState<VARKProfile | null>(null);
+  const [selectedGame, setSelectedGame] = useState<'nback' | 'attention' | 'speed'>('nback');
+  const [trainingHistory, setTrainingHistory] = useState(() => loadHistory(user?.id ?? 'guest'));
+
+  // Reload training history when auth resolves
+  useEffect(() => {
+    setTrainingHistory(loadHistory(user?.id ?? 'guest'));
+  }, [user?.id]);
+
+  // Persist a training session with the brain state + band-power snapshot at play time
+  const recordTraining = (game: TrainingGame, accuracy: number, detail: Record<string, number>) => {
+    const updated = saveRecord(user?.id ?? 'guest', {
+      game,
+      accuracy,
+      detail,
+      brainState,
+      bands,
+      timestamp: new Date().toISOString(),
+    });
+    setTrainingHistory([...updated]);
+  };
+  // Memory Genius state
+  type MGPhase = 'landing' | 'quiz' | 'result';
+  const [mgPhase, setMGPhase] = useState<MGPhase>(() =>
+    loadMGResult(user?.id ?? 'guest') ? 'result' : 'landing'
+  );
+  const [mgResult, setMGResult] = useState<MGResult | null>(() =>
+    loadMGResult(user?.id ?? 'guest')
+  );
+
+  // Reload MG result when auth resolves
+  useEffect(() => {
+    const r = loadMGResult(user?.id ?? 'guest');
+    setMGResult(r);
+    setMGPhase(r ? 'result' : 'landing');
+  }, [user?.id]);
+
+  const handleMGComplete = (answers: number[]) => {
+    const r = computeResult(answers, trainingHistory);
+    saveMGResult(user?.id ?? 'guest', r);
+    setMGResult(r);
+    setMGPhase('result');
+  };
+
+  const handleMGRetake = () => {
+    clearMGResult(user?.id ?? 'guest');
+    setMGResult(null);
+    setMGPhase('quiz');
+  };
+
   const [materialStyle, setMaterialStyle] = useState<LearningStyle>('visual');
   const [materialCategory, setMaterialCategory] = useState<string>('All');
 
@@ -82,18 +140,21 @@ export default function BrainLab() {
         </section>
 
         <Tabs defaultValue="advisor" className="space-y-4">
-          <TabsList className="grid grid-cols-4 w-full">
-            <TabsTrigger value="advisor" className="gap-1.5 text-xs sm:text-sm">
-              <Zap className="w-3.5 h-3.5" /> 學習建議
+          <TabsList className="grid grid-cols-5 w-full">
+            <TabsTrigger value="advisor" className="gap-1 text-[10px] sm:text-xs px-1">
+              <Zap className="w-3 h-3 shrink-0" /> 學習建議
             </TabsTrigger>
-            <TabsTrigger value="materials" className="gap-1.5 text-xs sm:text-sm">
-              <Library className="w-3.5 h-3.5" /> 素材庫
+            <TabsTrigger value="materials" className="gap-1 text-[10px] sm:text-xs px-1">
+              <Library className="w-3 h-3 shrink-0" /> 素材庫
             </TabsTrigger>
-            <TabsTrigger value="training" className="gap-1.5 text-xs sm:text-sm">
-              <Brain className="w-3.5 h-3.5" /> 腦力訓練
+            <TabsTrigger value="training" className="gap-1 text-[10px] sm:text-xs px-1">
+              <Brain className="w-3 h-3 shrink-0" /> 腦力訓練
             </TabsTrigger>
-            <TabsTrigger value="realtime" className="gap-1.5 text-xs sm:text-sm">
-              <Activity className="w-3.5 h-3.5" /> 腦波圖
+            <TabsTrigger value="genius" className="gap-1 text-[10px] sm:text-xs px-1">
+              <Sparkles className="w-3 h-3 shrink-0" /> 天才測定
+            </TabsTrigger>
+            <TabsTrigger value="realtime" className="gap-1 text-[10px] sm:text-xs px-1">
+              <Activity className="w-3 h-3 shrink-0" /> 腦波圖
             </TabsTrigger>
           </TabsList>
 
@@ -314,39 +375,119 @@ export default function BrainLab() {
 
           {/* Tab 3: Brain Training */}
           <TabsContent value="training" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">2-Back 工作記憶訓練</CardTitle>
-                <CardDescription>
-                  訓練工作記憶容量，研究顯示可提升語言學習的語法保留率和詞彙記憶速度
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <NBackGame onComplete={(results) => {
-                  console.log('N-back results:', results);
-                }} />
-              </CardContent>
-            </Card>
-
-            <div className="grid sm:grid-cols-3 gap-3">
+            {/* Game selector */}
+            <div className="grid grid-cols-3 gap-3">
               {[
-                { emoji: '🧠', title: '工作記憶', desc: '2-Back 任務', status: '可使用', available: true },
-                { emoji: '⚡', title: '注意力訓練', desc: '視覺追蹤遊戲', status: '即將推出', available: false },
-                { emoji: '🎯', title: '處理速度', desc: '快速詞彙配對', status: '即將推出', available: false },
+                { key: 'nback' as const,     emoji: '🧠', title: '工作記憶', desc: '2-Back 任務' },
+                { key: 'attention' as const, emoji: '⚡', title: '注意力訓練', desc: '視覺追蹤遊戲' },
+                { key: 'speed' as const,     emoji: '🎯', title: '處理速度', desc: '快速詞彙配對' },
               ].map(ex => (
-                <Card key={ex.title} className={ex.available ? '' : 'opacity-60'}>
-                  <CardContent className="pt-4 text-center space-y-1">
-                    <div className="text-3xl">{ex.emoji}</div>
-                    <p className="text-sm font-medium">{ex.title}</p>
-                    <p className="text-xs text-muted-foreground">{ex.desc}</p>
-                    <Badge variant={ex.available ? 'default' : 'secondary'} className="text-xs">{ex.status}</Badge>
-                  </CardContent>
-                </Card>
+                <button
+                  key={ex.key}
+                  onClick={() => setSelectedGame(ex.key)}
+                  className={`rounded-xl border-2 p-3 text-center space-y-1 transition-all ${
+                    selectedGame === ex.key
+                      ? 'border-primary bg-primary/5 shadow-sm'
+                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="text-2xl">{ex.emoji}</div>
+                  <p className="text-xs font-semibold">{ex.title}</p>
+                  <p className="text-xs text-muted-foreground">{ex.desc}</p>
+                </button>
               ))}
             </div>
+
+            {/* Active game */}
+            <Card>
+              {selectedGame === 'nback' && (
+                <>
+                  <CardHeader>
+                    <CardTitle className="text-base">2-Back 工作記憶訓練</CardTitle>
+                    <CardDescription>訓練工作記憶容量，可提升語法保留率和詞彙記憶速度</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <NBackGame onComplete={(r) => recordTraining('nback', r.accuracy, { hits: r.hits, misses: r.misses, falseAlarms: r.falseAlarms })} />
+                  </CardContent>
+                </>
+              )}
+              {selectedGame === 'attention' && (
+                <>
+                  <CardHeader>
+                    <CardTitle className="text-base">注意力訓練 · 視覺追蹤</CardTitle>
+                    <CardDescription>訓練視覺注意力與反應速度，有助提升閱讀流暢度</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <AttentionGame onComplete={(r) => recordTraining('attention', r.accuracy, { hits: r.hits, misses: r.misses, avgReactionMs: r.avgReactionMs })} />
+                  </CardContent>
+                </>
+              )}
+              {selectedGame === 'speed' && (
+                <>
+                  <CardHeader>
+                    <CardTitle className="text-base">處理速度 · 快速詞彙配對</CardTitle>
+                    <CardDescription>快速識別英中詞義，強化語言自動化處理能力</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <SpeedMatchGame onComplete={(r) => recordTraining('speed', r.accuracy, { correct: r.correct, wrong: r.wrong, avgSpeedMs: r.avgSpeedMs })} />
+                  </CardContent>
+                </>
+              )}
+            </Card>
+
+            {/* Quantified analytics across all training sessions */}
+            <TrainingAnalytics history={trainingHistory} />
           </TabsContent>
 
-          {/* Tab 4: Real-time EEG (moved last) */}
+          {/* Tab 4: Memory Genius */}
+          <TabsContent value="genius" className="space-y-4">
+            {mgPhase === 'landing' && (
+              <div className="space-y-5 py-2">
+                <div className="text-center space-y-3">
+                  <div className="w-16 h-16 rounded-2xl bg-indigo-100 flex items-center justify-center mx-auto">
+                    <Sparkles className="w-8 h-8 text-indigo-600" />
+                  </div>
+                  <h2 className="text-xl font-bold">記憶天才測定</h2>
+                  <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                    透過 28 道行為情境題，找出你的記憶天才類型，並獲得個人化 12 週學習計劃。
+                  </p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-4 space-y-2.5 text-sm">
+                  {[
+                    { icon: '🧠', text: '2 軸評分：記憶觸發方式 × 學習節奏' },
+                    { icon: '🎭', text: '8 種天才類型 — 找出主類型 + 副類型' },
+                    { icon: '📅', text: '個人化 12 週語言學習計劃' },
+                    ...(trainingHistory.length > 0
+                      ? [{ icon: '✓', text: `你有 ${trainingHistory.length} 筆腦力訓練紀錄，自動校準結果準確度` }]
+                      : [{ icon: '💡', text: '完成腦力訓練後可提升結果準確度' }]),
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-start gap-2.5">
+                      <span className="shrink-0 text-base">{item.icon}</span>
+                      <span className="text-muted-foreground">{item.text}</span>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setMGPhase('quiz')}
+                  className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors"
+                >
+                  開始測定（約 5–8 分鐘）
+                </button>
+              </div>
+            )}
+            {mgPhase === 'quiz' && (
+              <MemoryGeniusQuiz
+                onComplete={handleMGComplete}
+                onCancel={() => setMGPhase('landing')}
+                trainingCount={trainingHistory.length}
+              />
+            )}
+            {mgPhase === 'result' && mgResult && (
+              <MemoryGeniusResult result={mgResult} onRetake={handleMGRetake} />
+            )}
+          </TabsContent>
+
+          {/* Tab 5: Real-time EEG */}
           <TabsContent value="realtime" className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-3">
@@ -362,6 +503,64 @@ export default function BrainLab() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Quantified brainwave metrics */}
+            {mode !== 'disconnected' && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">腦波量化指標</CardTitle>
+                  <CardDescription className="text-xs">即時頻帶功率的量化分析</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div className="text-center bg-blue-50 rounded-lg p-2">
+                      <p className="text-xl font-bold text-blue-600">{getFocusIndex(bands)}</p>
+                      <p className="text-xs text-muted-foreground">專注指數</p>
+                      <p className="text-[10px] text-muted-foreground">(β+γ)/(α+θ+δ)</p>
+                    </div>
+                    <div className="text-center bg-violet-50 rounded-lg p-2">
+                      <p className="text-xl font-bold text-violet-600">
+                        {(() => {
+                          const entries = Object.entries(bands) as [string, number][];
+                          const top = entries.reduce((a, b) => (b[1] > a[1] ? b : a));
+                          const labels: Record<string, string> = { delta: 'δ', theta: 'θ', alpha: 'α', beta: 'β', gamma: 'γ' };
+                          return labels[top[0]] ?? '—';
+                        })()}
+                      </p>
+                      <p className="text-xs text-muted-foreground">主導頻帶</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {Math.round(Math.max(...Object.values(bands)) * 100)}% 佔比
+                      </p>
+                    </div>
+                    <div className="text-center bg-emerald-50 rounded-lg p-2">
+                      <p className="text-xl font-bold text-emerald-600">{trainingHistory.length}</p>
+                      <p className="text-xs text-muted-foreground">訓練紀錄</p>
+                      <p className="text-[10px] text-muted-foreground">可供分析</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {([
+                      { key: 'delta', label: 'δ Delta', color: '#9ca3af' },
+                      { key: 'theta', label: 'θ Theta', color: '#8b5cf6' },
+                      { key: 'alpha', label: 'α Alpha', color: '#10b981' },
+                      { key: 'beta', label: 'β Beta', color: '#3b82f6' },
+                      { key: 'gamma', label: 'γ Gamma', color: '#f59e0b' },
+                    ] as const).map(b => {
+                      const pct = Math.round((bands[b.key] ?? 0) * 100);
+                      return (
+                        <div key={b.key} className="flex items-center gap-2">
+                          <span className="text-xs w-16 shrink-0">{b.label}</span>
+                          <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: b.color }} />
+                          </div>
+                          <span className="text-xs font-medium w-9 text-right">{pct}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Band legend */}
             <Card>

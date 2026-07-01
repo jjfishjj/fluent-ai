@@ -30,8 +30,29 @@ import { loadVARKProfile, saveVARKProfile } from '@/lib/vark-service';
 import { loadGeniusType, geniusInfo, GeniusType, loadGeniusVark } from '@/lib/genius-type';
 import { getRandomTip } from '@/lib/vark-recommendations';
 import { useBrainwave } from '@/contexts/BrainwaveContext';
+import { VARK_MATERIALS } from '@/lib/vark-materials-library';
 import { markUsed, markCompleted } from '@/lib/material-progress';
 import { recordSessionEnd } from '@/lib/brainwave/behavioral-inference';
+
+// Remember the last language so material-driven practice can start in one tap.
+const LAST_LANG_KEY = 'fluent_last_language';
+function loadLastLanguage(): Language | null {
+  const v = localStorage.getItem(LAST_LANG_KEY) as Language | null;
+  return v && LANGUAGES.find(l => l.id === v) ? v : null;
+}
+function persistLastLanguage(lang: Language) {
+  localStorage.setItem(LAST_LANG_KEY, lang);
+}
+
+// Synthetic scenario for VARK material-guided sessions: the material prompt
+// itself defines the activity, so no scenario configuration is needed.
+const MATERIAL_SCENARIO: Scenario = {
+  id: 'vark-practice',
+  category: 'freeChat',
+  name: 'Guided Practice',
+  description: 'VARK material-guided practice session',
+  icon: '🎯',
+};
 
 const Practice = () => {
   const [searchParams] = useSearchParams();
@@ -72,6 +93,8 @@ const Practice = () => {
   const audioPlayedRef = useRef(false);
   const userMsgCountRef = useRef(0);
   const totalCharsRef = useRef(0);
+  const avgCharsRef = useRef(0);
+  const correctionCountRef = useRef(0);
   const isFirstMsgRef = useRef(true);
 
   useEffect(() => {
@@ -139,9 +162,22 @@ const Practice = () => {
     }
   };
 
-  const handleStartConversation = async () => {
-    if (!selectedLanguage || !selectedScenario) return;
-    const settings = getCurrentSettings();
+  // Core launcher: starts a conversation with an explicit language/scenario so
+  // it doesn't depend on React state being flushed (used by both the normal
+  // config flow and the one-tap material flow).
+  const beginConversation = async (lang: Language, scenario: Scenario, greetingPrompt: string) => {
+    const langConfig = LANGUAGES.find(l => l.id === lang);
+    const settings: ConversationSettings = {
+      language: lang,
+      languageVariant: selectedVariant || undefined,
+      scenario: scenario.id,
+      difficulty,
+      speed,
+      tone,
+      mode,
+      instantCorrection,
+      romanization: langConfig?.supportsRomanization ? romanization : undefined,
+    };
 
     let newConvId: string | null = null;
     if (user) {
@@ -150,16 +186,14 @@ const Practice = () => {
       setConversationId(newConvId);
     }
 
-    const greetingPrompt = materialPrompt
-      ? materialPrompt
-      : `Start the conversation with a greeting in ${selectedLanguage}. Introduce the scenario "${selectedScenario.id}" at the ${difficulty} level. Keep it brief (2-3 sentences).`;
-
     setMessages([]);
     setIsInConversation(true);
     setIsLoading(true);
     setVarkTip(null);
     userMsgCountRef.current = 0;
     totalCharsRef.current = 0;
+    avgCharsRef.current = 0;
+    correctionCountRef.current = 0;
     isFirstMsgRef.current = true;
     voiceUsedRef.current = false;
     audioPlayedRef.current = false;
@@ -204,6 +238,25 @@ const Practice = () => {
     });
   };
 
+  const handleStartConversation = async () => {
+    if (!selectedLanguage || !selectedScenario) return;
+    persistLastLanguage(selectedLanguage);
+    const greetingPrompt = materialPrompt
+      ? materialPrompt
+      : `Start the conversation with a greeting in ${selectedLanguage}. Introduce the scenario "${selectedScenario.id}" at the ${difficulty} level. Keep it brief (2-3 sentences).`;
+    await beginConversation(selectedLanguage, selectedScenario, greetingPrompt);
+  };
+
+  // One-tap start for a VARK material: skip the scenario-config page entirely;
+  // the chosen language is all that's needed since the material defines the activity.
+  const startMaterialSession = async (lang: Language) => {
+    if (!materialPrompt) return;
+    setSelectedLanguage(lang);
+    setSelectedScenario(MATERIAL_SCENARIO);
+    persistLastLanguage(lang);
+    await beginConversation(lang, MATERIAL_SCENARIO, materialPrompt);
+  };
+
   const handleSendMessage = async (content: string, imageBase64?: string, videoFrames?: string[], urlContext?: string) => {
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -217,13 +270,10 @@ const Practice = () => {
     setMessages(newMessages);
     setIsLoading(true);
 
-    // Track message length for behavioral brain state inference
+    // Track message length for error rate computation in onDone
     userMsgCountRef.current += 1;
     totalCharsRef.current += content.length;
-    const avgChars = Math.round(totalCharsRef.current / userMsgCountRef.current);
-    if (brainMode === 'behavioral') {
-      updateBehaviorSignals(userMsgCountRef.current, avgChars);
-    }
+    avgCharsRef.current = Math.round(totalCharsRef.current / userMsgCountRef.current);
 
     // Collect VARK signals for this message
     if (varkProfile && selectedLanguage && selectedScenario) {
@@ -339,8 +389,18 @@ const Practice = () => {
       },
       onDone: () => {
         setIsLoading(false);
+        const parsed = parseCorrections(assistantContent);
+
+        // Track correction rate for behavioral brain state inference
+        if (parsed.correction) correctionCountRef.current += 1;
+        if (brainMode === 'behavioral') {
+          const errorRate = userMsgCountRef.current > 0
+            ? correctionCountRef.current / userMsgCountRef.current
+            : 0.15;
+          updateBehaviorSignals(userMsgCountRef.current, avgCharsRef.current, errorRate);
+        }
+
         if (user && conversationId) {
-          const parsed = parseCorrections(assistantContent);
           saveMessage(conversationId, {
             role: 'assistant',
             content: parsed.content,
@@ -404,9 +464,78 @@ const Practice = () => {
     );
   }
 
+  // Material-driven entry: skip the scenario-config page. The material already
+  // defines the activity — the user only picks a language to start in one tap.
+  if (materialPrompt && !isInConversation) {
+    const material = VARK_MATERIALS.find(m => m.id === materialId);
+    const remembered = loadLastLanguage();
+    const orderedLangs = remembered
+      ? [...LANGUAGES].sort((a, b) => (a.id === remembered ? -1 : b.id === remembered ? 1 : 0))
+      : LANGUAGES;
+    return (
+      <div className="min-h-screen bg-background">
+        <Header
+          isLoggedIn={!!user}
+          isAdmin={isAdmin}
+          userName={profile?.display_name || user?.email?.split('@')[0] || 'User'}
+          onLogin={() => navigate('/auth')}
+          onLogout={signOut}
+        />
+        <div className="container mx-auto px-4 py-8">
+          <Button variant="ghost" className="mb-6" onClick={() => navigate('/brain-lab')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            返回 Brain Lab
+          </Button>
+
+          <div className="max-w-3xl mx-auto">
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 mb-8">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xl">🎯</span>
+                <span className="text-xs font-medium text-primary uppercase tracking-wide">已選練習素材</span>
+              </div>
+              <h1 className="text-2xl font-display font-bold">
+                {material ? material.titleZh : '練習素材'}
+              </h1>
+              {material && (
+                <p className="text-sm text-muted-foreground mt-1">{material.descriptionZh}</p>
+              )}
+            </div>
+
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold">選擇語言即可開始</h2>
+              <p className="text-sm text-muted-foreground">
+                選好語言後直接進入對話，AI 會依此素材引導你練習
+                {remembered && '（已置頂你上次使用的語言）'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {orderedLangs.map((language) => (
+                <button
+                  key={language.id}
+                  onClick={() => startMaterialSession(language.id)}
+                  className={`language-card lang-${language.id} ${language.id === remembered ? 'ring-2 ring-primary' : ''}`}
+                >
+                  <div className="relative z-10 text-left w-full">
+                    <div className="text-3xl mb-2 flag-emoji">{language.flag}</div>
+                    <h3 className="font-semibold text-sm lang-name">{language.name}</h3>
+                    <p className="text-xs text-muted-foreground">{language.nativeName}</p>
+                    {language.id === remembered && (
+                      <span className="text-[10px] text-primary font-medium">上次使用 ·一鍵開始</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <Header 
+      <Header
         isLoggedIn={!!user}
         isAdmin={isAdmin}
         userName={profile?.display_name || user?.email?.split('@')[0] || 'User'}
