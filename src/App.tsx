@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BrainwaveProvider } from "@/contexts/BrainwaveContext";
 import BrainLab from "./pages/BrainLab";
+import MemoryLab from "./pages/MemoryLab";
 import Index from "./pages/Index";
 import Practice from "./pages/Practice";
 import Admin from "./pages/Admin";
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/shop" element={<Shop />} />
             <Route path="/interests" element={<Interests />} />
             <Route path="/brain-lab" element={<BrainLab />} />
+            <Route path="/memory" element={<MemoryLab />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
