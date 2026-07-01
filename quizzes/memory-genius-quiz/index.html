@@ -91,6 +91,19 @@
   .weekbody{background:#f8fafc;border-radius:12px;padding:15px;font-size:14.5px;color:#475569;line-height:1.65}
   .infobox{background:#f8fafc;border-radius:14px;padding:16px;font-size:14.5px;color:#475569;line-height:1.6}
   .infobox b{color:var(--ink)}
+  .plan-sig{border-left:4px solid #a855f7;background:#faf7ff;border-radius:10px;padding:13px 15px;font-size:14px;color:#475569;line-height:1.65}
+  .plan-sig b{color:var(--ink)}
+  .strat{border:1px solid #ece9f5;border-radius:14px;padding:14px 15px;margin-bottom:10px;background:#fff}
+  .strat .lab{font-size:11px;font-weight:800;letter-spacing:.09em}
+  .strat .st{font-weight:800;font-size:15px;margin:3px 0 5px;color:var(--ink)}
+  .strat .sb{font-size:13.5px;color:#475569;line-height:1.65}
+  .srs{display:flex;gap:6px;align-items:center;margin-top:11px;flex-wrap:wrap}
+  .srs .d{background:#ede9fe;color:#6d28d9;font-weight:700;font-size:12px;padding:5px 10px;border-radius:999px}
+  .srs .ar{color:#a855f7;font-weight:800}
+  .srs .lbl{font-size:11px;color:#94a3b8;margin-right:2px}
+  .plan-task{background:linear-gradient(135deg,#f5f3ff,#eef2ff);border:1px solid #ddd6fe;border-radius:16px;padding:16px;margin-top:6px}
+  .plan-task .h{font-weight:800;color:#6d28d9;font-size:14px;margin-bottom:6px}
+  .plan-task .b{font-size:14px;color:#475569;line-height:1.65}
   .footer-note{color:#94a3b8;font-size:12.5px;text-align:center;margin-top:28px;line-height:1.7}
   .rt-box{display:flex;align-items:center;justify-content:center;border-radius:20px;min-height:230px;
     font-size:22px;font-weight:800;color:#fff;cursor:pointer;user-select:none;text-align:center;padding:24px;line-height:1.4}
@@ -216,6 +229,67 @@ const QUADRANTS = {
   integration:{zh:"整合象限", desc:"感官觸發 × 即時反應", pair:["connector","performer"] },
   action:{     zh:"行動象限", desc:"抽象思維 × 即時反應", pair:["analyst","visionary"] },
 };
+
+/* 記憶訓練方案 — 各類型的編碼／提取／鞏固策略 + 間隔複習節奏 + 本週訓練建議 */
+const MEMORY_PLAN = {
+  explorer:{
+    signature:"情境頓悟——你不是靠反覆看才記住，而是在某個真實或想像的情境中突然「懂了」。傳統死背對你效率最低。",
+    encode:{t:"給每個詞彙一個場景", b:"每學一個新詞或句型，立刻問自己：我在哪裡會用到？跟誰說？當時心情如何？把詞彙嵌進你能感受到的場景，它就會進入長期記憶。"},
+    retrieve:{t:"用「回想」，不要翻課本", b:"再看一遍筆記最沒效率——看到答案就以為記得。關上材料、進入場景、逼自己說出來。AI 角色扮演就是你最高效的提取訓練。"},
+    consolidate:{t:"密集複習，對抗陡峭遺忘曲線", b:"你記憶峰值高但衰減也快。每次複習不是重看，而是重新「演一遍那個場景」。", schedule:[1,3,8,20]},
+    task:"選一個你嚮往的場景（機場、展覽、咖啡廳、海邊），本週所有新詞全用這個場景串成一段 AI 對話。場景就是你最強的記憶鉤子。"},
+  architect:{
+    signature:"邏輯框架——散亂資訊對你幾乎無效，但一旦放進清晰結構，你的記憶保留率是八種類型中最高的。",
+    encode:{t:"先建框架，再填內容", b:"先看見整體再學細節：這跟我已知的什麼結構最像？上位概念是什麼？下面有幾個分支？用樹狀圖或語法地圖組織，再填詞彙與例句。"},
+    retrieve:{t:"從「再認」升級到「回想」", b:"先用選擇題確認理解，再進階到看中文提示輸出完整英文句子。別停在「翻筆記」——看到就誤以為記得。"},
+    consolidate:{t:"輸出替代輸入", b:"結構一旦建立，保留率高、衰減慢。每次複習是「合上書、輸出」——寫出來、說出來才算，眼睛掃過不算。", schedule:[1,7,21,60]},
+    task:"建立一份「語法關係地圖」，把本週句型用樹狀結構連起來。下次複習只看節點，逼自己從節點「生出」例句。"},
+  melodist:{
+    signature:"音韻共鳴——你記住的不是字的樣子，而是聲音在耳邊迴響的感覺。你最大的武器是耳朵。",
+    encode:{t:"讓詞彙先活在聲音裡", b:"學新詞先別看拼寫，先把音標唸出來至少三次，感受節奏與重音。特殊韻律就是你的記憶鉤子。"},
+    retrieve:{t:"跟讀再認是你的最佳提取", b:"Shadowing 同時編碼與提取。每次跟讀後蓋住原文、憑印象說一遍（回想），才算完整一個提取循環。"},
+    consolidate:{t:"睡前聽，讓 δ 波鞏固音韻記憶", b:"聽覺記憶與睡眠深度強相關。睡前 20 分鐘純聆聽當天音檔，讓大腦在深睡中自動鞏固。", schedule:[1,4,10,28]},
+    task:"找一段喜歡的英語 Podcast，每天聽同一段三遍：純聽 → 跟讀 → 遮稿複述。效果遠超看十遍。"},
+  narrator:{
+    signature:"情感故事——你記住的是「這個詞讓你有感覺的那一刻」。沒有情感連結的詞彙進得去、出得快。",
+    encode:{t:"把詞彙嵌進有人物的故事", b:"你需要的不是例句而是故事：誰在說這句話？什麼心情？對方如何反應？這個場景會成為比字典例句更持久的記憶錨點。"},
+    retrieve:{t:"「說出來」比「寫出來」更有效", b:"最強提取通道是語音輸出。對著 AI 把整個故事說一遍、自然嵌入本週詞彙。卡住的那個詞就是今天最重要的學習點。"},
+    consolidate:{t:"週記式間隔複習", b:"記憶保留和情感強度正相關。每週選一個有感主題做口說日記，把這週學到的全部「活用」進去。", schedule:[1,5,14,35]},
+    task:"選一個你真實發生過的故事，用英文說給 AI 聽，讓它校正、補充更好的表達。用到的新詞已和真實記憶綁定，記得特別久。"},
+  connector:{
+    signature:"跨域連結——你的大腦天生會在不同知識間建立關係，一個新詞一旦和已知概念連上，就很難忘。",
+    encode:{t:"找類比，而不是找定義", b:"別用「這個詞的意思是…」，改成「這個詞讓我想到…」。中英語感類比、跨學科隱喻，都是你最強的編碼工具。"},
+    retrieve:{t:"教別人是你最有效的提取", b:"費曼技巧對你天生有效。向 AI 或朋友解釋今天學到的概念，越說得清楚代表記得越深；卡住處就是要補強的點。"},
+    consolidate:{t:"主題式連結複習", b:"複習不是逐條翻閱，而是找出本週所有詞彙的共同主題，串成一張知識網，每次再延伸一個新節點。", schedule:[1,5,15,40]},
+    task:"把本週詞彙用「概念地圖」畫出來，找出關係與差異，再對著 AI 解釋每個連結是什麼意思。"},
+  analyst:{
+    signature:"原理輸出——你不記住不理解的東西。淺層重複對你幾乎無效，但真正弄懂後，保留時間遠比其他類型長。",
+    encode:{t:"先問「為什麼」，再記「是什麼」", b:"每個語法或用法先追問背後邏輯：為什麼英語這樣說？和中文對應邏輯差在哪？這個追問創造的記憶深度，翻十遍課本也達不到。"},
+    retrieve:{t:"費曼技巧是你的標配", b:"最高效提取是「向 AI 解釋」——用自己的話把概念從頭講一遍。能讓外行聽懂代表真的記住；講不清處就是記憶缺口。"},
+    consolidate:{t:"輸出即複習", b:"你不需要傳統複習，因為複習本來就是輸出。每週一次「費曼輸出日」，不看材料把一個語法點解釋給 AI 聽。", schedule:[1,7,21,60]},
+    task:"寫下本週一個讓你覺得「奇怪」的英語用法，花 15 分鐘查清背後邏輯，再對 AI 解釋：為什麼這樣用、何時不能、和中文思維差在哪。"},
+  performer:{
+    signature:"即時輸出——你記住的是「說出口的那一刻」。說、演、示範，是你大腦編碼的主要通道。",
+    encode:{t:"開口說，不要先背", b:"大腦在「發出聲音」時才真正完成編碼。學新詞先大聲說一遍、造句說出來、再想一個真實場景說第三遍。三次開口勝過默看十遍。"},
+    retrieve:{t:"即興對話是你最強的提取工具", b:"AI 即興對話最接近真實提取。不用準備，直接進話題，在壓力下讓詞彙自然浮現。想不起來的卡頓本身就是最深的記憶強化。"},
+    consolidate:{t:"錄音回聽，發現盲點", b:"鞏固不是重看材料，而是重聽自己說話的錄音。每週錄 3–5 分鐘口說日記，隔天回聽標記不順處。", schedule:[1,3,9,25]},
+    task:"每天結束前錄一段 2 分鐘英語口說，主題不限，說錯繼續說。兩週內輸出能力會明顯加速。"},
+  visionary:{
+    signature:"空間視覺——你的大腦以圖像和位置為記憶索引。看過的能記住，聽過的容易忘，因為聲音沒有「位置」可掛靠。",
+    encode:{t:"把詞彙變成圖像，用位置記住它", b:"為每個新詞創造誇張具體的畫面。記憶宮殿法對你近乎作弊：把 10 個詞依序放進你家從門口到廚房的 10 個位置。"},
+    retrieve:{t:"先「看見圖」，再「說出詞」", b:"你的提取路徑是「視覺→語言」。複習時先在腦中重建畫面，再從畫面提取詞彙。畫出心智圖、合上、憑記憶重畫，就是最高效回想。"},
+    consolidate:{t:"定期更新你的視覺地圖", b:"記憶和視覺鮮明度正相關。每次複習「走一遍」記憶宮殿，補充或修改畫面讓它更鮮明。", schedule:[1,6,18,45]},
+    task:"選一個熟悉空間（房間、常去的咖啡廳），把本週 10 個詞用越荒誕越好的視覺圖像放進 10 個位置。三天後閉眼「走」一遍，看能說出幾個。"},
+};
+
+function stratCard(lab, o, color){
+  return `<div class="strat"><div class="lab" style="color:${color}">${lab}</div>`
+    + `<div class="st">${o.t}</div><div class="sb">${o.b}</div>`
+    + (o.schedule ? `<div class="srs"><span class="lbl">間隔複習</span>`
+        + o.schedule.map((d,i)=>`<span class="d">第 ${d} 天</span>${i<o.schedule.length-1?'<span class="ar">→</span>':''}`).join('')
+        + `</div>` : '')
+    + `</div>`;
+}
 
 /* ---- 28 questions ----
    group X (Q1-10): 感官 s ↔ 抽象 ab
@@ -477,6 +551,7 @@ function setWeek(w){ weekTab=w; draw(); }
 
 function draw(){
   const P=TYPES[R.primary], S=TYPES[R.secondary], Q=QUADRANTS[R.quad];
+  const MP=MEMORY_PLAN[R.primary];
   // dot position: x -20..20, y -20..20
   const cx=Math.max(-20,Math.min(20,R.xScore)), cy=Math.max(-20,Math.min(20,R.yScore));
   const left=((cx+20)/40)*100, top=((20-cy)/40)*100;
@@ -505,6 +580,19 @@ function draw(){
         <span class="tag">⏰ ${P.bestTime}</span>
       </div>
       <div class="quote">「${P.quote}」</div>
+    </div>
+
+    <div class="sec-title">🧠 你的記憶訓練方案</div>
+    <div class="plan-sig" style="border-color:${P.color}"><b>你的記憶天才：</b>${MP.signature}</div>
+    <div style="margin-top:12px">
+      ${stratCard('編碼 ENCODE', MP.encode, P.color)}
+      ${stratCard('提取 RETRIEVE', MP.retrieve, P.color)}
+      ${stratCard('鞏固 CONSOLIDATE', MP.consolidate, P.color)}
+    </div>
+    <div class="plan-task">
+      <div class="h">📌 本週訓練建議</div>
+      <div class="b">${MP.task}</div>
+      <a class="btn sm" href="/practice?lang=english" style="display:inline-block;margin-top:12px;text-decoration:none;text-align:center">用英文開始練習 →</a>
     </div>
 
     <div class="sec-title">你的記憶座標</div>
