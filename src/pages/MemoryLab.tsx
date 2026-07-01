@@ -8,10 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Brain, Sparkles, Plus, Trash2, Check, X, Layers, ArrowLeft } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Brain, Sparkles, Plus, Trash2, Check, X, Layers, ArrowLeft, Dumbbell } from 'lucide-react';
 import { toast } from 'sonner';
 import { loadGeniusType, geniusInfo, GENIUS_INFO, GeniusType } from '@/lib/genius-type';
 import { GENIUS_PLAN, planFor } from '@/lib/genius-plan';
+import { GENIUS_TASKS } from '@/lib/genius-tasks';
 import {
   loadCards, addCard, deleteCard, dueCards, reviewCard, stats, dueLabel, MemoryItem,
 } from '@/lib/memory-srs';
@@ -24,6 +26,7 @@ export default function MemoryLab() {
   const [geniusType, setGeniusType] = useState<GeniusType | null>(null);
   const [items, setItems] = useState<MemoryItem[]>([]);
   const [tab, setTab] = useState('review');
+  const [taskType, setTaskType] = useState<GeniusType | null>(null);
 
   // review session
   const [queue, setQueue] = useState<string[] | null>(null);
@@ -118,7 +121,7 @@ export default function MemoryLab() {
           <TabsList className="grid grid-cols-3 w-full">
             <TabsTrigger value="review" className="gap-1.5 text-xs sm:text-sm"><Sparkles className="w-3.5 h-3.5" /> 今日複習</TabsTrigger>
             <TabsTrigger value="cards" className="gap-1.5 text-xs sm:text-sm"><Layers className="w-3.5 h-3.5" /> 卡片庫</TabsTrigger>
-            <TabsTrigger value="types" className="gap-1.5 text-xs sm:text-sm"><Brain className="w-3.5 h-3.5" /> 八種天才卡</TabsTrigger>
+            <TabsTrigger value="types" className="gap-1.5 text-xs sm:text-sm"><Dumbbell className="w-3.5 h-3.5" /> 型態訓練</TabsTrigger>
           </TabsList>
 
           {/* ---------- Review ---------- */}
@@ -241,7 +244,7 @@ export default function MemoryLab() {
 
           {/* ---------- 8 type cards ---------- */}
           <TabsContent value="types" className="space-y-3 pt-2">
-            <p className="text-sm text-muted-foreground">八種記憶天才，每種有專屬的編碼／提取方式與間隔複習節奏。</p>
+            <p className="text-sm text-muted-foreground">八種記憶天才，每種有專屬的編碼／提取方式、間隔複習節奏，與對應的英文訓練課題。</p>
             <div className="grid sm:grid-cols-2 gap-3">
               {(Object.keys(GENIUS_PLAN) as GeniusType[]).map(t => {
                 const info = GENIUS_INFO[t];
@@ -276,6 +279,14 @@ export default function MemoryLab() {
                           ))}
                         </div>
                       </div>
+                      <Button
+                        size="sm"
+                        className="w-full mt-1 text-white"
+                        style={{ backgroundColor: info.color }}
+                        onClick={() => setTaskType(t)}
+                      >
+                        <Dumbbell className="w-3.5 h-3.5 mr-1" /> 開始訓練 · {GENIUS_TASKS[t].length} 個課題
+                      </Button>
                     </CardContent>
                   </Card>
                 );
@@ -283,6 +294,39 @@ export default function MemoryLab() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Per-type training tasks (課題) */}
+        <Dialog open={!!taskType} onOpenChange={(o) => { if (!o) setTaskType(null); }}>
+          <DialogContent className="max-w-md">
+            {taskType && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <span className="text-xl">{GENIUS_INFO[taskType].emoji}</span>
+                    <span style={{ color: GENIUS_INFO[taskType].color }}>{GENIUS_INFO[taskType].nameZh} · 訓練課題</span>
+                  </DialogTitle>
+                </DialogHeader>
+                <p className="text-xs text-muted-foreground -mt-1">{planFor(taskType).signature}</p>
+                <div className="space-y-2.5">
+                  {GENIUS_TASKS[taskType].map((task, i) => (
+                    <div key={i} className="rounded-xl border p-3">
+                      <div className="font-semibold text-sm">{task.title}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{task.desc}</div>
+                      <Button
+                        size="sm"
+                        className="mt-2 w-full text-white"
+                        style={{ backgroundColor: GENIUS_INFO[taskType].color }}
+                        onClick={() => navigate(`/practice?lang=english&prompt=${encodeURIComponent(task.prompt)}`)}
+                      >
+                        用 AI 練習 →
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
