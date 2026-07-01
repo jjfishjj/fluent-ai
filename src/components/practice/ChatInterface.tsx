@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 import { fileToBase64 } from '@/lib/image-service';
 import { VARKInsightBanner } from '@/components/vark/VARKInsightBanner';
 import { LearningStyle } from '@/lib/learning-styles';
+import { geniusInfo, GeniusType } from '@/lib/genius-type';
+import { planFor } from '@/lib/genius-plan';
 import {
   Send,
   Mic,
@@ -38,6 +40,7 @@ interface ChatInterfaceProps {
   onVarkTipDismiss?: () => void;
   onVoiceUsed?: () => void;
   onAudioPlayed?: () => void;
+  geniusType?: GeniusType | null;
 }
 
 export function ChatInterface({
@@ -53,7 +56,10 @@ export function ChatInterface({
   onVarkTipDismiss,
   onVoiceUsed,
   onAudioPlayed,
+  geniusType,
 }: ChatInterfaceProps) {
+  const gi = geniusInfo(geniusType ?? null);
+  const genPlan = geniusType ? planFor(geniusType) : null;
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -273,6 +279,11 @@ export function ChatInterface({
                     ✓ 糾錯
                   </Badge>
                 )}
+                {gi && (
+                  <Badge className="text-xs text-white" style={{ backgroundColor: gi.color }}>
+                    {gi.emoji} {gi.nameZh}
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
@@ -292,6 +303,13 @@ export function ChatInterface({
             </Button>
           </div>
         </div>
+        {gi && genPlan && (
+          <div className="mt-2 text-xs rounded-lg px-3 py-1.5 flex items-start gap-1.5"
+            style={{ backgroundColor: `${gi.color}12`, color: gi.color }}>
+            <span>🧠</span>
+            <span><b>{genPlan.retrieve.label}</b>：{genPlan.retrieve.prompt}</span>
+          </div>
+        )}
       </div>
 
       {/* Messages Area */}

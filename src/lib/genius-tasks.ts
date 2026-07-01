@@ -9,6 +9,19 @@ export interface GeniusTask {
   prompt: string; // kicks off the AI practice session (English)
 }
 
+// Which built-in scenario best fits each type (for highlighting/sorting on the
+// Practice setup page). Values are Scenario ids from src/lib/constants.ts.
+export const GENIUS_SCENARIO: Record<GeniusType, { scenario: string; reason: string }> = {
+  explorer:  { scenario: 'travel',    reason: '情境角色扮演、沉浸式場景最適合你' },
+  architect: { scenario: 'academic',  reason: '結構化、精讀分析最適合你' },
+  melodist:  { scenario: 'freeChat',  reason: '自然對話、聽說節奏最適合你' },
+  narrator:  { scenario: 'freeChat',  reason: '深度對話、說故事最適合你' },
+  connector: { scenario: 'academic',  reason: '討論、跨領域連結最適合你' },
+  analyst:   { scenario: 'academic',  reason: '分析、精讀、費曼輸出最適合你' },
+  performer: { scenario: 'workplace', reason: '簡報、面試、互動輸出最適合你' },
+  visionary: { scenario: 'travel',    reason: '場景視覺化最適合你' },
+};
+
 export const GENIUS_TASKS: Record<GeniusType, GeniusTask[]> = {
   explorer: [
     { title: '機場情境角色扮演', desc: '在機場 check-in 的真實場景中把新單字用出來', prompt: "Let's role-play an airport check-in entirely in English. You are the check-in agent, I'm the traveler. Keep it at my level, introduce useful travel vocabulary naturally, and gently correct my mistakes." },
