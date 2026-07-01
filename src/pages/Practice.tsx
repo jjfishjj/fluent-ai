@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { LearningStyle } from '@/lib/learning-styles';
 import { analyzeMessage, updateProfile, getDominantStyle, VARKProfile } from '@/lib/vark-analyzer';
 import { loadVARKProfile, saveVARKProfile } from '@/lib/vark-service';
+import { loadGeniusType, geniusInfo, GeniusType, loadGeniusVark } from '@/lib/genius-type';
 import { getRandomTip } from '@/lib/vark-recommendations';
 import { useBrainwave } from '@/contexts/BrainwaveContext';
 import { markUsed, markCompleted } from '@/lib/material-progress';
@@ -61,6 +62,12 @@ const Practice = () => {
   // VARK tracking
   const [varkProfile, setVarkProfile] = useState<VARKProfile | null>(null);
   const [varkTip, setVarkTip] = useState<{ style: LearningStyle; message: string } | null>(null);
+  // 記憶天才類型 (from same-origin standalone quiz) — adapts the AI partner
+  const [geniusType, setGeniusType] = useState<GeniusType | null>(null);
+  // VARK style derived from the genius quiz — unifies the quiz with the app's VARK system
+  const [geniusVark, setGeniusVark] = useState<string | null>(null);
+  // Effective VARK: explicit account style wins; otherwise adopt the quiz-derived one
+  const effectiveLearningStyle = profile?.learning_style || geniusVark;
   const voiceUsedRef = useRef(false);
   const audioPlayedRef = useRef(false);
   const userMsgCountRef = useRef(0);
@@ -81,6 +88,8 @@ const Practice = () => {
   useEffect(() => {
     const uid = user?.id || 'guest';
     setVarkProfile(loadVARKProfile(uid));
+    setGeniusType(loadGeniusType());
+    setGeniusVark(loadGeniusVark());
   }, [user?.id]);
 
   const currentLanguage = LANGUAGES.find(l => l.id === selectedLanguage);
@@ -164,7 +173,8 @@ const Practice = () => {
     await streamChat({
       messages: [{ role: 'user', content: greetingPrompt }],
       settings,
-      learningStyle: profile?.learning_style,
+      learningStyle: effectiveLearningStyle,
+      geniusType,
       onDelta: (chunk) => {
         assistantContent += chunk;
         setMessages([{
@@ -308,7 +318,8 @@ const Practice = () => {
     await streamChat({
       messages: chatHistory,
       settings: getCurrentSettings(),
-      learningStyle: profile?.learning_style,
+      learningStyle: effectiveLearningStyle,
+      geniusType,
       onDelta: (chunk) => {
         assistantContent += chunk;
         setMessages(prev => {
@@ -408,6 +419,34 @@ const Practice = () => {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
         </Button>
+
+        {/* Memory-Genius type: shows the AI is adapting, or links to the assessment */}
+        {(() => {
+          const gi = geniusInfo(geniusType);
+          return gi ? (
+            <div className="max-w-4xl mx-auto mb-6 flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+              <span className="text-xl">{gi.emoji}</span>
+              <div className="text-sm flex-1">
+                <span className="text-muted-foreground">英文練習時，AI 會依你的記憶天才類型</span>
+                <span className="font-semibold text-indigo-700 mx-1">{gi.nameZh} · {gi.nameEn}</span>
+                <span className="text-muted-foreground">調整教學（{gi.vark} · {gi.brainwave}）</span>
+              </div>
+              <a href="/quizzes/memory-genius-quiz/" className="text-xs text-indigo-600 hover:underline shrink-0">重新測定</a>
+            </div>
+          ) : (
+            <a
+              href="/quizzes/memory-genius-quiz/"
+              className="max-w-4xl mx-auto mb-6 flex items-center gap-3 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-4 py-3 hover:shadow-sm transition-shadow"
+            >
+              <span className="text-xl">🧠</span>
+              <div className="text-sm flex-1">
+                <span className="font-semibold">做 5 分鐘記憶天才測定</span>
+                <span className="text-muted-foreground">，讓 AI 在英文練習時依你的學習型態（8 種天才類型 × VARK）調整教學方式</span>
+              </div>
+              <span className="text-indigo-600 shrink-0">→</span>
+            </a>
+          );
+        })()}
 
         {!selectedLanguage ? (
           <div className="max-w-4xl mx-auto">
