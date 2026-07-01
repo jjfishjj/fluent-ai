@@ -81,6 +81,19 @@ export default function BrainLab() {
           <DeviceConnector />
         </section>
 
+        {/* Memory cards · SRS entry */}
+        <button
+          onClick={() => navigate('/memory')}
+          className="w-full flex items-center gap-3 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-4 py-3 hover:shadow-sm transition-shadow text-left"
+        >
+          <span className="text-xl">🧠</span>
+          <div className="flex-1 text-sm">
+            <span className="font-semibold">記憶卡 · SRS 間隔複習</span>
+            <span className="text-muted-foreground">　依你的天才型態編碼、主動提取、按專屬節奏複習</span>
+          </div>
+          <span className="text-indigo-600 shrink-0">→</span>
+        </button>
+
         <Tabs defaultValue="advisor" className="space-y-4">
           <TabsList className="grid grid-cols-4 w-full">
             <TabsTrigger value="advisor" className="gap-1.5 text-xs sm:text-sm">
