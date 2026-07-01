@@ -45,3 +45,34 @@ export function loadGeniusType(): GeniusType | null {
 export function geniusInfo(type: GeniusType | null): GeniusInfo | null {
   return type ? GENIUS_INFO[type] : null;
 }
+
+// 8 genius types → the app's VARK LearningStyle, so one quiz drives both systems.
+export type VarkStyle = 'visual' | 'auditory' | 'reading' | 'kinesthetic';
+export const GENIUS_TO_VARK: Record<GeniusType, VarkStyle> = {
+  explorer: 'kinesthetic',
+  architect: 'reading',
+  melodist: 'auditory',
+  narrator: 'auditory',
+  connector: 'reading',
+  analyst: 'reading',
+  performer: 'kinesthetic',
+  visionary: 'visual',
+};
+const VARK_VALID = new Set<VarkStyle>(['visual', 'auditory', 'reading', 'kinesthetic']);
+
+/**
+ * VARK learning style derived from the genius quiz. Prefers the `vark` field the
+ * quiz stores; falls back to the type→VARK map for older results. null if untaken.
+ */
+export function loadGeniusVark(): VarkStyle | null {
+  try {
+    const raw = localStorage.getItem('memo_genius_result');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { p?: string; vark?: string };
+    if (parsed?.vark && VARK_VALID.has(parsed.vark as VarkStyle)) return parsed.vark as VarkStyle;
+    if (parsed?.p && VALID.has(parsed.p)) return GENIUS_TO_VARK[parsed.p as GeniusType];
+  } catch {
+    /* ignore */
+  }
+  return null;
+}

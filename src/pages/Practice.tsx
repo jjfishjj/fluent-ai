@@ -27,7 +27,7 @@ import { toast } from 'sonner';
 import { LearningStyle } from '@/lib/learning-styles';
 import { analyzeMessage, updateProfile, getDominantStyle, VARKProfile } from '@/lib/vark-analyzer';
 import { loadVARKProfile, saveVARKProfile } from '@/lib/vark-service';
-import { loadGeniusType, geniusInfo, GeniusType } from '@/lib/genius-type';
+import { loadGeniusType, geniusInfo, GeniusType, loadGeniusVark } from '@/lib/genius-type';
 import { getRandomTip } from '@/lib/vark-recommendations';
 import { useBrainwave } from '@/contexts/BrainwaveContext';
 import { markUsed, markCompleted } from '@/lib/material-progress';
@@ -64,6 +64,10 @@ const Practice = () => {
   const [varkTip, setVarkTip] = useState<{ style: LearningStyle; message: string } | null>(null);
   // 記憶天才類型 (from same-origin standalone quiz) — adapts the AI partner
   const [geniusType, setGeniusType] = useState<GeniusType | null>(null);
+  // VARK style derived from the genius quiz — unifies the quiz with the app's VARK system
+  const [geniusVark, setGeniusVark] = useState<string | null>(null);
+  // Effective VARK: explicit account style wins; otherwise adopt the quiz-derived one
+  const effectiveLearningStyle = profile?.learning_style || geniusVark;
   const voiceUsedRef = useRef(false);
   const audioPlayedRef = useRef(false);
   const userMsgCountRef = useRef(0);
@@ -85,6 +89,7 @@ const Practice = () => {
     const uid = user?.id || 'guest';
     setVarkProfile(loadVARKProfile(uid));
     setGeniusType(loadGeniusType());
+    setGeniusVark(loadGeniusVark());
   }, [user?.id]);
 
   const currentLanguage = LANGUAGES.find(l => l.id === selectedLanguage);
@@ -168,7 +173,7 @@ const Practice = () => {
     await streamChat({
       messages: [{ role: 'user', content: greetingPrompt }],
       settings,
-      learningStyle: profile?.learning_style,
+      learningStyle: effectiveLearningStyle,
       geniusType,
       onDelta: (chunk) => {
         assistantContent += chunk;
@@ -313,7 +318,7 @@ const Practice = () => {
     await streamChat({
       messages: chatHistory,
       settings: getCurrentSettings(),
-      learningStyle: profile?.learning_style,
+      learningStyle: effectiveLearningStyle,
       geniusType,
       onDelta: (chunk) => {
         assistantContent += chunk;
