@@ -28,6 +28,7 @@ import { LearningStyle } from '@/lib/learning-styles';
 import { analyzeMessage, updateProfile, getDominantStyle, VARKProfile } from '@/lib/vark-analyzer';
 import { loadVARKProfile, saveVARKProfile } from '@/lib/vark-service';
 import { loadGeniusType, geniusInfo, GeniusType, loadGeniusVark } from '@/lib/genius-type';
+import { GENIUS_TASKS, GENIUS_SCENARIO } from '@/lib/genius-tasks';
 import { getRandomTip } from '@/lib/vark-recommendations';
 import { useBrainwave } from '@/contexts/BrainwaveContext';
 import { markUsed, markCompleted } from '@/lib/material-progress';
@@ -139,20 +140,15 @@ const Practice = () => {
     }
   };
 
-  const handleStartConversation = async () => {
-    if (!selectedLanguage || !selectedScenario) return;
-    const settings = getCurrentSettings();
-
+  // Core conversation launcher — takes explicit settings + greeting so callers
+  // don't depend on React state having flushed.
+  const runConversation = async (settings: ConversationSettings, greetingPrompt: string) => {
     let newConvId: string | null = null;
     if (user) {
       const id = await createConversation(settings, user.id);
       newConvId = id || null;
       setConversationId(newConvId);
     }
-
-    const greetingPrompt = materialPrompt
-      ? materialPrompt
-      : `Start the conversation with a greeting in ${selectedLanguage}. Introduce the scenario "${selectedScenario.id}" at the ${difficulty} level. Keep it brief (2-3 sentences).`;
 
     setMessages([]);
     setIsInConversation(true);
@@ -202,6 +198,33 @@ const Practice = () => {
         toast.error(msg);
       },
     });
+  };
+
+  const handleStartConversation = async () => {
+    if (!selectedLanguage || !selectedScenario) return;
+    const settings = getCurrentSettings();
+    const greetingPrompt = materialPrompt
+      ? materialPrompt
+      : `Start the conversation with a greeting in ${selectedLanguage}. Introduce the scenario "${selectedScenario.id}" at the ${difficulty} level. Keep it brief (2-3 sentences).`;
+    await runConversation(settings, greetingPrompt);
+  };
+
+  // Launch a type-recommended training task directly (Free Chat scenario, English).
+  const startTypeTask = async (prompt: string) => {
+    const freeChat = SCENARIOS.find(sc => sc.id === 'freeChat') || SCENARIOS[0];
+    setSelectedLanguage('english');
+    setSelectedScenario(freeChat);
+    setMaterialPrompt(prompt);
+    const settings: ConversationSettings = {
+      language: 'english',
+      scenario: 'freeChat',
+      difficulty,
+      speed,
+      tone,
+      mode,
+      instantCorrection,
+    };
+    await runConversation(settings, prompt);
   };
 
   const handleSendMessage = async (content: string, imageBase64?: string, videoFrames?: string[], urlContext?: string) => {
@@ -400,6 +423,7 @@ const Practice = () => {
         onVarkTipDismiss={() => setVarkTip(null)}
         onVoiceUsed={() => { voiceUsedRef.current = true; }}
         onAudioPlayed={() => { audioPlayedRef.current = true; }}
+        geniusType={geniusType}
       />
     );
   }
@@ -534,9 +558,36 @@ const Practice = () => {
               </div>
             )}
 
+            {/* #1 為你的型態推薦課題 (English + type known) */}
+            {selectedLanguage === 'english' && geniusType && (
+              <section className="mb-8">
+                <div className="flex items-center gap-2 mb-3">
+                  <h2 className="text-xl font-bold">為你的型態推薦</h2>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                    {geniusInfo(geniusType)?.emoji} {geniusInfo(geniusType)?.nameZh}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {GENIUS_TASKS[geniusType].map((task, i) => (
+                    <button
+                      key={i}
+                      onClick={() => startTypeTask(task.prompt)}
+                      className="text-left rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 p-4 hover:shadow-md transition-shadow"
+                    >
+                      <div className="font-semibold text-sm">{task.title}</div>
+                      <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{task.desc}</div>
+                      <div className="text-xs text-indigo-600 font-medium mt-2">用 AI 練習 →</div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <ScenarioSelector
               selectedScenario={selectedScenario}
               onSelectScenario={setSelectedScenario}
+              recommendedCategory={geniusType ? GENIUS_SCENARIO[geniusType].scenario : undefined}
+              recommendedReason={geniusType ? GENIUS_SCENARIO[geniusType].reason : undefined}
               difficulty={difficulty}
               onDifficultyChange={setDifficulty}
               speed={speed}

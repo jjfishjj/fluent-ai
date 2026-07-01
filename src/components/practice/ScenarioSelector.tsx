@@ -10,6 +10,8 @@ import { ChevronRight, Zap, Clock, MessageSquare } from 'lucide-react';
 interface ScenarioSelectorProps {
   selectedScenario: Scenario | null;
   onSelectScenario: (scenario: Scenario) => void;
+  recommendedCategory?: string;
+  recommendedReason?: string;
   difficulty: DifficultyLevel;
   onDifficultyChange: (level: DifficultyLevel) => void;
   speed: SpeechSpeed;
@@ -26,6 +28,8 @@ interface ScenarioSelectorProps {
 export function ScenarioSelector({
   selectedScenario,
   onSelectScenario,
+  recommendedCategory,
+  recommendedReason,
   difficulty,
   onDifficultyChange,
   speed,
@@ -40,39 +44,58 @@ export function ScenarioSelector({
 }: ScenarioSelectorProps) {
   const [selectedSubScenario, setSelectedSubScenario] = useState<string | null>(null);
 
+  // Put the type-recommended scenario first.
+  const orderedScenarios = recommendedCategory
+    ? [...SCENARIOS].sort(
+        (a, b) => (b.category === recommendedCategory ? 1 : 0) - (a.category === recommendedCategory ? 1 : 0),
+      )
+    : SCENARIOS;
+
   return (
     <div className="space-y-8">
       {/* Scenario Selection */}
       <section>
         <h2 className="text-xl font-bold mb-4">Choose a Scenario</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {SCENARIOS.map((scenario) => (
-            <button
-              key={scenario.id}
-              onClick={() => {
-                onSelectScenario(scenario);
-                setSelectedSubScenario(null);
-              }}
-              className={`scenario-card ${
-                selectedScenario?.id === scenario.id 
-                  ? 'border-primary bg-primary/5 shadow-card' 
-                  : ''
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-2xl mb-2 block">{scenario.icon}</span>
-                  <h3 className="font-semibold mb-1">{scenario.name}</h3>
-                  <p className="text-sm text-muted-foreground">{scenario.description}</p>
-                </div>
-                {selectedScenario?.id === scenario.id && (
-                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                    <ChevronRight className="w-4 h-4 text-primary-foreground" />
+          {orderedScenarios.map((scenario) => {
+            const isRecommended = !!recommendedCategory && scenario.category === recommendedCategory;
+            return (
+              <button
+                key={scenario.id}
+                onClick={() => {
+                  onSelectScenario(scenario);
+                  setSelectedSubScenario(null);
+                }}
+                className={`scenario-card ${
+                  selectedScenario?.id === scenario.id
+                    ? 'border-primary bg-primary/5 shadow-card'
+                    : isRecommended
+                    ? 'border-indigo-300 bg-indigo-50/40'
+                    : ''
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="text-2xl mb-2 block">{scenario.icon}</span>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold">{scenario.name}</h3>
+                      {isRecommended && (
+                        <Badge className="bg-indigo-600 text-white text-[10px] px-1.5 py-0">★ 為你推薦</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isRecommended && recommendedReason ? recommendedReason : scenario.description}
+                    </p>
                   </div>
-                )}
-              </div>
-            </button>
-          ))}
+                  {selectedScenario?.id === scenario.id && (
+                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                      <ChevronRight className="w-4 h-4 text-primary-foreground" />
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </section>
 
