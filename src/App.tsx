@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BrainwaveProvider } from "@/contexts/BrainwaveContext";
+import { BottomNav } from "@/components/layout/BottomNav";
 import BrainLab from "./pages/BrainLab";
 import MemoryLab from "./pages/MemoryLab";
 import Index from "./pages/Index";
@@ -30,23 +31,26 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <BrainwaveProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/practice" element={<Practice />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/quiz" element={<Quiz />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/friends" element={<Friends />} />
-            <Route path="/energy" element={<Energy />} />
-            <Route path="/shop" element={<Shop />} />
-            <Route path="/interests" element={<Interests />} />
-            <Route path="/brain-lab" element={<BrainLab />} />
-            <Route path="/memory" element={<MemoryLab />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+            <div className="pb-16 md:pb-0">
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/practice" element={<Practice />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/quiz" element={<Quiz />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/friends" element={<Friends />} />
+                <Route path="/energy" element={<Energy />} />
+                <Route path="/shop" element={<Shop />} />
+                <Route path="/interests" element={<Interests />} />
+                <Route path="/brain-lab" element={<BrainLab />} />
+                <Route path="/memory" element={<MemoryLab />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </div>
+            <BottomNav />
           </BrainwaveProvider>
         </AuthProvider>
       </BrowserRouter>
