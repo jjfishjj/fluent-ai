@@ -9,13 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Brain, Sparkles, Plus, Trash2, Check, X, Layers, ArrowLeft, Dumbbell } from 'lucide-react';
+import { Brain, Sparkles, Plus, Trash2, Check, X, Layers, ArrowLeft, Dumbbell, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { loadGeniusType, geniusInfo, GENIUS_INFO, GeniusType } from '@/lib/genius-type';
 import { GENIUS_PLAN, planFor } from '@/lib/genius-plan';
 import { GENIUS_TASKS } from '@/lib/genius-tasks';
 import {
-  loadCards, addCard, deleteCard, dueCards, reviewCard, stats, dueLabel, MemoryItem,
+  loadCards, addCard, deleteCard, dueCards, reviewCard, stats, dueLabel, analytics, MemoryItem,
 } from '@/lib/memory-srs';
 
 export default function MemoryLab() {
@@ -31,6 +31,7 @@ export default function MemoryLab() {
   // review session
   const [queue, setQueue] = useState<string[] | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [recallText, setRecallText] = useState('');
 
   // add form
   const [english, setEnglish] = useState('');
@@ -45,8 +46,9 @@ export default function MemoryLab() {
   const plan = planFor(geniusType);
   const gi = geniusInfo(geniusType);
   const s = stats(items);
+  const a = analytics(items);
 
-  const startReview = () => { setQueue(dueCards(items).map(c => c.id)); setRevealed(false); };
+  const startReview = () => { setQueue(dueCards(items).map(c => c.id)); setRevealed(false); setRecallText(''); };
   const current = queue && queue.length ? items.find(c => c.id === queue[0]) : null;
 
   const grade = (g: 'again' | 'good') => {
@@ -55,6 +57,7 @@ export default function MemoryLab() {
     setItems([...updated]);
     setQueue(g === 'good' ? queue!.slice(1) : [...queue!.slice(1), queue![0]]);
     setRevealed(false);
+    setRecallText('');
   };
 
   const handleAdd = () => {
@@ -118,10 +121,11 @@ export default function MemoryLab() {
         </div>
 
         <Tabs value={tab} onValueChange={(v) => { setTab(v); if (v === 'review') setQueue(null); }}>
-          <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="review" className="gap-1.5 text-xs sm:text-sm"><Sparkles className="w-3.5 h-3.5" /> 今日複習</TabsTrigger>
-            <TabsTrigger value="cards" className="gap-1.5 text-xs sm:text-sm"><Layers className="w-3.5 h-3.5" /> 卡片庫</TabsTrigger>
-            <TabsTrigger value="types" className="gap-1.5 text-xs sm:text-sm"><Dumbbell className="w-3.5 h-3.5" /> 型態訓練</TabsTrigger>
+          <TabsList className="grid grid-cols-4 w-full">
+            <TabsTrigger value="review" className="gap-1 text-[11px] sm:text-sm px-1"><Sparkles className="w-3.5 h-3.5 shrink-0" /> 今日複習</TabsTrigger>
+            <TabsTrigger value="cards" className="gap-1 text-[11px] sm:text-sm px-1"><Layers className="w-3.5 h-3.5 shrink-0" /> 卡片庫</TabsTrigger>
+            <TabsTrigger value="types" className="gap-1 text-[11px] sm:text-sm px-1"><Dumbbell className="w-3.5 h-3.5 shrink-0" /> 型態訓練</TabsTrigger>
+            <TabsTrigger value="stats" className="gap-1 text-[11px] sm:text-sm px-1"><BarChart3 className="w-3.5 h-3.5 shrink-0" /> 數據</TabsTrigger>
           </TabsList>
 
           {/* ---------- Review ---------- */}
@@ -160,10 +164,28 @@ export default function MemoryLab() {
                       <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-800">
                         🧠 <b>{plan.retrieve.label}：</b>{plan.retrieve.prompt}
                       </div>
+                      {plan.retrieve.input === 'write' ? (
+                        <Textarea
+                          placeholder="先寫出你回想到的意思或造一個句子（寫了才有主動提取效果）"
+                          value={recallText}
+                          onChange={e => setRecallText(e.target.value)}
+                          rows={2}
+                        />
+                      ) : (
+                        <div className="text-center text-sm text-muted-foreground bg-slate-50 rounded-lg py-3">
+                          {plan.retrieve.input === 'speak' ? '🎙️ 先「說出來」再顯示答案' : '🖼️ 先在腦中「重建畫面」再顯示答案'}
+                        </div>
+                      )}
                       <Button className="w-full" variant="outline" onClick={() => setRevealed(true)}>顯示答案</Button>
                     </div>
                   ) : (
                     <div className="space-y-4">
+                      {plan.retrieve.input === 'write' && recallText.trim() && (
+                        <div className="text-sm bg-amber-50 border border-amber-100 rounded-lg p-2.5">
+                          <span className="text-amber-700 font-medium">你的回想：</span>
+                          <span className="text-muted-foreground">{recallText}</span>
+                        </div>
+                      )}
                       <div className="text-center">
                         <div className="text-lg font-medium">{current.meaning}</div>
                         {current.encodeNote && (
@@ -292,6 +314,93 @@ export default function MemoryLab() {
                 );
               })}
             </div>
+          </TabsContent>
+
+          {/* ---------- Retention dashboard ---------- */}
+          <TabsContent value="stats" className="space-y-4 pt-2">
+            {a.totalReviews === 0 ? (
+              <Card><CardContent className="p-8 text-center space-y-2">
+                <div className="text-3xl">📊</div>
+                <p className="font-medium">還沒有複習紀錄</p>
+                <p className="text-sm text-muted-foreground">複習幾張卡片後，這裡會顯示你的保留率與趨勢</p>
+              </CardContent></Card>
+            ) : (
+              <>
+                {/* KPI tiles */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { n: `${a.retention}%`, l: '保留率', hint: '複習答對比例', c: '#4f46e5' },
+                    { n: a.streakDays, l: '連續天數', hint: '每天複習不中斷', c: '#0ea5e9' },
+                    { n: a.totalReviews, l: '總複習次數', hint: '累積提取次數', c: '#64748b' },
+                    { n: a.mastered, l: '已鞏固', hint: '走完間隔節奏', c: '#10b981' },
+                  ].map(k => (
+                    <Card key={k.l}><CardContent className="p-3">
+                      <div className="text-2xl font-bold" style={{ color: k.c }}>{k.n}</div>
+                      <div className="text-xs font-medium">{k.l}</div>
+                      <div className="text-[11px] text-muted-foreground">{k.hint}</div>
+                    </CardContent></Card>
+                  ))}
+                </div>
+
+                {/* 14-day activity — single-series magnitude bars (one indigo hue) */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-semibold">近 14 天複習量</p>
+                      <span className="text-xs text-muted-foreground">今天 {a.reviewedToday} 次</span>
+                    </div>
+                    {(() => {
+                      const max = Math.max(1, ...a.byDay.map(d => d.count));
+                      return (
+                        <div className="flex items-end gap-1.5 h-28">
+                          {a.byDay.map((d, i) => {
+                            const h = d.count > 0 ? Math.max(6, Math.round((d.count / max) * 100)) : 2;
+                            const isToday = i === a.byDay.length - 1;
+                            return (
+                              <div key={d.date} className="flex-1 flex flex-col items-center justify-end h-full" title={`${d.date}：${d.count} 次`}>
+                                <div
+                                  className="w-full rounded-t"
+                                  style={{
+                                    height: `${h}%`,
+                                    backgroundColor: d.count === 0 ? '#e2e8f0' : isToday ? '#4f46e5' : '#a5b4fc',
+                                  }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                    <div className="flex justify-between text-[10px] text-muted-foreground mt-1.5">
+                      <span>14 天前</span><span>今天</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Distribution */}
+                <Card>
+                  <CardContent className="p-4 space-y-2">
+                    <p className="text-sm font-semibold mb-1">卡片狀態</p>
+                    {([
+                      { l: '待複習', v: a.due, c: '#4f46e5' },
+                      { l: '學習中', v: a.learning, c: '#f59e0b' },
+                      { l: '已鞏固', v: a.mastered, c: '#10b981' },
+                    ]).map(row => {
+                      const pct = a.total ? Math.round((row.v / a.total) * 100) : 0;
+                      return (
+                        <div key={row.l} className="flex items-center gap-2 text-xs">
+                          <span className="w-14 shrink-0 text-muted-foreground">{row.l}</span>
+                          <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: row.c }} />
+                          </div>
+                          <span className="w-8 text-right font-medium">{row.v}</span>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </TabsContent>
         </Tabs>
 
