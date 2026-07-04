@@ -119,6 +119,48 @@ export function stats(cards: MemoryItem[]): SrsStats {
   };
 }
 
+export interface Analytics {
+  totalReviews: number;
+  retention: number;      // % of reviews graded good
+  streakDays: number;     // consecutive days (ending today) with ≥1 review
+  reviewedToday: number;
+  byDay: { date: string; count: number }[]; // last 14 days
+  learning: number; mastered: number; due: number; total: number;
+}
+
+/** Aggregate review history into retention / streak / activity metrics. */
+export function analytics(cards: MemoryItem[]): Analytics {
+  const logs = cards.flatMap(c => c.history || []);
+  const total = logs.length;
+  const good = logs.filter(l => l.grade === 'good').length;
+  const retention = total ? Math.round((good / total) * 100) : 0;
+
+  // last 14 days buckets
+  const byDay: { date: string; count: number }[] = [];
+  const now = new Date();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    byDay.push({ date: d.toISOString().slice(0, 10), count: 0 });
+  }
+  const idx: Record<string, number> = {};
+  byDay.forEach((d, i) => { idx[d.date] = i; });
+  logs.forEach(l => {
+    const k = (l.date || '').slice(0, 10);
+    if (k in idx) byDay[idx[k]].count++;
+  });
+
+  const reviewedToday = byDay[byDay.length - 1].count;
+  let streakDays = 0;
+  for (let i = byDay.length - 1; i >= 0; i--) {
+    if (byDay[i].count > 0) streakDays++;
+    else break;
+  }
+
+  const s = stats(cards);
+  return { totalReviews: total, retention, streakDays, reviewedToday, byDay, learning: s.learning, mastered: s.mastered, due: s.due, total: s.total };
+}
+
 /** Human-friendly "due in" label. */
 export function dueLabel(nextReviewAt: string): string {
   const diff = new Date(nextReviewAt).getTime() - Date.now();
