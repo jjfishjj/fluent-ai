@@ -24,7 +24,7 @@ import { streamChat } from '@/lib/stream-chat';
 import { parseCorrections } from '@/lib/parse-corrections';
 import { generateImage, uploadChatImage } from '@/lib/image-service';
 import { toast } from 'sonner';
-import { LearningStyle } from '@/lib/learning-styles';
+import { LearningStyle, STYLE_INFO } from '@/lib/learning-styles';
 import { analyzeMessage, updateProfile, getDominantStyle, VARKProfile } from '@/lib/vark-analyzer';
 import { loadVARKProfile, saveVARKProfile } from '@/lib/vark-service';
 import { loadGeniusType, geniusInfo, GeniusType, loadGeniusVark } from '@/lib/genius-type';
@@ -482,6 +482,37 @@ const Practice = () => {
               </div>
               <span className="text-indigo-600 shrink-0">→</span>
             </a>
+          );
+        })()}
+
+        {/* VARK learning style indicator */}
+        {(() => {
+          const style = effectiveLearningStyle as LearningStyle | null;
+          const styleData = style ? STYLE_INFO[style] : null;
+          if (styleData) {
+            return (
+              <div className="max-w-4xl mx-auto mb-4 flex items-center gap-2 rounded-xl border px-4 py-2.5"
+                style={{ borderColor: styleData.color + '44', background: styleData.color + '0d' }}>
+                <span className="text-lg">{styleData.emoji}</span>
+                <span className="text-sm flex-1">
+                  <span className="text-muted-foreground">AI 教學風格已調整為</span>
+                  <span className="font-semibold mx-1" style={{ color: styleData.color }}>{styleData.name}</span>
+                  <span className="text-muted-foreground text-xs">· {styleData.nameEn}</span>
+                </span>
+                <button onClick={() => navigate('/quiz')} className="text-xs hover:underline shrink-0" style={{ color: styleData.color }}>重新測驗</button>
+              </div>
+            );
+          }
+          return (
+            <button onClick={() => navigate('/quiz')}
+              className="max-w-4xl mx-auto mb-4 w-full flex items-center gap-3 rounded-xl border border-dashed border-primary/30 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors text-left">
+              <span className="text-xl">🎯</span>
+              <div className="text-sm flex-1">
+                <span className="font-semibold">做 VARK 學習型態測驗</span>
+                <span className="text-muted-foreground">，讓 AI 依你的風格（視覺／聽覺／讀寫／動覺）調整教學</span>
+              </div>
+              <span className="text-primary shrink-0">→</span>
+            </button>
           );
         })()}
 
