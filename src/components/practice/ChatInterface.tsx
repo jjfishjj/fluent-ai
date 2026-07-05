@@ -2,7 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { Message, ConversationSettings } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseCorrections } from '@/lib/parse-corrections';
 import { toast } from 'sonner';
 import { fileToBase64 } from '@/lib/image-service';
@@ -24,7 +26,8 @@ import {
   Loader2,
   Video,
   Link2,
-  FileVideo
+  FileVideo,
+  Plus
 } from 'lucide-react';
 
 interface ChatInterfaceProps {
@@ -41,6 +44,7 @@ interface ChatInterfaceProps {
   onVoiceUsed?: () => void;
   onAudioPlayed?: () => void;
   geniusType?: GeniusType | null;
+  onSaveCard?: (english: string, meaning: string, note?: string) => void;
 }
 
 export function ChatInterface({
@@ -57,9 +61,15 @@ export function ChatInterface({
   onVoiceUsed,
   onAudioPlayed,
   geniusType,
+  onSaveCard,
 }: ChatInterfaceProps) {
   const gi = geniusInfo(geniusType ?? null);
   const genPlan = geniusType ? planFor(geniusType) : null;
+  const cardPlan = planFor(geniusType ?? null);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [cardEn, setCardEn] = useState('');
+  const [cardZh, setCardZh] = useState('');
+  const [cardNote, setCardNote] = useState('');
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -288,6 +298,11 @@ export function ChatInterface({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {onSaveCard && (
+              <Button variant="outline" size="sm" onClick={() => setSaveOpen(true)} title="把學到的詞加進記憶卡">
+                <Plus className="w-4 h-4 mr-1" /> 記憶卡
+              </Button>
+            )}
             <Button
               variant={imageMode ? 'default' : 'outline'}
               size="sm"
@@ -593,6 +608,37 @@ export function ChatInterface({
           </div>
         )}
       </div>
+
+      {/* Save a word into the SRS memory cards */}
+      <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-4 h-4" /> 加進記憶卡
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input placeholder="English word / phrase" value={cardEn} onChange={e => setCardEn(e.target.value)} autoFocus />
+            <Input placeholder="中文意思" value={cardZh} onChange={e => setCardZh(e.target.value)} />
+            <Textarea
+              placeholder={`${cardPlan.encode.label}（${cardPlan.encode.field}）：${cardPlan.encode.hint}`}
+              value={cardNote}
+              onChange={e => setCardNote(e.target.value)}
+              rows={2}
+            />
+            <Button
+              className="w-full"
+              disabled={!cardEn.trim() || !cardZh.trim()}
+              onClick={() => {
+                onSaveCard?.(cardEn.trim(), cardZh.trim(), cardNote.trim() || undefined);
+                setCardEn(''); setCardZh(''); setCardNote(''); setSaveOpen(false);
+              }}
+            >
+              加入複習佇列
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
