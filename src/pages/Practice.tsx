@@ -29,6 +29,7 @@ import { analyzeMessage, updateProfile, getDominantStyle, VARKProfile } from '@/
 import { loadVARKProfile, saveVARKProfile } from '@/lib/vark-service';
 import { loadGeniusType, geniusInfo, GeniusType, loadGeniusVark } from '@/lib/genius-type';
 import { GENIUS_TASKS, GENIUS_SCENARIO } from '@/lib/genius-tasks';
+import { addCard } from '@/lib/memory-srs';
 import { getRandomTip } from '@/lib/vark-recommendations';
 import { useBrainwave } from '@/contexts/BrainwaveContext';
 import { markUsed, markCompleted } from '@/lib/material-progress';
@@ -207,6 +208,12 @@ const Practice = () => {
       ? materialPrompt
       : `Start the conversation with a greeting in ${selectedLanguage}. Introduce the scenario "${selectedScenario.id}" at the ${difficulty} level. Keep it brief (2-3 sentences).`;
     await runConversation(settings, greetingPrompt);
+  };
+
+  // Save a word from the conversation straight into the SRS memory cards.
+  const handleSaveCard = (english: string, meaning: string, note?: string) => {
+    addCard(user?.id || 'guest', { english, meaning, encodeNote: note });
+    toast.success('已加入記憶卡，今天就會出現在複習佇列');
   };
 
   // Launch a type-recommended training task directly (Free Chat scenario, English).
@@ -424,6 +431,7 @@ const Practice = () => {
         onVoiceUsed={() => { voiceUsedRef.current = true; }}
         onAudioPlayed={() => { audioPlayedRef.current = true; }}
         geniusType={geniusType}
+        onSaveCard={handleSaveCard}
       />
     );
   }
