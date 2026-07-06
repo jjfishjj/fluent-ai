@@ -123,10 +123,10 @@ This helps the learner read and pronounce the text.`
 - When correcting, contrast wrong vs. right visibly. Avoid audio-only, image-less explanation.`,
     };
 
-    // Genius-type adaptation is currently scoped to English practice only.
-    const isEnglish = settings?.language === 'english';
-    const geniusInstruction = isEnglish && geniusType && geniusTypeGuide[geniusType]
-      ? `\n\n## Memory-Genius Type Adaptation (PRIORITY)\n${geniusTypeGuide[geniusType]}\nLet this talent type shape HOW you teach throughout the whole conversation, not just once.`
+    // Genius-type adaptation — applies to any target language (guide text is
+    // written for English, so localise the language references to langName).
+    const geniusInstruction = geniusType && geniusTypeGuide[geniusType]
+      ? `\n\n## Memory-Genius Type Adaptation (PRIORITY)\n${geniusTypeGuide[geniusType].replaceAll('English', langName)}\nLet this talent type shape HOW you teach throughout the whole conversation, not just once.`
       : '';
 
     const systemPrompt = `You are a language practice partner helping users practice ${langName}.

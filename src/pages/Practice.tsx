@@ -201,12 +201,16 @@ const Practice = () => {
     });
   };
 
+  // Re-target an English-worded task prompt to the chosen practice language.
+  const localizePrompt = (p: string) => p.replaceAll('English', currentLanguage?.name || selectedLanguage || 'the target language');
+
   const handleStartConversation = async () => {
     if (!selectedLanguage || !selectedScenario) return;
     const settings = getCurrentSettings();
+    const langName = currentLanguage?.name || selectedLanguage;
     const greetingPrompt = materialPrompt
-      ? materialPrompt
-      : `Start the conversation with a greeting in ${selectedLanguage}. Introduce the scenario "${selectedScenario.id}" at the ${difficulty} level. Keep it brief (2-3 sentences).`;
+      ? localizePrompt(materialPrompt)
+      : `Start the conversation with a greeting in ${langName}. Introduce the scenario "${selectedScenario.id}" at the ${difficulty} level. Keep it brief (2-3 sentences).`;
     await runConversation(settings, greetingPrompt);
   };
 
@@ -216,14 +220,15 @@ const Practice = () => {
     toast.success('已加入記憶卡，今天就會出現在複習佇列');
   };
 
-  // Launch a type-recommended training task directly (Free Chat scenario, English).
+  // Launch a type-recommended training task in the currently selected language.
   const startTypeTask = async (prompt: string) => {
+    if (!selectedLanguage) return;
     const freeChat = SCENARIOS.find(sc => sc.id === 'freeChat') || SCENARIOS[0];
-    setSelectedLanguage('english');
     setSelectedScenario(freeChat);
-    setMaterialPrompt(prompt);
+    const localized = localizePrompt(prompt);
+    setMaterialPrompt(localized);
     const settings: ConversationSettings = {
-      language: 'english',
+      language: selectedLanguage,
       scenario: 'freeChat',
       difficulty,
       speed,
@@ -231,7 +236,7 @@ const Practice = () => {
       mode,
       instantCorrection,
     };
-    await runConversation(settings, prompt);
+    await runConversation(settings, localized);
   };
 
   const handleSendMessage = async (content: string, imageBase64?: string, videoFrames?: string[], urlContext?: string) => {
@@ -459,7 +464,7 @@ const Practice = () => {
             <div className="max-w-4xl mx-auto mb-6 flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
               <span className="text-xl">{gi.emoji}</span>
               <div className="text-sm flex-1">
-                <span className="text-muted-foreground">英文練習時，AI 會依你的記憶天才類型</span>
+                <span className="text-muted-foreground">練習時，AI 會依你的記憶天才類型</span>
                 <span className="font-semibold text-indigo-700 mx-1">{gi.nameZh} · {gi.nameEn}</span>
                 <span className="text-muted-foreground">調整教學（{gi.vark} · {gi.brainwave}）</span>
               </div>
@@ -473,7 +478,7 @@ const Practice = () => {
               <span className="text-xl">🧠</span>
               <div className="text-sm flex-1">
                 <span className="font-semibold">做 5 分鐘記憶天才測定</span>
-                <span className="text-muted-foreground">，讓 AI 在英文練習時依你的學習型態（8 種天才類型 × VARK）調整教學方式</span>
+                <span className="text-muted-foreground">，讓 AI 依你的學習型態（8 種天才類型 × VARK）調整任何語言的教學方式</span>
               </div>
               <span className="text-indigo-600 shrink-0">→</span>
             </a>
@@ -566,8 +571,8 @@ const Practice = () => {
               </div>
             )}
 
-            {/* #1 為你的型態推薦課題 (English + type known) */}
-            {selectedLanguage === 'english' && geniusType && (
+            {/* #1 為你的型態推薦課題 (any language + type known) */}
+            {selectedLanguage && geniusType && (
               <section className="mb-8">
                 <div className="flex items-center gap-2 mb-3">
                   <h2 className="text-xl font-bold">為你的型態推薦</h2>
