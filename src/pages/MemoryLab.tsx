@@ -16,8 +16,10 @@ import { loadGeniusType, geniusInfo, GENIUS_INFO, GeniusType } from '@/lib/geniu
 import { GENIUS_PLAN, planFor } from '@/lib/genius-plan';
 import { GENIUS_TASKS } from '@/lib/genius-tasks';
 import {
-  loadCards, addCard, deleteCard, dueCards, reviewCard, stats, dueLabel, analytics, reviewTimeInsights, MemoryItem,
+  loadCards, addCard, deleteCard, dueCards, reviewCard, stats, dueLabel, analytics, reviewTimeInsights,
+  brainStateInsights, BRAIN_STATE_LABEL, MemoryItem,
 } from '@/lib/memory-srs';
+import { useBrainwave } from '@/contexts/BrainwaveContext';
 
 export default function MemoryLab() {
   const navigate = useNavigate();
@@ -46,16 +48,19 @@ export default function MemoryLab() {
 
   const plan = planFor(geniusType);
   const gi = geniusInfo(geniusType);
+  const { mode: brainMode, brainState } = useBrainwave();
   const s = stats(items);
   const a = analytics(items);
   const ti = reviewTimeInsights(items);
+  const bi = brainStateInsights(items);
+  const goodBrain = brainState === 'focus' || brainState === 'alert';
 
   const startReview = () => { setQueue(dueCards(items).map(c => c.id)); setRevealed(false); setRecallText(''); };
   const current = queue && queue.length ? items.find(c => c.id === queue[0]) : null;
 
   const grade = (g: 'again' | 'good') => {
     if (!current) return;
-    const updated = reviewCard(uid, current.id, g, plan.schedule);
+    const updated = reviewCard(uid, current.id, g, plan.schedule, brainState);
     setItems([...updated]);
     setQueue(g === 'good' ? queue!.slice(1) : [...queue!.slice(1), queue![0]]);
     setRevealed(false);
@@ -133,6 +138,14 @@ export default function MemoryLab() {
 
           {/* ---------- Review ---------- */}
           <TabsContent value="review" className="space-y-4 pt-2">
+            {brainMode !== 'disconnected' && (
+              <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
+                goodBrain ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-slate-50 text-muted-foreground'
+              }`}>
+                <span>🧠</span>
+                <span>腦波：<b>{BRAIN_STATE_LABEL[brainState] || brainState}</b>{goodBrain ? ' · 現在很適合記憶，把握時機複習' : ''}</span>
+              </div>
+            )}
             {queue === null ? (
               s.due > 0 ? (
                 <Card><CardContent className="p-6 text-center space-y-3">
@@ -428,6 +441,31 @@ export default function MemoryLab() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Brain state × retention (from live EEG / inferred state at review time) */}
+                {bi.total > 0 && (
+                  <Card>
+                    <CardContent className="p-4 space-y-3">
+                      <p className="text-sm font-semibold">🧠 腦態 × 記憶</p>
+                      <div className="text-sm text-muted-foreground">
+                        {bi.best
+                          ? <>你在 <b className="text-emerald-600">{bi.best.label}</b> 腦態下複習，答對率最高（<b>{bi.best.rate}%</b>）——連上 Muse 時，這個腦態就是你的複習黃金時段。</>
+                          : <>複習時連上 Muse 或開啟腦態推算，這裡會分析你在不同腦態下的記憶表現。</>}
+                      </div>
+                      <div className="space-y-2">
+                        {bi.byState.map(row => (
+                          <div key={row.state} className="flex items-center gap-2 text-xs">
+                            <span className="w-16 shrink-0 text-muted-foreground">{row.label}</span>
+                            <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${row.rate}%`, backgroundColor: bi.best && row.label === bi.best.label ? '#10b981' : '#a7f3d0' }} />
+                            </div>
+                            <span className="w-16 text-right text-muted-foreground">{row.rate}% · {row.count}次</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </>
             )}
           </TabsContent>

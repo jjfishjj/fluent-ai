@@ -5,7 +5,7 @@
 
 export type Grade = 'again' | 'good';
 
-export interface ReviewLog { date: string; grade: Grade; }
+export interface ReviewLog { date: string; grade: Grade; brainState?: string; }
 
 export interface MemoryItem {
   id: string;
@@ -82,6 +82,7 @@ export function reviewCard(
   id: string,
   grade: Grade,
   schedule: number[],
+  brainState?: string,
 ): MemoryItem[] {
   const cards = loadCards(userId);
   const it = cards.find(c => c.id === id);
@@ -103,9 +104,37 @@ export function reviewCard(
     it.status = 'learning';
     it.nextReviewAt = iso(now + DAY);
   }
-  it.history.push({ date: iso(now), grade });
+  it.history.push({ date: iso(now), grade, ...(brainState && brainState !== 'neutral' ? { brainState } : {}) });
   saveCards(userId, cards);
   return cards;
+}
+
+export const BRAIN_STATE_LABEL: Record<string, string> = {
+  focus: '深度專注', relaxed: '放鬆專注', creative: '創意流動', alert: '高度警覺', tired: '疲勞', neutral: '一般',
+};
+
+export interface BrainStateInsights {
+  byState: { state: string; label: string; count: number; good: number; rate: number }[];
+  best: { label: string; rate: number; count: number } | null;
+  total: number; // reviews that carried a brain state
+}
+
+/** Retention grouped by the brain state the user was in while reviewing. */
+export function brainStateInsights(cards: MemoryItem[]): BrainStateInsights {
+  const logs = cards.flatMap(c => c.history || []).filter(l => l.brainState);
+  const acc: Record<string, { count: number; good: number }> = {};
+  logs.forEach(l => {
+    const s = l.brainState as string;
+    acc[s] = acc[s] || { count: 0, good: 0 };
+    acc[s].count++;
+    if (l.grade === 'good') acc[s].good++;
+  });
+  const byState = Object.entries(acc)
+    .map(([state, v]) => ({ state, label: BRAIN_STATE_LABEL[state] || state, count: v.count, good: v.good, rate: v.count ? Math.round((v.good / v.count) * 100) : 0 }))
+    .sort((a, b) => b.rate - a.rate || b.count - a.count);
+  const eligible = byState.filter(s => s.count >= 2);
+  const best = eligible.length ? { label: eligible[0].label, rate: eligible[0].rate, count: eligible[0].count } : null;
+  return { byState, best, total: logs.length };
 }
 
 export interface SrsStats { total: number; due: number; learning: number; mastered: number; }
