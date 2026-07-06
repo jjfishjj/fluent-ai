@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Trash2, MapPin, Footprints, ChevronLeft, ChevronRight, RotateCcw, Save } from 'lucide-react';
+import { Plus, Trash2, MapPin, Footprints, ChevronLeft, ChevronRight, RotateCcw, Save, Wand2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { GeniusType } from '@/lib/genius-type';
 import { addCard } from '@/lib/memory-srs';
+import { generateImage } from '@/lib/image-service';
+import { Locus as LocusType } from '@/lib/memory-palace';
 import {
   Palace, loadPalace, savePalace, clearPalace, createPalace, newLocus, filledLoci, TEMPLATES,
 } from '@/lib/memory-palace';
@@ -19,13 +21,33 @@ export function MemoryPalace({ uid, geniusType }: { uid: string; geniusType: Gen
   const [customName, setCustomName] = useState('');
   const [walkIdx, setWalkIdx] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [genId, setGenId] = useState<string | null>(null);
 
   useEffect(() => { setPalace(loadPalace(uid)); }, [uid]);
 
-  const persist = (p: Palace) => { savePalace(uid, p); setPalace({ ...p }); };
-  const updateLocus = (id: string, patch: Partial<ReturnType<typeof newLocus>>) => {
-    if (!palace) return;
-    persist({ ...palace, loci: palace.loci.map(l => (l.id === id ? { ...l, ...patch } : l)) });
+  const persist = (p: Palace): boolean => { const ok = savePalace(uid, p); setPalace({ ...p }); return ok; };
+  const updateLocus = (id: string, patch: Partial<LocusType>): boolean => {
+    if (!palace) return false;
+    return persist({ ...palace, loci: palace.loci.map(l => (l.id === id ? { ...l, ...patch } : l)) });
+  };
+
+  const generate = async (l: LocusType) => {
+    if (!l.english.trim()) { toast.error('先填入英文詞'); return; }
+    setGenId(l.id);
+    try {
+      const prompt = `A surreal, exaggerated, unforgettable mental image for a memory palace. Location: ${l.place}. The English word "${l.english}" (meaning: ${l.meaning}) is vividly placed here.${l.image ? ' Scene idea: ' + l.image + '.' : ''} One bold focal object, bright cartoonish style, easy to remember.`;
+      const res = await generateImage(prompt, 'english');
+      if (res.error) { toast.error(res.error); }
+      else if (res.imageUrl) {
+        const ok = updateLocus(l.id, { imageUrl: res.imageUrl });
+        if (ok) toast.success('畫面已生成');
+        else toast('畫面已生成（較大，重整後可能需重生成）');
+      } else { toast.error('沒有取得圖片'); }
+    } catch {
+      toast.error('生成失敗，稍後再試');
+    } finally {
+      setGenId(null);
+    }
   };
   const addLocus = () => {
     if (!palace || !newPlace.trim()) return;
@@ -93,6 +115,7 @@ export function MemoryPalace({ uid, geniusType }: { uid: string; geniusType: Gen
         <Card><CardContent className="p-6 space-y-4 text-center">
           <Badge className="bg-orange-500"><MapPin className="w-3 h-3 mr-1" /> {cur.place}</Badge>
           <p className="text-sm text-muted-foreground">回想你在這個位置放了什麼英文詞</p>
+          {cur.imageUrl && <img src={cur.imageUrl} alt={cur.place} className="w-full max-w-xs mx-auto rounded-xl border" />}
           {cur.image && <div className="text-sm bg-orange-50 border border-orange-100 rounded-xl p-3 text-orange-800">🖼️ {cur.image}</div>}
           {!revealed ? (
             <Button variant="outline" className="w-full" onClick={() => setRevealed(true)}>顯示答案</Button>
@@ -148,6 +171,7 @@ export function MemoryPalace({ uid, geniusType }: { uid: string; geniusType: Gen
               <CardContent className="p-3">
                 <button className="w-full flex items-center gap-3 text-left" onClick={() => setOpenId(open ? null : l.id)}>
                   <span className="shrink-0 w-7 h-7 rounded-full bg-orange-100 text-orange-700 font-bold text-sm flex items-center justify-center">{i + 1}</span>
+                  {l.imageUrl && <img src={l.imageUrl} alt="" className="shrink-0 w-9 h-9 rounded object-cover border" />}
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm">{l.place}</div>
                     {l.english
@@ -168,6 +192,18 @@ export function MemoryPalace({ uid, geniusType }: { uid: string; geniusType: Gen
                       onChange={e => updateLocus(l.id, { image: e.target.value })}
                       rows={2}
                     />
+                    {l.imageUrl && <img src={l.imageUrl} alt={l.place} className="w-full max-w-[220px] rounded-lg border" />}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full border-orange-200 text-orange-600 hover:bg-orange-50"
+                      disabled={genId === l.id || !l.english.trim()}
+                      onClick={() => generate(l)}
+                    >
+                      {genId === l.id
+                        ? <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> 生成中…</>
+                        : <><Wand2 className="w-3.5 h-3.5 mr-1" /> {l.imageUrl ? 'AI 重新生成畫面' : 'AI 生成畫面'}</>}
+                    </Button>
                     <div className="flex justify-between">
                       <button className="text-xs text-muted-foreground hover:text-red-500 flex items-center gap-1" onClick={() => removeLocus(l.id)}>
                         <Trash2 className="w-3.5 h-3.5" /> 移除位置
