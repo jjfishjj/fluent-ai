@@ -8,6 +8,7 @@ export interface Locus {
   english: string;  // the word placed here (optional until filled)
   meaning: string;
   image: string;    // vivid visual note tying the word to the place
+  imageUrl?: string; // AI-generated picture for this locus
 }
 
 export interface Palace {
@@ -40,8 +41,15 @@ export function loadPalace(userId: string): Palace | null {
   }
 }
 
-export function savePalace(userId: string, palace: Palace): void {
-  localStorage.setItem(key(userId), JSON.stringify(palace));
+export function savePalace(userId: string, palace: Palace): boolean {
+  try {
+    localStorage.setItem(key(userId), JSON.stringify(palace));
+    return true;
+  } catch (e) {
+    // e.g. quota exceeded when many generated images are data-URIs
+    console.warn('[memory-palace] save failed (quota?)', e);
+    return false;
+  }
 }
 
 export function clearPalace(userId: string): void {
