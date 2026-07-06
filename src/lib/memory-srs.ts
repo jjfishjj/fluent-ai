@@ -161,6 +161,43 @@ export function analytics(cards: MemoryItem[]): Analytics {
   return { totalReviews: total, retention, streakDays, reviewedToday, byDay, learning: s.learning, mastered: s.mastered, due: s.due, total: s.total };
 }
 
+export interface TimeInsights {
+  byHour: number[]; // 24 review counts
+  parts: { key: string; label: string; count: number; good: number; rate: number }[];
+  best: { label: string; rate: number; count: number } | null;
+}
+
+/** When (time of day) the user reviews, and where they retain best. */
+export function reviewTimeInsights(cards: MemoryItem[]): TimeInsights {
+  const logs = cards.flatMap(c => c.history || []);
+  const byHour = new Array(24).fill(0);
+  const parts = [
+    { key: 'morning', label: '早上 6–12', count: 0, good: 0 },
+    { key: 'afternoon', label: '下午 12–18', count: 0, good: 0 },
+    { key: 'evening', label: '傍晚 18–22', count: 0, good: 0 },
+    { key: 'night', label: '夜間 22–6', count: 0, good: 0 },
+  ];
+  const partOf = (h: number) => (h >= 6 && h <= 11 ? 0 : h >= 12 && h <= 17 ? 1 : h >= 18 && h <= 21 ? 2 : 3);
+  logs.forEach(l => {
+    const d = new Date(l.date);
+    if (isNaN(d.getTime())) return;
+    const h = d.getHours();
+    byHour[h]++;
+    const p = parts[partOf(h)];
+    p.count++;
+    if (l.grade === 'good') p.good++;
+  });
+  const withRate = parts.map(p => ({ ...p, rate: p.count ? Math.round((p.good / p.count) * 100) : 0 }));
+  const eligible = withRate.filter(p => p.count >= 2);
+  const best = eligible.length
+    ? (() => {
+        const b = [...eligible].sort((x, y) => y.rate - x.rate || y.count - x.count)[0];
+        return { label: b.label, rate: b.rate, count: b.count };
+      })()
+    : null;
+  return { byHour, parts: withRate, best };
+}
+
 /** Human-friendly "due in" label. */
 export function dueLabel(nextReviewAt: string): string {
   const diff = new Date(nextReviewAt).getTime() - Date.now();

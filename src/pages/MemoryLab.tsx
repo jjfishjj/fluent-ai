@@ -15,7 +15,7 @@ import { loadGeniusType, geniusInfo, GENIUS_INFO, GeniusType } from '@/lib/geniu
 import { GENIUS_PLAN, planFor } from '@/lib/genius-plan';
 import { GENIUS_TASKS } from '@/lib/genius-tasks';
 import {
-  loadCards, addCard, deleteCard, dueCards, reviewCard, stats, dueLabel, analytics, MemoryItem,
+  loadCards, addCard, deleteCard, dueCards, reviewCard, stats, dueLabel, analytics, reviewTimeInsights, MemoryItem,
 } from '@/lib/memory-srs';
 
 export default function MemoryLab() {
@@ -47,6 +47,7 @@ export default function MemoryLab() {
   const gi = geniusInfo(geniusType);
   const s = stats(items);
   const a = analytics(items);
+  const ti = reviewTimeInsights(items);
 
   const startReview = () => { setQueue(dueCards(items).map(c => c.id)); setRevealed(false); setRecallText(''); };
   const current = queue && queue.length ? items.find(c => c.id === queue[0]) : null;
@@ -397,6 +398,32 @@ export default function MemoryLab() {
                         </div>
                       );
                     })}
+                  </CardContent>
+                </Card>
+
+                {/* Best review time (from review history) */}
+                <Card>
+                  <CardContent className="p-4 space-y-3">
+                    <p className="text-sm font-semibold">🕐 最佳複習時段</p>
+                    <div className="text-sm text-muted-foreground">
+                      {ti.best
+                        ? <>你在 <b className="text-indigo-600">{ti.best.label}</b> 複習答對率最高（<b>{ti.best.rate}%</b>）——把到期卡片排在這個時段效果最好。</>
+                        : <>多複習幾次後，這裡會分析你表現最好的時段。</>}
+                    </div>
+                    <div className="space-y-2">
+                      {ti.parts.map(p => {
+                        const isBest = ti.best && p.label === ti.best.label;
+                        return (
+                          <div key={p.key} className="flex items-center gap-2 text-xs">
+                            <span className="w-20 shrink-0 text-muted-foreground">{p.label}</span>
+                            <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${p.rate}%`, backgroundColor: isBest ? '#4f46e5' : '#c7d2fe' }} />
+                            </div>
+                            <span className="w-16 text-right text-muted-foreground">{p.count ? `${p.rate}% · ${p.count}次` : '—'}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </CardContent>
                 </Card>
               </>
