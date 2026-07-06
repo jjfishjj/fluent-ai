@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Brain, Sparkles, Plus, Trash2, Check, X, Layers, ArrowLeft, Dumbbell, BarChart3 } from 'lucide-react';
+import { Brain, Sparkles, Plus, Trash2, Check, X, Layers, ArrowLeft, Dumbbell, BarChart3, Building2 } from 'lucide-react';
+import { MemoryPalace } from '@/components/memory/MemoryPalace';
 import { toast } from 'sonner';
 import { loadGeniusType, geniusInfo, GENIUS_INFO, GeniusType } from '@/lib/genius-type';
 import { GENIUS_PLAN, planFor } from '@/lib/genius-plan';
@@ -122,11 +123,12 @@ export default function MemoryLab() {
         </div>
 
         <Tabs value={tab} onValueChange={(v) => { setTab(v); if (v === 'review') setQueue(null); }}>
-          <TabsList className="grid grid-cols-4 w-full">
-            <TabsTrigger value="review" className="gap-1 text-[11px] sm:text-sm px-1"><Sparkles className="w-3.5 h-3.5 shrink-0" /> 今日複習</TabsTrigger>
-            <TabsTrigger value="cards" className="gap-1 text-[11px] sm:text-sm px-1"><Layers className="w-3.5 h-3.5 shrink-0" /> 卡片庫</TabsTrigger>
-            <TabsTrigger value="types" className="gap-1 text-[11px] sm:text-sm px-1"><Dumbbell className="w-3.5 h-3.5 shrink-0" /> 型態訓練</TabsTrigger>
-            <TabsTrigger value="stats" className="gap-1 text-[11px] sm:text-sm px-1"><BarChart3 className="w-3.5 h-3.5 shrink-0" /> 數據</TabsTrigger>
+          <TabsList className="grid grid-cols-5 w-full">
+            <TabsTrigger value="review" className="gap-1 text-[11px] sm:text-xs px-0.5"><Sparkles className="w-3.5 h-3.5 shrink-0" /> 複習</TabsTrigger>
+            <TabsTrigger value="cards" className="gap-1 text-[11px] sm:text-xs px-0.5"><Layers className="w-3.5 h-3.5 shrink-0" /> 卡片</TabsTrigger>
+            <TabsTrigger value="types" className="gap-1 text-[11px] sm:text-xs px-0.5"><Dumbbell className="w-3.5 h-3.5 shrink-0" /> 訓練</TabsTrigger>
+            <TabsTrigger value="stats" className="gap-1 text-[11px] sm:text-xs px-0.5"><BarChart3 className="w-3.5 h-3.5 shrink-0" /> 數據</TabsTrigger>
+            <TabsTrigger value="palace" className="gap-1 text-[11px] sm:text-xs px-0.5"><Building2 className="w-3.5 h-3.5 shrink-0" /> 宮殿</TabsTrigger>
           </TabsList>
 
           {/* ---------- Review ---------- */}
@@ -428,6 +430,11 @@ export default function MemoryLab() {
                 </Card>
               </>
             )}
+          </TabsContent>
+
+          {/* ---------- Memory palace ---------- */}
+          <TabsContent value="palace" className="pt-2">
+            <MemoryPalace uid={uid} geniusType={geniusType} />
           </TabsContent>
         </Tabs>
 
