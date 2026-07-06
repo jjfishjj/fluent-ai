@@ -63,7 +63,7 @@ export default function MemoryLab() {
   };
 
   const handleAdd = () => {
-    if (!english.trim() || !meaning.trim()) { toast.error('請填英文與中文意思'); return; }
+    if (!english.trim() || !meaning.trim()) { toast.error('請填詞彙與意思'); return; }
     setItems([...addCard(uid, { english, meaning, encodeNote })]);
     setEnglish(''); setMeaning(''); setEncodeNote('');
     toast.success('已加入記憶卡，今天就會出現在複習佇列');
@@ -145,7 +145,7 @@ export default function MemoryLab() {
                   <div className="text-3xl">{s.total === 0 ? '🗂️' : '🎉'}</div>
                   <p className="font-medium">{s.total === 0 ? '還沒有記憶卡' : '今天複習完成！'}</p>
                   <p className="text-sm text-muted-foreground">
-                    {s.total === 0 ? '到「卡片庫」新增你的第一張英文卡' : '到期的卡片都複習過了，明天見'}
+                    {s.total === 0 ? '到「卡片庫」新增你的第一張字卡' : '到期的卡片都複習過了，明天見'}
                   </p>
                   {s.total === 0 && <Button variant="outline" onClick={() => setTab('cards')}>去新增卡片</Button>}
                 </CardContent></Card>
@@ -224,7 +224,7 @@ export default function MemoryLab() {
               <CardContent className="p-4 space-y-3">
                 <p className="text-sm font-semibold flex items-center gap-1.5"><Plus className="w-4 h-4" /> 新增記憶卡</p>
                 <div className="grid sm:grid-cols-2 gap-3">
-                  <Input placeholder="English word / phrase" value={english} onChange={e => setEnglish(e.target.value)} />
+                  <Input placeholder="詞彙 / word / phrase" value={english} onChange={e => setEnglish(e.target.value)} />
                   <Input placeholder="中文意思" value={meaning} onChange={e => setMeaning(e.target.value)} />
                 </div>
                 <Textarea
@@ -269,7 +269,7 @@ export default function MemoryLab() {
 
           {/* ---------- 8 type cards ---------- */}
           <TabsContent value="types" className="space-y-3 pt-2">
-            <p className="text-sm text-muted-foreground">八種記憶天才，每種有專屬的編碼／提取方式、間隔複習節奏，與對應的英文訓練課題。</p>
+            <p className="text-sm text-muted-foreground">八種記憶天才，每種有專屬的編碼／提取方式、間隔複習節奏，與對應的訓練課題（進練習後選語言）。</p>
             <div className="grid sm:grid-cols-2 gap-3">
               {(Object.keys(GENIUS_PLAN) as GeniusType[]).map(t => {
                 const info = GENIUS_INFO[t];
@@ -459,7 +459,7 @@ export default function MemoryLab() {
                         size="sm"
                         className="mt-2 w-full text-white"
                         style={{ backgroundColor: GENIUS_INFO[taskType].color }}
-                        onClick={() => navigate(`/practice?lang=english&prompt=${encodeURIComponent(task.prompt)}`)}
+                        onClick={() => navigate(`/practice?prompt=${encodeURIComponent(task.prompt)}`)}
                       >
                         用 AI 練習 →
                       </Button>
