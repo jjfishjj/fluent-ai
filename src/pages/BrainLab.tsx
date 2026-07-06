@@ -17,6 +17,7 @@ import { getStylePercentages, getDominantStyle } from '@/lib/vark-analyzer';
 import { getMaterialsByStyle, getRecommendedMaterials, PracticeMaterial } from '@/lib/vark-materials-library';
 import { useNavigate } from 'react-router-dom';
 import { loadProgress, saveProgress, markCompleted } from '@/lib/material-progress';
+import { loadCards, stats as srsStats } from '@/lib/memory-srs';
 import { Check } from 'lucide-react';
 
 export default function BrainLab() {
@@ -81,18 +82,36 @@ export default function BrainLab() {
           <DeviceConnector />
         </section>
 
-        {/* Memory cards · SRS entry */}
-        <button
-          onClick={() => navigate('/memory')}
-          className="w-full flex items-center gap-3 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-4 py-3 hover:shadow-sm transition-shadow text-left"
-        >
-          <span className="text-xl">🧠</span>
-          <div className="flex-1 text-sm">
-            <span className="font-semibold">記憶卡 · SRS 間隔複習</span>
-            <span className="text-muted-foreground">　依你的天才型態編碼、主動提取、按專屬節奏複習</span>
-          </div>
-          <span className="text-indigo-600 shrink-0">→</span>
-        </button>
+        {/* Memory cards · SRS entry — brain-state aware */}
+        {(() => {
+          const due = srsStats(loadCards(userId)).due;
+          const goodBrain = brainState === 'focus' || brainState === 'alert';
+          const nudge = goodBrain && due > 0;
+          return (
+            <button
+              onClick={() => navigate('/memory')}
+              className={`w-full flex items-center gap-3 rounded-xl border px-4 py-3 hover:shadow-sm transition-shadow text-left ${
+                nudge ? 'border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50' : 'border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50'
+              }`}
+            >
+              <span className="text-xl">{nudge ? '🎯' : '🧠'}</span>
+              <div className="flex-1 text-sm">
+                {nudge ? (
+                  <>
+                    <span className="font-semibold text-emerald-800">現在腦態適合記憶——來複習吧</span>
+                    <span className="text-emerald-700">　你正處於{brainState === 'focus' ? '深度專注' : '高度警覺'}腦態，有 {due} 張到期</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold">記憶卡 · SRS 間隔複習</span>
+                    <span className="text-muted-foreground">　{due > 0 ? `${due} 張到期 · ` : ''}依型態編碼、主動提取、按專屬節奏複習</span>
+                  </>
+                )}
+              </div>
+              <span className={`shrink-0 ${nudge ? 'text-emerald-600' : 'text-indigo-600'}`}>→</span>
+            </button>
+          );
+        })()}
 
         <Tabs defaultValue="advisor" className="space-y-4">
           <TabsList className="grid grid-cols-4 w-full">
