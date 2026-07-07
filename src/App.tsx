@@ -8,6 +8,7 @@ import { BrainwaveProvider } from "@/contexts/BrainwaveContext";
 import { BottomNav } from "@/components/layout/BottomNav";
 import BrainLab from "./pages/BrainLab";
 import MemoryLab from "./pages/MemoryLab";
+import SubjectLab from "./pages/SubjectLab";
 import Index from "./pages/Index";
 import Practice from "./pages/Practice";
 import Admin from "./pages/Admin";
@@ -46,6 +47,7 @@ const App = () => (
                 <Route path="/interests" element={<Interests />} />
                 <Route path="/brain-lab" element={<BrainLab />} />
                 <Route path="/memory" element={<MemoryLab />} />
+                <Route path="/subjects" element={<SubjectLab />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
