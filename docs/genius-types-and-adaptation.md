@@ -148,6 +148,11 @@ Practice AI 對話  →  機器人依型態調整「怎麼教」（多語言）
 **部署**：機器人這段在 Supabase edge function，改動後需 `supabase functions deploy chat`
 才生效（見 `supabase/DEPLOY.md`）；前端（推薦課題、banner、記憶卡）隨 Vercel 自動上線。
 
+**學科訓練（`/subjects`）**：型態系統延伸到語言以外的科目——數學、物理、多益 TOEIC、
+英文檢定。每科含：8 型態各自的**學習策略**（例：圖像家學數學→先畫圖再算；分析師學物理→
+推導公式別背）+ 4 個 **AI 家教課題**（觀念家教／錯題診斷／模擬考官／寫作批改…）。
+課題以中文（數理）或英文（檢定）啟動 Practice 對話，型態適配與「＋ 記憶卡」照常生效。
+
 ---
 
 ## 五、資料來源（本檔對應的程式碼，修改時同步更新）
@@ -160,5 +165,6 @@ Practice AI 對話  →  機器人依型態調整「怎麼教」（多語言）
 | **AI 回應方法**（機器人教學策略原文）· 多語言在地化 | `supabase/functions/chat/index.ts` |
 | 測驗題目／評分／校準 | `quizzes/memory-genius-quiz/index.html` |
 | SRS 引擎 · 保留率 / 最佳時段 / 腦態分析 | `src/lib/memory-srs.ts` |
+| **學科訓練**（數學／物理／多益／英文檢定 × 型態策略 × AI 家教課題） | `src/lib/subjects.ts`、`src/pages/SubjectLab.tsx` |
 | 記憶卡頁（複習／卡片／訓練／數據／宮殿） | `src/pages/MemoryLab.tsx` |
 | 記憶宮殿（method of loci + AI 出圖） | `src/lib/memory-palace.ts`、`src/components/memory/MemoryPalace.tsx` |
