@@ -76,3 +76,25 @@ export function loadGeniusVark(): VarkStyle | null {
   }
   return null;
 }
+
+/**
+ * Ingest a genius type handed off from the external lead-gen quiz (memolingua
+ * GitHub Pages scale) via URL params (?genius=&vark=). Stores it as the standard
+ * `memo_genius_result` so loadGeniusType()/loadGeniusVark() pick it up. Because
+ * that quiz is cross-origin, localStorage can't be shared directly, so the type
+ * is passed through the URL and persisted here. Call once at app startup.
+ */
+export function ingestGeniusFromUrl(): void {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const g = params.get('genius');
+    const v = params.get('vark');
+    if (g && VALID.has(g)) {
+      const payload: { p: string; vark?: string; src: string } = { p: g, src: 'scale' };
+      if (v && VARK_VALID.has(v as VarkStyle)) payload.vark = v;
+      localStorage.setItem('memo_genius_result', JSON.stringify(payload));
+    }
+  } catch {
+    /* ignore */
+  }
+}
