@@ -82,7 +82,7 @@ export function NBackGame({ onComplete }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [handleMatch]);
 
-  const computeResults = (): Results => {
+  const computeResults = useCallback((): Results => {
     let hits = 0, misses = 0, falseAlarms = 0, correctRejections = 0;
     for (let i = N; i < SEQUENCE_LENGTH; i++) {
       const match = isMatch(i);
@@ -94,11 +94,16 @@ export function NBackGame({ onComplete }: Props) {
     }
     const total = SEQUENCE_LENGTH - N;
     return { hits, misses, falseAlarms, correctRejections, accuracy: Math.round(((hits + correctRejections) / total) * 100) };
-  };
+  }, [isMatch, userResponses]);
+
+  // Fire onComplete once when the game ends (not during render)
+  useEffect(() => {
+    if (phase === 'result') onComplete?.(computeResults());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   if (phase === 'result') {
     const r = computeResults();
-    onComplete?.(r);
     return (
       <div className="text-center space-y-4 py-4">
         <div className="text-4xl font-bold" style={{ color: r.accuracy >= 70 ? '#10b981' : r.accuracy >= 50 ? '#f59e0b' : '#ef4444' }}>
