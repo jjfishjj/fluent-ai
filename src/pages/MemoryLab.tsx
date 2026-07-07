@@ -43,6 +43,7 @@ export default function MemoryLab() {
   const [english, setEnglish] = useState('');
   const [meaning, setMeaning] = useState('');
   const [encodeNote, setEncodeNote] = useState('');
+  const [fsrsRefreshKey, setFsrsRefreshKey] = useState(0);
 
   useEffect(() => {
     setGeniusType(loadGeniusType());
