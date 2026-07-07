@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { ArrowLeft, ArrowRight, Brain, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { saveVARKProfile, loadVARKProfile } from '@/lib/vark-service';
 import {
   QUIZ_QUESTIONS,
   calculateResult,
@@ -36,6 +37,20 @@ const Quiz = () => {
     } else {
       const res = calculateResult(newAnswers);
       setResult(res);
+      // Save VARK scores to localStorage so Practice page picks them up immediately
+      const uid = user?.id || 'guest';
+      const existing = loadVARKProfile(uid);
+      saveVARKProfile(uid, {
+        ...existing,
+        scores: {
+          visual: res.scores.visual,
+          auditory: res.scores.auditory,
+          reading: res.scores.reading,
+          kinesthetic: res.scores.kinesthetic,
+        },
+        totalSignals: existing.totalSignals + total,
+        lastUpdated: new Date().toISOString(),
+      });
       // Save to profile
       if (user) {
         setSaving(true);

@@ -20,6 +20,8 @@ import {
   brainStateInsights, BRAIN_STATE_LABEL, MemoryItem,
 } from '@/lib/memory-srs';
 import { useBrainwave } from '@/contexts/BrainwaveContext';
+import { ReviewDeck } from '@/components/memory/ReviewDeck';
+import { AddFSRSCard } from '@/components/memory/AddFSRSCard';
 
 export default function MemoryLab() {
   const navigate = useNavigate();
@@ -35,6 +37,7 @@ export default function MemoryLab() {
   const [queue, setQueue] = useState<string[] | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [recallText, setRecallText] = useState('');
+  const [fsrsRefreshKey, setFsrsRefreshKey] = useState(0);
 
   // add form
   const [english, setEnglish] = useState('');
@@ -128,12 +131,13 @@ export default function MemoryLab() {
         </div>
 
         <Tabs value={tab} onValueChange={(v) => { setTab(v); if (v === 'review') setQueue(null); }}>
-          <TabsList className="grid grid-cols-5 w-full">
+          <TabsList className="grid grid-cols-6 w-full">
             <TabsTrigger value="review" className="gap-1 text-[11px] sm:text-xs px-0.5"><Sparkles className="w-3.5 h-3.5 shrink-0" /> 複習</TabsTrigger>
             <TabsTrigger value="cards" className="gap-1 text-[11px] sm:text-xs px-0.5"><Layers className="w-3.5 h-3.5 shrink-0" /> 卡片</TabsTrigger>
             <TabsTrigger value="types" className="gap-1 text-[11px] sm:text-xs px-0.5"><Dumbbell className="w-3.5 h-3.5 shrink-0" /> 訓練</TabsTrigger>
             <TabsTrigger value="stats" className="gap-1 text-[11px] sm:text-xs px-0.5"><BarChart3 className="w-3.5 h-3.5 shrink-0" /> 數據</TabsTrigger>
             <TabsTrigger value="palace" className="gap-1 text-[11px] sm:text-xs px-0.5"><Building2 className="w-3.5 h-3.5 shrink-0" /> 宮殿</TabsTrigger>
+            <TabsTrigger value="fsrs" className="gap-1 text-[11px] sm:text-xs px-0.5"><Brain className="w-3.5 h-3.5 shrink-0" /> FSRS</TabsTrigger>
           </TabsList>
 
           {/* ---------- Review ---------- */}
@@ -473,6 +477,23 @@ export default function MemoryLab() {
           {/* ---------- Memory palace ---------- */}
           <TabsContent value="palace" className="pt-2">
             <MemoryPalace uid={uid} geniusType={geniusType} />
+          </TabsContent>
+
+          {/* ---------- FSRS Cloud ---------- */}
+          <TabsContent value="fsrs" className="space-y-4 pt-2">
+            {user ? (
+              <>
+                <AddFSRSCard userId={user.id} onAdded={() => setFsrsRefreshKey(k => k + 1)} />
+                <ReviewDeck key={fsrsRefreshKey} userId={user.id} />
+              </>
+            ) : (
+              <Card><CardContent className="p-8 text-center space-y-3">
+                <div className="text-3xl">🔒</div>
+                <p className="font-medium">需要登入</p>
+                <p className="text-sm text-muted-foreground">FSRS 雲端複習需要帳號才能同步記憶資料</p>
+                <Button variant="outline" onClick={() => navigate('/auth')}>登入 / 註冊</Button>
+              </CardContent></Card>
+            )}
           </TabsContent>
         </Tabs>
 
