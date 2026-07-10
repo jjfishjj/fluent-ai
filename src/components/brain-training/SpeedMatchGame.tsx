@@ -29,6 +29,8 @@ type Phase = 'idle' | 'playing' | 'result';
 
 interface Props {
   onComplete?: (results: Results) => void;
+  /** 自訂題庫（例如用戶自己的記憶卡）；少於 8 組時退回內建題庫。 */
+  customPairs?: [string, string][];
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -41,7 +43,12 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 function buildQuestion(pairs: [string, string][], usedIdx: number[]) {
-  const available = pairs.map((_, i) => i).filter(i => !usedIdx.includes(i));
+  let available = pairs.map((_, i) => i).filter(i => !usedIdx.includes(i));
+  if (available.length === 0) {
+    // small custom banks may run dry before the round limit — recycle
+    usedIdx.length = 0;
+    available = pairs.map((_, i) => i);
+  }
   const idx = available[Math.floor(Math.random() * available.length)];
   const [en, correctZh] = pairs[idx];
   const distractors = shuffle(pairs.filter((_, i) => i !== idx).map(([, zh]) => zh)).slice(0, 3);
@@ -49,7 +56,8 @@ function buildQuestion(pairs: [string, string][], usedIdx: number[]) {
   return { idx, en, options, correctIdx: options.indexOf(correctZh) };
 }
 
-export function SpeedMatchGame({ onComplete }: Props) {
+export function SpeedMatchGame({ onComplete, customPairs }: Props) {
+  const pairs = customPairs && customPairs.length >= 8 ? customPairs : WORD_PAIRS;
   const [phase, setPhase] = useState<Phase>('idle');
   const [round, setRound] = useState(0);
   const [question, setQuestion] = useState<{ en: string; options: string[]; correctIdx: number } | null>(null);
@@ -89,11 +97,11 @@ export function SpeedMatchGame({ onComplete }: Props) {
     }
     setRound(roundRef.current);
     setSelectedIdx(null);
-    const q = buildQuestion(WORD_PAIRS, usedIdxRef.current);
+    const q = buildQuestion(pairs, usedIdxRef.current);
     usedIdxRef.current.push(q.idx);
     setQuestion({ en: q.en, options: q.options, correctIdx: q.correctIdx });
     questionStartRef.current = Date.now();
-  }, [endGame]);
+  }, [endGame, pairs]);
 
   const handleAnswer = useCallback((optionIdx: number) => {
     if (phase !== 'playing' || !question || selectedIdx !== null) return;

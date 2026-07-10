@@ -22,6 +22,19 @@ import { getMaterialsByStyle, getRecommendedMaterials, PracticeMaterial } from '
 import { useNavigate } from 'react-router-dom';
 import { loadProgress, saveProgress, markCompleted } from '@/lib/material-progress';
 import { loadCards, stats as srsStats } from '@/lib/memory-srs';
+import { loadGeniusType, geniusInfo, GeniusType } from '@/lib/genius-type';
+
+// 型態 → 最適腦力訓練遊戲（題庫/訓練對應測驗結果）
+const GENIUS_GAME: Record<GeniusType, { game: 'nback' | 'attention' | 'speed'; reason: string }> = {
+  architect: { game: 'nback', reason: '工作記憶訓練最能強化你的框架保持力' },
+  analyst:   { game: 'nback', reason: '2-Back 的規律偵測正是你的分析強項' },
+  connector: { game: 'nback', reason: '工作記憶是你連結知識網的底層能力' },
+  visionary: { game: 'attention', reason: '視覺追蹤最貼近你的圖像記憶通道' },
+  explorer:  { game: 'attention', reason: '即時視覺反應符合你的情境直覺' },
+  melodist:  { game: 'speed', reason: '快速配對強化你的語感自動化' },
+  performer: { game: 'speed', reason: '限時輸出正是你的即時反應主場' },
+  narrator:  { game: 'speed', reason: '快速詞義連結支撐你的敘事流暢度' },
+};
 import { Check } from 'lucide-react';
 
 export default function BrainLab() {
@@ -31,7 +44,14 @@ export default function BrainLab() {
   const [varkProfile, setVarkProfile] = useState<VARKProfile | null>(null);
   const [materialStyle, setMaterialStyle] = useState<LearningStyle>('visual');
   const [materialCategory, setMaterialCategory] = useState<string>('All');
-  const [selectedGame, setSelectedGame] = useState<'nback' | 'attention' | 'speed'>('nback');
+  const geniusType = loadGeniusType();
+  const recGame = geniusType ? GENIUS_GAME[geniusType] : null;
+  const [selectedGame, setSelectedGame] = useState<'nback' | 'attention' | 'speed'>(recGame?.game ?? 'nback');
+  // 題庫對應測驗：處理速度遊戲優先使用你自己的記憶卡（≥8 張時）
+  const cardPairs: [string, string][] = loadCards(user?.id ?? 'guest')
+    .filter(c => c.english.trim() && c.meaning.trim())
+    .map(c => [c.english, c.meaning] as [string, string]);
+  const useOwnBank = cardPairs.length >= 8;
   const [trainingHistory, setTrainingHistory] = useState(() => loadHistory(user?.id ?? 'guest'));
 
   // Reload training history when auth resolves
@@ -370,6 +390,20 @@ export default function BrainLab() {
 
           {/* Tab 3: Brain Training */}
           <TabsContent value="training" className="space-y-4">
+            {/* 依測驗型態推薦訓練 */}
+            {geniusType && recGame ? (
+              <div className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm">
+                <span>{geniusInfo(geniusType)?.emoji}</span>
+                <span className="text-muted-foreground">
+                  依你的型態 <b className="text-indigo-700">{geniusInfo(geniusType)?.nameZh}</b> 推薦：{recGame.reason}
+                </span>
+              </div>
+            ) : (
+              <a href="/quizzes/memory-genius-quiz/" className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-4 py-2.5 text-sm hover:shadow-sm transition-shadow">
+                🧠 <span><b>測記憶天才型態</b>，訓練與題庫會依你的型態調整</span><span className="text-indigo-600 ml-auto">→</span>
+              </a>
+            )}
+
             {/* Game selector */}
             <div className="grid grid-cols-3 gap-3">
               {[
@@ -380,12 +414,15 @@ export default function BrainLab() {
                 <button
                   key={ex.key}
                   onClick={() => setSelectedGame(ex.key)}
-                  className={`rounded-xl border-2 p-3 text-center space-y-1 transition-all ${
+                  className={`relative rounded-xl border-2 p-3 text-center space-y-1 transition-all ${
                     selectedGame === ex.key
                       ? 'border-primary bg-primary/5 shadow-sm'
                       : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
+                  {recGame?.game === ex.key && (
+                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-600 text-white whitespace-nowrap">★ 為你推薦</span>
+                  )}
                   <div className="text-2xl">{ex.emoji}</div>
                   <p className="text-xs font-semibold">{ex.title}</p>
                   <p className="text-xs text-muted-foreground">{ex.desc}</p>
@@ -421,10 +458,17 @@ export default function BrainLab() {
                 <>
                   <CardHeader>
                     <CardTitle className="text-base">處理速度 · 快速詞彙配對</CardTitle>
-                    <CardDescription>快速識別英中詞義，強化語言自動化處理能力</CardDescription>
+                    <CardDescription>
+                      {useOwnBank
+                        ? <>📚 題庫來自<b>你的記憶卡</b>（{cardPairs.length} 個詞）——訓練即複習</>
+                        : '快速識別英中詞義，強化語言自動化處理能力（加 8 張以上記憶卡後，題庫會換成你自己的詞彙）'}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <SpeedMatchGame onComplete={(r) => recordTraining('speed', r.accuracy, { correct: r.correct, wrong: r.wrong, avgSpeedMs: r.avgSpeedMs })} />
+                    <SpeedMatchGame
+                      customPairs={useOwnBank ? cardPairs : undefined}
+                      onComplete={(r) => recordTraining('speed', r.accuracy, { correct: r.correct, wrong: r.wrong, avgSpeedMs: r.avgSpeedMs })}
+                    />
                   </CardContent>
                 </>
               )}
