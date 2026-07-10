@@ -166,5 +166,6 @@ Practice AI 對話  →  機器人依型態調整「怎麼教」（多語言）
 | 測驗題目／評分／校準 | `quizzes/memory-genius-quiz/index.html` |
 | SRS 引擎 · 保留率 / 最佳時段 / 腦態分析 | `src/lib/memory-srs.ts` |
 | **學科訓練**（數學／物理／多益／英文檢定 × 型態策略 × AI 家教課題） | `src/lib/subjects.ts`、`src/pages/SubjectLab.tsx` |
+| **訓練方案介面**（8 型態完整文字稿：編碼/提取/鞏固 + 本週訓練）· **每日訓練**（每日輪換挑戰卡 + VARK/量表回饋強化） | `src/lib/genius-daily.ts`、`src/components/practice/TrainingPlanPanel.tsx`、`DailyTrainingPanel.tsx` |
 | 記憶卡頁（複習／卡片／訓練／數據／宮殿） | `src/pages/MemoryLab.tsx` |
 | 記憶宮殿（method of loci + AI 出圖） | `src/lib/memory-palace.ts`、`src/components/memory/MemoryPalace.tsx` |
