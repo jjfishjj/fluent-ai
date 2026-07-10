@@ -30,6 +30,9 @@ import { loadVARKProfile, saveVARKProfile } from '@/lib/vark-service';
 import { loadGeniusType, geniusInfo, GeniusType, loadGeniusVark } from '@/lib/genius-type';
 import { GENIUS_TASKS, GENIUS_SCENARIO } from '@/lib/genius-tasks';
 import { addCard } from '@/lib/memory-srs';
+import { TrainingPlanPanel } from '@/components/practice/TrainingPlanPanel';
+import { DailyTrainingPanel } from '@/components/practice/DailyTrainingPanel';
+import { markDailyDone, addReinforce, dailyChallenges, DailyChallenge } from '@/lib/genius-daily';
 import { getRandomTip } from '@/lib/vark-recommendations';
 import { useBrainwave } from '@/contexts/BrainwaveContext';
 import { markUsed, markCompleted } from '@/lib/material-progress';
@@ -70,6 +73,8 @@ const Practice = () => {
   const [geniusVark, setGeniusVark] = useState<string | null>(null);
   // Effective VARK: explicit account style wins; otherwise adopt the quiz-derived one
   const effectiveLearningStyle = profile?.learning_style || geniusVark;
+  // Practice view: AI 對話 / 訓練方案 / 每日訓練
+  const [practiceView, setPracticeView] = useState<'chat' | 'plan' | 'daily'>('chat');
   const voiceUsedRef = useRef(false);
   const audioPlayedRef = useRef(false);
   const userMsgCountRef = useRef(0);
@@ -220,15 +225,18 @@ const Practice = () => {
     toast.success('已加入記憶卡，今天就會出現在複習佇列');
   };
 
-  // Launch a type-recommended training task in the currently selected language.
+  // Launch a type-recommended training task in the currently selected language
+  // (falls back to English when none is picked yet, e.g. from 訓練方案/每日訓練).
   const startTypeTask = async (prompt: string) => {
-    if (!selectedLanguage) return;
+    const lang = selectedLanguage || 'english';
     const freeChat = SCENARIOS.find(sc => sc.id === 'freeChat') || SCENARIOS[0];
+    setSelectedLanguage(lang);
     setSelectedScenario(freeChat);
-    const localized = localizePrompt(prompt);
+    const langName = LANGUAGES.find(l => l.id === lang)?.name || lang;
+    const localized = prompt.replaceAll('English', langName);
     setMaterialPrompt(localized);
     const settings: ConversationSettings = {
-      language: selectedLanguage,
+      language: lang,
       scenario: 'freeChat',
       difficulty,
       speed,
@@ -237,6 +245,30 @@ const Practice = () => {
       instantCorrection,
     };
     await runConversation(settings, localized);
+  };
+
+  // 每日訓練完成 → 回饋強化 VARK profile + 天賦量表累積
+  const reinforceFromChallenge = (c: DailyChallenge) => {
+    const uid = user?.id || 'guest';
+    const base = varkProfile || loadVARKProfile(uid);
+    const updated = updateProfile(base, [{ style: c.vark, weight: 2 }]);
+    saveVARKProfile(uid, updated);
+    setVarkProfile(updated);
+    addReinforce(uid, c.dimLabel);
+    toast.success(`訓練完成！已強化 ${c.dimLabel} · 量表已更新`);
+  };
+
+  const handleDailyComplete = (c: DailyChallenge) => reinforceFromChallenge(c);
+
+  const handleDailyLaunch = (prompt: string, idx: number) => {
+    // Launching the AI session counts as doing the challenge.
+    const uid = user?.id || 'guest';
+    markDailyDone(uid, idx);
+    if (geniusType) {
+      const c = dailyChallenges(geniusType)[idx];
+      if (c) reinforceFromChallenge(c);
+    }
+    startTypeTask(prompt);
   };
 
   const handleSendMessage = async (content: string, imageBase64?: string, videoFrames?: string[], urlContext?: string) => {
@@ -516,7 +548,54 @@ const Practice = () => {
           );
         })()}
 
-        {!selectedLanguage ? (
+        {/* Practice view switcher: AI 對話 / 訓練方案 / 每日訓練 */}
+        <div className="max-w-4xl mx-auto mb-6 grid grid-cols-3 gap-2">
+          {([
+            { key: 'chat' as const, emoji: '💬', label: 'AI 對話' },
+            { key: 'plan' as const, emoji: '📋', label: '訓練方案' },
+            { key: 'daily' as const, emoji: '🎯', label: '每日訓練' },
+          ]).map(v => (
+            <button
+              key={v.key}
+              onClick={() => setPracticeView(v.key)}
+              className={`rounded-xl border-2 py-2.5 text-sm font-semibold transition-all ${
+                practiceView === v.key
+                  ? 'border-primary bg-primary/5 text-primary shadow-sm'
+                  : 'border-slate-200 text-muted-foreground hover:border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              {v.emoji} {v.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 介面一：訓練方案 — 每個天分的完整訓練方法 */}
+        {practiceView === 'plan' && (
+          <TrainingPlanPanel userType={geniusType} onLaunch={(p) => startTypeTask(p)} />
+        )}
+
+        {/* 介面二：每日訓練 — 每天輪換挑戰卡 + 量表回饋 */}
+        {practiceView === 'daily' && (
+          geniusType ? (
+            <DailyTrainingPanel
+              uid={user?.id || 'guest'}
+              userType={geniusType}
+              varkProfile={varkProfile}
+              onLaunch={handleDailyLaunch}
+              onComplete={handleDailyComplete}
+            />
+          ) : (
+            <div className="max-w-3xl mx-auto">
+              <a href="/quizzes/memory-genius-quiz/" className="block text-center rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-4 py-8 hover:shadow-sm transition-shadow">
+                <div className="text-3xl mb-2">🧠</div>
+                <p className="font-semibold">先做 5 分鐘記憶天才測定</p>
+                <p className="text-sm text-muted-foreground mt-1">測出型態後，每天會有專屬你的訓練挑戰卡 →</p>
+              </a>
+            </div>
+          )
+        )}
+
+        {practiceView === 'chat' && (!selectedLanguage ? (
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-8">
               <h1 className="text-3xl font-display font-bold mb-2">
@@ -645,7 +724,7 @@ const Practice = () => {
               onStartConversation={handleStartConversation}
             />
           </div>
-        )}
+        ))}
       </div>
     </div>
   );
