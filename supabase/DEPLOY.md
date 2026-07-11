@@ -60,16 +60,39 @@ npx supabase functions deploy chat --project-ref <PROJECT_REF>
 
 ---
 
-## 密鑰（Secrets）
+## 選擇 AI 供應商（Secrets）
 
-`chat` function 需要 `LOVABLE_API_KEY` 才能呼叫 AI gateway。
-**通常不用重設**——只要機器人本來就會回話，代表密鑰已存在。確認：
+`chat` function 支援多家供應商——**設其中一組密鑰即可**（優先順序由上到下）：
 
+### 選項 A：Anthropic Claude（品質最好）
+到 [console.anthropic.com](https://console.anthropic.com) 取得 API key：
 ```bash
-npx supabase secrets list                       # 應看到 LOVABLE_API_KEY
-# 若沒有：
-npx supabase secrets set LOVABLE_API_KEY=<你的key>
+npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+# 可選：預設 claude-opus-4-8；要省成本可改
+npx supabase secrets set ANTHROPIC_MODEL=claude-haiku-4-5
 ```
+
+### 選項 B：Google Gemini 直連（有免費額度，推薦入門）
+到 [aistudio.google.com/apikey](https://aistudio.google.com/apikey) 取得免費 API key：
+```bash
+npx supabase secrets set AI_API_KEY=<你的_Gemini_key>
+# 預設就是 Gemini（gemini-2.0-flash），不用再設 AI_BASE_URL / AI_MODEL
+```
+
+### 選項 B'：其他 OpenAI 相容供應商（OpenAI / Groq / OpenRouter）
+```bash
+npx supabase secrets set AI_API_KEY=<key>
+npx supabase secrets set AI_BASE_URL=https://api.openai.com/v1          # 或 Groq/OpenRouter 的
+npx supabase secrets set AI_MODEL=gpt-4o-mini                            # 對應模型
+```
+- Groq：`AI_BASE_URL=https://api.groq.com/openai/v1`、`AI_MODEL=llama-3.3-70b-versatile`（有免費額度）
+- OpenRouter：`AI_BASE_URL=https://openrouter.ai/api/v1`
+
+### 選項 C（舊）：Lovable gateway
+沒設上面任何密鑰時退回 `LOVABLE_API_KEY`（若你已停用 Lovable，此路徑等於失效）。
+
+設定完密鑰後，**重新部署一次**：`npx supabase functions deploy chat`。
+確認目前設了什麼：`npx supabase secrets list`。
 
 ---
 
