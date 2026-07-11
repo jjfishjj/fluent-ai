@@ -22,18 +22,41 @@ export async function streamChat({
   onDone: () => void;
   onError: (msg: string) => void;
 }) {
-  const resp = await fetch(CHAT_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-    },
-    body: JSON.stringify({ messages, settings, learningStyle, geniusType }),
-  });
+  // Abort if the server never answers — otherwise the UI spins forever.
+  const abort = new AbortController();
+  const timeout = setTimeout(() => abort.abort(), 45000);
+
+  let resp: Response;
+  try {
+    resp = await fetch(CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ messages, settings, learningStyle, geniusType }),
+      signal: abort.signal,
+    });
+  } catch (e) {
+    clearTimeout(timeout);
+    onError(
+      e instanceof DOMException && e.name === 'AbortError'
+        ? 'AI 伺服器逾時沒有回應（45 秒）。請稍後再試。'
+        : '無法連線到 AI 伺服器。請檢查網路，或稍後再試。'
+    );
+    return;
+  }
+  clearTimeout(timeout);
 
   if (!resp.ok) {
     const data = await resp.json().catch(() => ({}));
-    onError(data.error || `Error ${resp.status}`);
+    const friendly: Record<number, string> = {
+      402: 'AI 額度已用完（Lovable AI credits exhausted）——請到 Lovable 專案補充額度。',
+      429: '請求太頻繁，被暫時限流。等一分鐘再試。',
+      404: '找不到 chat 服務——Vercel 的 VITE_SUPABASE_URL 可能指向錯的 Supabase 專案。',
+      500: 'AI 服務錯誤（可能是 LOVABLE_API_KEY 未設定）。',
+    };
+    onError(data.error || friendly[resp.status] || `Error ${resp.status}`);
     return;
   }
 
@@ -48,7 +71,14 @@ export async function streamChat({
   let streamDone = false;
 
   while (!streamDone) {
-    const { done, value } = await reader.read();
+    let chunk: ReadableStreamReadResult<Uint8Array>;
+    try {
+      chunk = await reader.read();
+    } catch {
+      onError('串流中斷。請重新發送訊息。');
+      return;
+    }
+    const { done, value } = chunk;
     if (done) break;
     textBuffer += decoder.decode(value, { stream: true });
 
