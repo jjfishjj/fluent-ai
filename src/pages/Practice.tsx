@@ -202,6 +202,13 @@ const Practice = () => {
       onError: (msg) => {
         setIsLoading(false);
         toast.error(msg);
+        // Surface the error in the chat itself so it doesn't vanish with the toast
+        setMessages(prev => [...prev, {
+          id: `err-${Date.now()}`,
+          role: 'assistant' as const,
+          content: `⚠️ ${msg}`,
+          timestamp: new Date(),
+        }]);
       },
     });
   };
@@ -420,6 +427,13 @@ const Practice = () => {
       onError: (msg) => {
         setIsLoading(false);
         toast.error(msg);
+        // Surface the error in the chat itself so it doesn't vanish with the toast
+        setMessages(prev => [...prev, {
+          id: `err-${Date.now()}`,
+          role: 'assistant' as const,
+          content: `⚠️ ${msg}`,
+          timestamp: new Date(),
+        }]);
       },
     });
   };
