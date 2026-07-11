@@ -51,7 +51,7 @@ export async function streamChat({
   if (!resp.ok) {
     const data = await resp.json().catch(() => ({}));
     const friendly: Record<number, string> = {
-      402: 'AI 額度已用完（Lovable AI credits exhausted）——請到 Lovable 專案補充額度。',
+      402: 'AI 供應商額度已用完——請到你的 AI 平台帳戶檢查/補充額度。',
       429: '請求太頻繁，被暫時限流。等一分鐘再試。',
       404: '找不到 chat 服務——Vercel 的 VITE_SUPABASE_URL 可能指向錯的 Supabase 專案。',
       500: 'AI 服務錯誤（可能是 LOVABLE_API_KEY 未設定）。',

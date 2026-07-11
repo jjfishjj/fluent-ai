@@ -12,8 +12,21 @@ serve(async (req) => {
 
   try {
     const { messages, settings, learningStyle, geniusType } = await req.json();
+
+    // ---- Provider resolution (set ONE of these via `supabase secrets set`) ----
+    // 1) ANTHROPIC_API_KEY                          → Anthropic Claude
+    // 2) AI_API_KEY (+ AI_BASE_URL, AI_MODEL)       → any OpenAI-compatible API
+    //      Gemini:     AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai  AI_MODEL=gemini-2.0-flash
+    //      OpenAI:     AI_BASE_URL=https://api.openai.com/v1                                AI_MODEL=gpt-4o-mini
+    //      Groq:       AI_BASE_URL=https://api.groq.com/openai/v1                           AI_MODEL=llama-3.3-70b-versatile
+    //      OpenRouter: AI_BASE_URL=https://openrouter.ai/api/v1                             AI_MODEL=<any>
+    // 3) LOVABLE_API_KEY (legacy)                   → Lovable AI gateway
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    const AI_API_KEY = Deno.env.get("AI_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    if (!ANTHROPIC_API_KEY && !AI_API_KEY && !LOVABLE_API_KEY) {
+      throw new Error("No AI provider configured. Set ANTHROPIC_API_KEY, or AI_API_KEY (+AI_BASE_URL, +AI_MODEL).");
+    }
 
     const langNames: Record<string, string> = {
       english: "English",
@@ -161,16 +174,82 @@ ${geniusInstruction}${styleInstruction}${romanizationNote}
 11. If the user shares a link with extracted content, read it carefully and use the content as context for the language practice conversation. You can discuss the content, ask comprehension questions, or use vocabulary from it.
 12. If the user shares a YouTube video, try to read any subtitles/transcript provided and discuss the video content in the target language.`;
 
+    // ---------- Path A: Anthropic Claude (official SDK, streamed) ----------
+    // The frontend parses OpenAI-style SSE chunks, so Claude deltas are
+    // re-emitted in that shape — no frontend change needed.
+    if (ANTHROPIC_API_KEY) {
+      const { default: Anthropic } = await import("npm:@anthropic-ai/sdk");
+      const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+      const model = Deno.env.get("ANTHROPIC_MODEL") || "claude-opus-4-8";
+
+      const claudeMessages = messages
+        .filter((m: any) => m.role === "user" || m.role === "assistant")
+        .map((m: any) => {
+          if (Array.isArray(m.content)) {
+            const blocks = m.content
+              .map((p: any) => {
+                if (p.type === "text" && p.text) return { type: "text", text: p.text };
+                if (p.type === "image_url" && p.image_url?.url) {
+                  const dm = String(p.image_url.url).match(/^data:(image\/[a-z+.-]+);base64,(.+)$/i);
+                  if (dm) return { type: "image", source: { type: "base64", media_type: dm[1], data: dm[2] } };
+                  return { type: "image", source: { type: "url", url: p.image_url.url } };
+                }
+                return null;
+              })
+              .filter(Boolean);
+            return { role: m.role, content: blocks.length ? blocks : [{ type: "text", text: "…" }] };
+          }
+          return { role: m.role, content: String(m.content ?? "") };
+        });
+
+      const encoder = new TextEncoder();
+      const body = new ReadableStream({
+        async start(controller) {
+          try {
+            const stream = anthropic.messages.stream({
+              model,
+              max_tokens: 2048,
+              thinking: { type: "adaptive" },
+              system: systemPrompt,
+              messages: claudeMessages,
+            });
+            stream.on("text", (delta: string) => {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: delta } }] })}\n\n`));
+            });
+            await stream.finalMessage();
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          } catch (e) {
+            console.error("Anthropic stream error:", e);
+            controller.error(e);
+          }
+        },
+      });
+
+      return new Response(body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    }
+
+    // ---------- Path B: any OpenAI-compatible endpoint ----------
+    const baseUrl = AI_API_KEY
+      ? (Deno.env.get("AI_BASE_URL") || "https://generativelanguage.googleapis.com/v1beta/openai")
+      : "https://ai.gateway.lovable.dev/v1";
+    const apiKey = AI_API_KEY || LOVABLE_API_KEY;
+    const model = AI_API_KEY
+      ? (Deno.env.get("AI_MODEL") || "gemini-2.0-flash")
+      : "google/gemini-3-flash-preview";
+
     const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      `${baseUrl.replace(/\/$/, "")}/chat/completions`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model,
           messages: [{ role: "system", content: systemPrompt }, ...messages.map((m: any) => {
             // Support multimodal messages (text + image)
             if (Array.isArray(m.content)) {
@@ -197,7 +276,7 @@ ${geniusInstruction}${styleInstruction}${romanizationNote}
         );
       }
       const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
+      console.error("AI provider error:", response.status, t);
       return new Response(
         JSON.stringify({ error: "AI service error" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
