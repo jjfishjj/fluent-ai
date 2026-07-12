@@ -76,7 +76,7 @@ npx supabase secrets set ANTHROPIC_MODEL=claude-haiku-4-5
 到 [aistudio.google.com/apikey](https://aistudio.google.com/apikey) 取得免費 API key：
 ```bash
 npx supabase secrets set AI_API_KEY=<你的_Gemini_key>
-# 預設就是 Gemini（gemini-2.0-flash），不用再設 AI_BASE_URL / AI_MODEL
+# 預設就是 Gemini（gemini-flash-latest），不用再設 AI_BASE_URL / AI_MODEL
 ```
 
 ### 選項 B'：其他 OpenAI 相容供應商（OpenAI / Groq / OpenRouter）
