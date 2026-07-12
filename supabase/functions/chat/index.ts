@@ -16,7 +16,7 @@ serve(async (req) => {
     // ---- Provider resolution (set ONE of these via `supabase secrets set`) ----
     // 1) ANTHROPIC_API_KEY                          → Anthropic Claude
     // 2) AI_API_KEY (+ AI_BASE_URL, AI_MODEL)       → any OpenAI-compatible API
-    //      Gemini:     AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai  AI_MODEL=gemini-2.0-flash
+    //      Gemini:     AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai  AI_MODEL=gemini-flash-latest
     //      OpenAI:     AI_BASE_URL=https://api.openai.com/v1                                AI_MODEL=gpt-4o-mini
     //      Groq:       AI_BASE_URL=https://api.groq.com/openai/v1                           AI_MODEL=llama-3.3-70b-versatile
     //      OpenRouter: AI_BASE_URL=https://openrouter.ai/api/v1                             AI_MODEL=<any>
@@ -237,7 +237,7 @@ ${geniusInstruction}${styleInstruction}${romanizationNote}
       : "https://ai.gateway.lovable.dev/v1";
     const apiKey = AI_API_KEY || LOVABLE_API_KEY;
     const model = AI_API_KEY
-      ? (Deno.env.get("AI_MODEL") || "gemini-2.0-flash")
+      ? (Deno.env.get("AI_MODEL") || "gemini-flash-latest")
       : "google/gemini-3-flash-preview";
 
     const response = await fetch(
