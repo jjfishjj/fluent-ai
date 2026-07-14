@@ -286,6 +286,42 @@ export type Database = {
         }
         Relationships: []
       }
+      qa_training_examples: {
+        Row: {
+          answer: string
+          created_at: string
+          created_by: string | null
+          genius_type: string | null
+          id: string
+          is_active: boolean
+          language: string | null
+          question: string
+          updated_at: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          created_by?: string | null
+          genius_type?: string | null
+          id?: string
+          is_active?: boolean
+          language?: string | null
+          question: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          created_by?: string | null
+          genius_type?: string | null
+          id?: string
+          is_active?: boolean
+          language?: string | null
+          question?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shop_items: {
         Row: {
           created_at: string
