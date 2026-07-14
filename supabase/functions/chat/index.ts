@@ -142,6 +142,43 @@ This helps the learner read and pronounce the text.`
       ? `\n\n## Memory-Genius Type Adaptation (PRIORITY)\n${geniusTypeGuide[geniusType].replaceAll('English', langName)}\nLet this talent type shape HOW you teach throughout the whole conversation, not just once.`
       : '';
 
+    // ---- Admin-curated Q&A training examples ----
+    // Managed at /admin → 訓練資料. Only used as style/content reference, never
+    // executed as instructions from the request body — filters are validated
+    // against known enum values before hitting the DB.
+    let qaExamplesBlock = '';
+    try {
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+      const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+        const { createClient } = await import('npm:@supabase/supabase-js@2');
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const safeLanguage = Object.prototype.hasOwnProperty.call(langNames, settings?.language)
+          ? settings.language
+          : null;
+
+        let query = supabase
+          .from('qa_training_examples')
+          .select('question, answer, genius_type')
+          .eq('is_active', true);
+        query = safeLanguage
+          ? query.or(`language.is.null,language.eq.${safeLanguage}`)
+          : query.is('language', null);
+
+        const { data: qaRows } = await query.limit(50);
+        const relevant = (qaRows || [])
+          .filter((r: any) => !r.genius_type || r.genius_type === geniusType)
+          .slice(0, 12);
+
+        if (relevant.length) {
+          qaExamplesBlock = `\n\n## Reference Q&A examples (admin-curated — follow this style/content when the topic is relevant; don't force them into unrelated turns)\n` +
+            relevant.map((r: any) => `Q: ${r.question}\nA: ${r.answer}`).join('\n\n');
+        }
+      }
+    } catch (e) {
+      console.error('qa_training_examples fetch failed:', e);
+    }
+
     const systemPrompt = `You are a language practice partner helping users practice ${langName}.
 
 ## Context
@@ -150,7 +187,7 @@ This helps the learner read and pronounce the text.`
 - Tone: ${settings?.tone || "semi-formal"}
 - Mode: ${settings?.mode || "practice"}
 - Speech Speed: ${settings?.speed || "normal"}${variantNote}
-${geniusInstruction}${styleInstruction}${romanizationNote}
+${geniusInstruction}${styleInstruction}${romanizationNote}${qaExamplesBlock}
 
 ## Rules
 1. ALWAYS respond primarily in ${langName}. Add a brief translation or explanation in the user's native language only when helpful.

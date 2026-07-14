@@ -9,6 +9,7 @@ import { AdminUsersTab } from '@/components/admin/tabs/AdminUsersTab';
 import { AdminConversationsTab } from '@/components/admin/tabs/AdminConversationsTab';
 import { AdminPermissionsTab } from '@/components/admin/tabs/AdminPermissionsTab';
 import { AdminMockDataTab } from '@/components/admin/tabs/AdminMockDataTab';
+import { AdminQaTrainingTab } from '@/components/admin/tabs/AdminQaTrainingTab';
 import { Shield } from 'lucide-react';
 
 export interface AdminStats {
@@ -120,6 +121,7 @@ const Admin = () => {
             <TabsTrigger value="conversations">對話紀錄</TabsTrigger>
             <TabsTrigger value="permissions">權限</TabsTrigger>
             <TabsTrigger value="mockdata">模擬數據</TabsTrigger>
+            <TabsTrigger value="qatraining">訓練資料</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -136,6 +138,9 @@ const Admin = () => {
           </TabsContent>
           <TabsContent value="mockdata">
             <AdminMockDataTab onDataGenerated={fetchStats} />
+          </TabsContent>
+          <TabsContent value="qatraining">
+            <AdminQaTrainingTab />
           </TabsContent>
         </Tabs>
       </div>
