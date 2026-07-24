@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag, Brain } from 'lucide-react';
+import { WhatsNewButton } from '@/components/layout/WhatsNewButton';
 
 interface HeaderProps {
   isLoggedIn?: boolean;
@@ -102,6 +103,7 @@ export function Header({
 
           {/* Auth Section */}
           <div className="hidden md:flex items-center gap-3">
+            <WhatsNewButton />
             {isLoggedIn ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -142,15 +144,17 @@ export function Header({
             )}
           </div>
 
-          {/* Mobile Menu Toggle */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="md:hidden"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </Button>
+          {/* Mobile: What's New + Menu Toggle */}
+          <div className="flex items-center gap-1 md:hidden">
+            <WhatsNewButton />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
+          </div>
         </div>
 
         {/* Mobile Menu */}

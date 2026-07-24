@@ -71,10 +71,7 @@ serve(async (req) => {
     }
 
     if (type === "video_url") {
-      // For video URLs (e.g. YouTube), use AI to analyze
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
+      // For video URLs (e.g. YouTube): scrape title/captions directly, no AI call needed.
       // Try to extract YouTube video ID for transcript
       const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
       
