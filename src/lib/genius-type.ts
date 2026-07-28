@@ -12,19 +12,20 @@ export interface GeniusInfo {
   nameZh: string;
   nameEn: string;
   emoji: string;
+  color: string;
   vark: string;
   brainwave: string;
 }
 
 export const GENIUS_INFO: Record<GeniusType, GeniusInfo> = {
-  explorer:  { type: 'explorer',  nameZh: '探索者', nameEn: 'EXPLORER',  emoji: '🔵', vark: 'K 動覺',  brainwave: 'θ 創意波' },
-  architect: { type: 'architect', nameZh: '建築師', nameEn: 'ARCHITECT', emoji: '🟣', vark: 'R 讀寫',  brainwave: 'β 專注波' },
-  melodist:  { type: 'melodist',  nameZh: '旋律人', nameEn: 'MELODIST',  emoji: '🟠', vark: 'A 聽覺',  brainwave: 'α 放鬆波' },
-  narrator:  { type: 'narrator',  nameZh: '敘事者', nameEn: 'NARRATOR',  emoji: '🟡', vark: 'A+K',     brainwave: 'α+θ 雙波' },
-  connector: { type: 'connector', nameZh: '織網者', nameEn: 'CONNECTOR', emoji: '🟢', vark: 'A+R',     brainwave: 'α 放鬆波' },
-  analyst:   { type: 'analyst',   nameZh: '分析師', nameEn: 'ANALYST',   emoji: '🔴', vark: 'R+K',     brainwave: 'β 專注波' },
-  performer: { type: 'performer', nameZh: '表演者', nameEn: 'PERFORMER', emoji: '🌸', vark: 'K+A',     brainwave: 'γ 警覺波' },
-  visionary: { type: 'visionary', nameZh: '圖像家', nameEn: 'VISIONARY', emoji: '🔶', vark: 'V 視覺',  brainwave: 'γ 警覺波' },
+  explorer:  { type: 'explorer',  nameZh: '探索者', nameEn: 'EXPLORER',  emoji: '🔵', color: '#2563eb', vark: 'K 動覺',  brainwave: 'θ 創意波' },
+  architect: { type: 'architect', nameZh: '建築師', nameEn: 'ARCHITECT', emoji: '🟣', color: '#7c3aed', vark: 'R 讀寫',  brainwave: 'β 專注波' },
+  melodist:  { type: 'melodist',  nameZh: '旋律人', nameEn: 'MELODIST',  emoji: '🟠', color: '#f97316', vark: 'A 聽覺',  brainwave: 'α 放鬆波' },
+  narrator:  { type: 'narrator',  nameZh: '敘事者', nameEn: 'NARRATOR',  emoji: '🟡', color: '#eab308', vark: 'A+K',     brainwave: 'α+θ 雙波' },
+  connector: { type: 'connector', nameZh: '織網者', nameEn: 'CONNECTOR', emoji: '🟢', color: '#16a34a', vark: 'A+R',     brainwave: 'α 放鬆波' },
+  analyst:   { type: 'analyst',   nameZh: '分析師', nameEn: 'ANALYST',   emoji: '🔴', color: '#dc2626', vark: 'R+K',     brainwave: 'β 專注波' },
+  performer: { type: 'performer', nameZh: '表演者', nameEn: 'PERFORMER', emoji: '🌸', color: '#db2777', vark: 'K+A',     brainwave: 'γ 警覺波' },
+  visionary: { type: 'visionary', nameZh: '圖像家', nameEn: 'VISIONARY', emoji: '🔶', color: '#ea580c', vark: 'V 視覺',  brainwave: 'γ 警覺波' },
 };
 
 const VALID = new Set(Object.keys(GENIUS_INFO));

@@ -18,7 +18,7 @@ import {
   ConversationSettings,
   Message
 } from '@/lib/types';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Sparkles } from 'lucide-react';
 import { createConversation, saveMessage } from '@/lib/conversation-service';
 import { streamChat } from '@/lib/stream-chat';
 import { parseCorrections } from '@/lib/parse-corrections';
@@ -582,6 +582,22 @@ const Practice = () => {
             </button>
           ))}
         </div>
+
+        <button
+          onClick={() => navigate('/talent-card-game')}
+          className="max-w-4xl mx-auto mb-6 flex w-full items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 px-4 py-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-orange-900">語言天份卡牌情境遊戲</div>
+              <div className="text-xs text-orange-700/80">參考積木式闖關，把聽力、記憶、修補與表達做成情境卡牌。</div>
+            </div>
+          </div>
+          <span className="shrink-0 text-xs font-bold text-orange-700">開始玩 →</span>
+        </button>
 
         {/* 介面一：訓練方案 — 每個天分的完整訓練方法 */}
         {practiceView === 'plan' && (

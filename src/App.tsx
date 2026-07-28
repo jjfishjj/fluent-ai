@@ -9,6 +9,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import BrainLab from "./pages/BrainLab";
 import MemoryLab from "./pages/MemoryLab";
 import SubjectLab from "./pages/SubjectLab";
+import LearningGymPlan from "./pages/LearningGymPlan";
 import Index from "./pages/Index";
 import Practice from "./pages/Practice";
 import Admin from "./pages/Admin";
@@ -20,16 +21,18 @@ import Friends from "./pages/Friends";
 import Energy from "./pages/Energy";
 import Shop from "./pages/Shop";
 import Interests from "./pages/Interests";
+import TalentCardGame from "./pages/TalentCardGame";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+const basename = import.meta.env.BASE_URL === "/" ? undefined : import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter basename={basename}>
         <AuthProvider>
           <BrainwaveProvider>
             <div className="pb-16 md:pb-0">
@@ -48,6 +51,8 @@ const App = () => (
                 <Route path="/brain-lab" element={<BrainLab />} />
                 <Route path="/memory" element={<MemoryLab />} />
                 <Route path="/subjects" element={<SubjectLab />} />
+                <Route path="/learning-gym-plan" element={<LearningGymPlan />} />
+                <Route path="/talent-card-game" element={<TalentCardGame />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

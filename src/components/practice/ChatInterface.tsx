@@ -12,6 +12,7 @@ import { VARKInsightBanner } from '@/components/vark/VARKInsightBanner';
 import { LearningStyle } from '@/lib/learning-styles';
 import { geniusInfo, GeniusType } from '@/lib/genius-type';
 import { planFor } from '@/lib/genius-plan';
+import { LearningGymTask } from '@/lib/learning-gym';
 import {
   Send,
   Mic,
@@ -44,6 +45,7 @@ interface ChatInterfaceProps {
   onVoiceUsed?: () => void;
   onAudioPlayed?: () => void;
   geniusType?: GeniusType | null;
+  gymTask?: LearningGymTask | null;
   onSaveCard?: (english: string, meaning: string, note?: string) => void;
 }
 
@@ -61,6 +63,7 @@ export function ChatInterface({
   onVoiceUsed,
   onAudioPlayed,
   geniusType,
+  gymTask,
   onSaveCard,
 }: ChatInterfaceProps) {
   const gi = geniusInfo(geniusType ?? null);
@@ -275,9 +278,14 @@ export function ChatInterface({
             </Button>
             <div>
               <h2 className="font-semibold capitalize">
-                {settings.scenario} Practice
+                {gymTask ? gymTask.title : `${settings.scenario} Practice`}
               </h2>
               <div className="flex items-center gap-2 mt-1">
+                {gymTask && (
+                  <Badge variant="outline" className="text-xs">
+                    {gymTask.level}
+                  </Badge>
+                )}
                 <Badge variant="secondary" className="text-xs">
                   {settings.difficulty}
                 </Badge>
@@ -323,6 +331,12 @@ export function ChatInterface({
             style={{ backgroundColor: `${gi.color}12`, color: gi.color }}>
             <span>🧠</span>
             <span><b>{genPlan.retrieve.label}</b>：{genPlan.retrieve.prompt}</span>
+          </div>
+        )}
+        {gymTask && (
+          <div className="mt-2 text-xs rounded-lg px-3 py-1.5 bg-primary/10 text-primary flex items-start gap-1.5">
+            <span>🏋️</span>
+            <span><b>{gymTask.card}</b>：{gymTask.outcome}</span>
           </div>
         )}
       </div>

@@ -1,6 +1,8 @@
 import { ConversationSettings } from '@/lib/types';
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const CHAT_URL = `${SUPABASE_URL}/functions/v1/chat`;
 
 type MsgContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
 type Msg = { role: 'user' | 'assistant' | 'system'; content: MsgContent };
@@ -22,6 +24,11 @@ export async function streamChat({
   onDone: () => void;
   onError: (msg: string) => void;
 }) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    onError('AI chat is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.');
+    return;
+  }
+
   // Abort if the server never answers — otherwise the UI spins forever.
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), 45000);
@@ -32,7 +39,7 @@ export async function streamChat({
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
       },
       body: JSON.stringify({ messages, settings, learningStyle, geniusType }),
       signal: abort.signal,

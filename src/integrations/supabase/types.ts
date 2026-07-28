@@ -364,6 +364,231 @@ export type Database = {
         }
         Relationships: []
       }
+      ability_scores: {
+        Row: {
+          ability_key: string
+          ability_label: string
+          category: string
+          created_at: string
+          evidence_count: number
+          id: string
+          last_delta: number
+          last_training_session_id: string | null
+          score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ability_key: string
+          ability_label?: string
+          category: string
+          created_at?: string
+          evidence_count?: number
+          id?: string
+          last_delta?: number
+          last_training_session_id?: string | null
+          score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ability_key?: string
+          ability_label?: string
+          category?: string
+          created_at?: string
+          evidence_count?: number
+          id?: string
+          last_delta?: number
+          last_training_session_id?: string | null
+          score?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ability_scores_last_training_session_id_fkey"
+            columns: ["last_training_session_id"]
+            isOneToOne: false
+            referencedRelation: "training_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_sessions: {
+        Row: {
+          ability_deltas: Json
+          completed_at: string | null
+          completion_percent: number
+          created_at: string
+          duration_minutes: number | null
+          evidence: Json
+          genius_type: string | null
+          id: string
+          notes: string
+          started_at: string
+          status: string
+          talent_group: string | null
+          task_id: string
+          task_title: string
+          user_id: string
+          weekly_training_plan_id: string | null
+        }
+        Insert: {
+          ability_deltas?: Json
+          completed_at?: string | null
+          completion_percent?: number
+          created_at?: string
+          duration_minutes?: number | null
+          evidence?: Json
+          genius_type?: string | null
+          id?: string
+          notes?: string
+          started_at?: string
+          status?: string
+          talent_group?: string | null
+          task_id: string
+          task_title?: string
+          user_id: string
+          weekly_training_plan_id?: string | null
+        }
+        Update: {
+          ability_deltas?: Json
+          completed_at?: string | null
+          completion_percent?: number
+          created_at?: string
+          duration_minutes?: number | null
+          evidence?: Json
+          genius_type?: string | null
+          id?: string
+          notes?: string
+          started_at?: string
+          status?: string
+          talent_group?: string | null
+          task_id?: string
+          task_title?: string
+          user_id?: string
+          weekly_training_plan_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_sessions_weekly_training_plan_id_fkey"
+            columns: ["weekly_training_plan_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_training_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_training_inputs: {
+        Row: {
+          concepts: string
+          created_at: string
+          genius_type: string | null
+          id: string
+          mistakes: string
+          numbers: string
+          raw_material: string
+          source: string
+          subject: string
+          talent_group: string | null
+          updated_at: string
+          user_id: string
+          week_key: string
+        }
+        Insert: {
+          concepts?: string
+          created_at?: string
+          genius_type?: string | null
+          id?: string
+          mistakes?: string
+          numbers?: string
+          raw_material?: string
+          source?: string
+          subject?: string
+          talent_group?: string | null
+          updated_at?: string
+          user_id: string
+          week_key: string
+        }
+        Update: {
+          concepts?: string
+          created_at?: string
+          genius_type?: string | null
+          id?: string
+          mistakes?: string
+          numbers?: string
+          raw_material?: string
+          source?: string
+          subject?: string
+          talent_group?: string | null
+          updated_at?: string
+          user_id?: string
+          week_key?: string
+        }
+        Relationships: []
+      }
+      weekly_training_plans: {
+        Row: {
+          created_at: string
+          daily_plan: Json
+          generated_at: string
+          generated_plan: Json
+          genius_type: string | null
+          id: string
+          status: string
+          talent_group: string | null
+          task_ids: string[]
+          theme_focus: string
+          theme_title: string
+          updated_at: string
+          user_id: string
+          week_key: string
+          weekly_training_input_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          daily_plan?: Json
+          generated_at?: string
+          generated_plan?: Json
+          genius_type?: string | null
+          id?: string
+          status?: string
+          talent_group?: string | null
+          task_ids?: string[]
+          theme_focus?: string
+          theme_title?: string
+          updated_at?: string
+          user_id: string
+          week_key: string
+          weekly_training_input_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          daily_plan?: Json
+          generated_at?: string
+          generated_plan?: Json
+          genius_type?: string | null
+          id?: string
+          status?: string
+          talent_group?: string | null
+          task_ids?: string[]
+          theme_focus?: string
+          theme_title?: string
+          updated_at?: string
+          user_id?: string
+          week_key?: string
+          weekly_training_input_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_training_plans_weekly_training_input_id_fkey"
+            columns: ["weekly_training_input_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_training_inputs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_interests: {
         Row: {
           created_at: string
