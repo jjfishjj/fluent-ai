@@ -18,6 +18,24 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function(location) {
+        if (location.search[1] === "/") {
+          var decoded = location.search
+            .slice(1)
+            .split("&")
+            .map(function(value) {
+              return value.replace(/~and~/g, "&");
+            })
+            .join("?");
+          window.history.replaceState(
+            null,
+            null,
+            location.pathname.slice(0, -1) + decoded + location.hash
+          );
+        }
+      })(window.location);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
