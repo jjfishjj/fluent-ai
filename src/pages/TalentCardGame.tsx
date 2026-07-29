@@ -253,7 +253,7 @@ const TUTORIAL_COPY: Record<Exclude<TutorialStep, 'intro' | null>, { progress: s
   start: { progress: '1 / 6', title: '先進入情境地圖', text: '點聚光燈中的「開始冒險」。' },
   map: { progress: '2 / 6', title: '選擇第一個練習情境', text: '點亮起來的第一張情境卡，開始練習。' },
   card: { progress: '3 / 6', title: '選一張回答策略卡', text: '點聚光燈中的天份卡。卡牌是回答方法，不是標準答案。' },
-  input: { progress: '4 / 6', title: '組成你的英文回應', text: '在亮起來的輸入框打字；不知道怎麼說，也可以套用示範答案。' },
+  input: { progress: '4 / 6', title: '組成你的英文回應', text: '直接在亮起來的輸入框打字，寫一句符合情境的英文。' },
   submit: { progress: '5 / 6', title: '送出這次回答', text: '確認句子有直接回應角色，再點亮起來的「送出回應」。' },
   feedback: { progress: '6 / 6', title: '完成！看看教練回饋', text: '聚光燈中的回饋會說明策略是否命中，以及更自然的英文說法。' },
 };
@@ -303,6 +303,39 @@ function useTutorialTarget(step: TutorialStep) {
 
 function TutorialCoach({ step, onBegin, onFinish, onSkip }: { step: TutorialStep; onBegin: () => void; onFinish: () => void; onSkip: () => void }) {
   const targetRect = useTutorialTarget(step);
+  const [blockedAttempt, setBlockedAttempt] = useState<{ step: TutorialStep; count: number }>({ step: null, count: 0 });
+  const blockedCount = blockedAttempt.step === step ? blockedAttempt.count : 0;
+
+  useEffect(() => {
+    if (!step || step === 'intro') return;
+    const selector = TUTORIAL_TARGETS[step];
+    if (!selector) return;
+    const isAllowed = (event: Event) => {
+      const eventTarget = event.target;
+      if (!(eventTarget instanceof Node)) return true;
+      const tutorialTarget = document.querySelector(selector);
+      const tutorialCoach = eventTarget instanceof Element ? eventTarget.closest('[data-tutorial-coach]') : null;
+      return Boolean(tutorialTarget?.contains(eventTarget) || tutorialCoach);
+    };
+    const stopOutsidePointer = (event: PointerEvent) => {
+      if (isAllowed(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setBlockedAttempt(previous => ({ step, count: previous.step === step ? previous.count + 1 : 1 }));
+    };
+    const stopOutsideClick = (event: MouseEvent) => {
+      if (isAllowed(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    document.addEventListener('pointerdown', stopOutsidePointer, true);
+    document.addEventListener('click', stopOutsideClick, true);
+    return () => {
+      document.removeEventListener('pointerdown', stopOutsidePointer, true);
+      document.removeEventListener('click', stopOutsideClick, true);
+    };
+  }, [step]);
+
   if (!step) return null;
   if (step === 'intro') return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#102d28]/70 p-4 backdrop-blur-sm"><div role="dialog" aria-modal="true" aria-labelledby="tutorial-title" className="w-full max-w-md rounded-[30px] bg-white p-7 shadow-2xl md:p-9"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#dce9c7]"><MousePointer2 className="h-7 w-7" /></div><p className="mt-5 text-xs font-black tracking-widest text-[#e26a3b]">60 秒新手導覽</p><h2 id="tutorial-title" className="mt-2 text-3xl font-black">第一次玩嗎？<br />我帶你完成第一題</h2><p className="mt-4 leading-relaxed text-[#57736e]">跟著畫面箭頭依序選情境、點卡、輸入英文並送出。實際操作一次就會懂。</p><div className="mt-7 flex flex-col gap-2 sm:flex-row"><Button onClick={onBegin} className="flex-1 rounded-full bg-[#173a34]">開始互動教學 <ChevronRight className="ml-1 h-4 w-4" /></Button><Button onClick={onSkip} variant="ghost" className="rounded-full">先跳過</Button></div></div></div>;
   const copy = TUTORIAL_COPY[step];
@@ -311,10 +344,14 @@ function TutorialCoach({ step, onBegin, onFinish, onSkip }: { step: TutorialStep
   const arrowLeft = targetRect ? Math.max(8, Math.min(window.innerWidth - 52, targetRect.left + targetRect.width / 2 - 22)) : 8;
   return <>
     {targetRect && <>
-      <div aria-hidden="true" className="pointer-events-none fixed z-[60] rounded-2xl border-[3px] border-[#ffd65a] transition-all duration-200" style={{ top: targetRect.top - 7, left: targetRect.left - 7, width: targetRect.width + 14, height: targetRect.height + 14, boxShadow: '0 0 0 9999px rgba(10, 34, 30, 0.72), 0 0 0 7px rgba(255, 214, 90, 0.25), 0 0 28px 10px rgba(255, 214, 90, 0.65)' }} />
+      <div aria-hidden="true" data-tutorial-blocker className="fixed inset-x-0 top-0 z-[59] cursor-not-allowed" style={{ height: Math.max(0, targetRect.top - 7) }} />
+      <div aria-hidden="true" data-tutorial-blocker className="fixed inset-x-0 bottom-0 z-[59] cursor-not-allowed" style={{ top: targetRect.bottom + 7 }} />
+      <div aria-hidden="true" data-tutorial-blocker className="fixed z-[59] cursor-not-allowed" style={{ top: targetRect.top - 7, left: 0, width: Math.max(0, targetRect.left - 7), height: targetRect.height + 14 }} />
+      <div aria-hidden="true" data-tutorial-blocker className="fixed right-0 z-[59] cursor-not-allowed" style={{ top: targetRect.top - 7, left: targetRect.right + 7, height: targetRect.height + 14 }} />
+      <div key={`${step}-${blockedCount}`} aria-hidden="true" className={`pointer-events-none fixed z-[60] rounded-2xl border-[3px] border-[#ffd65a] transition-all duration-200 ${blockedCount ? 'animate-pulse' : ''}`} style={{ top: targetRect.top - 7, left: targetRect.left - 7, width: targetRect.width + 14, height: targetRect.height + 14, boxShadow: '0 0 0 9999px rgba(10, 34, 30, 0.72), 0 0 0 7px rgba(255, 214, 90, 0.25), 0 0 28px 10px rgba(255, 214, 90, 0.65)' }} />
       <div aria-hidden="true" className="pointer-events-none fixed z-[65] flex h-11 w-11 animate-bounce items-center justify-center rounded-full bg-[#ffd65a] text-2xl font-black text-[#173a34] shadow-xl" style={{ left: arrowLeft, top: arrowAbove ? targetRect.top - 58 : targetRect.bottom + 14 }}>{arrowAbove ? '↓' : '↑'}</div>
     </>}
-    <div className={`pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4 ${coachAtTop ? 'top-20' : 'bottom-20 md:bottom-6'}`}><div role="status" className="pointer-events-auto w-full max-w-lg rounded-[26px] border-2 border-[#efb83b] bg-white p-5 shadow-2xl"><div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#fff0bf] text-[#b66f12]"><MousePointer2 className="h-6 w-6" /></div><div className="min-w-0 flex-1"><div className="text-xs font-black tracking-widest text-[#e26a3b]">互動教學 {copy.progress}</div><h3 className="mt-1 text-xl font-black">{copy.title}</h3><p className="mt-1 text-sm leading-relaxed text-[#57736e]">{copy.text}</p></div></div><div className="mt-4 flex justify-end gap-2">{step === 'feedback' ? <Button onClick={onFinish} className="rounded-full bg-[#173a34]">完成教學 <Check className="ml-1 h-4 w-4" /></Button> : <button onClick={onSkip} className="text-xs font-bold text-[#57736e] hover:underline">跳過教學</button>}</div></div></div>
+    <div className={`pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4 ${coachAtTop ? 'top-20' : 'bottom-20 md:bottom-6'}`}><div data-tutorial-coach role="status" className="pointer-events-auto w-full max-w-lg rounded-[26px] border-2 border-[#efb83b] bg-white p-5 shadow-2xl"><div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#fff0bf] text-[#b66f12]"><MousePointer2 className="h-6 w-6" /></div><div className="min-w-0 flex-1"><div className="text-xs font-black tracking-widest text-[#e26a3b]">互動教學 {copy.progress}</div><h3 className="mt-1 text-xl font-black">{copy.title}</h3><p className="mt-1 text-sm leading-relaxed text-[#57736e]">{copy.text}</p>{blockedCount > 0 && <p role="alert" className="mt-2 rounded-xl bg-[#fff0bf] px-3 py-2 text-xs font-black text-[#8a5700]">請點黃色聚光燈中的目標，完成這一步後才能操作其他位置。</p>}</div></div><div className="mt-4 flex justify-end gap-2">{step === 'feedback' ? <Button onClick={onFinish} className="rounded-full bg-[#173a34]">完成教學 <Check className="ml-1 h-4 w-4" /></Button> : <button onClick={onSkip} className="text-xs font-bold text-[#57736e] hover:underline">跳過教學</button>}</div></div></div>
   </>;
 }
 
