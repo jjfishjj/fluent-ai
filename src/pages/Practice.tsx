@@ -18,14 +18,36 @@ import {
   ConversationSettings,
   Message
 } from '@/lib/types';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import {
+  ArrowLeft,
+  BookOpen,
+  Brain,
+  Bug,
+  CircleDotDashed,
+  Drama,
+  Dumbbell,
+  Footprints,
+  Hand,
+  Image,
+  Map,
+  MessageCircle,
+  Mic,
+  Music,
+  Play,
+  Puzzle,
+  Repeat,
+  Shuffle,
+  Sparkles,
+  Table2,
+  Workflow,
+} from 'lucide-react';
 import { createConversation, saveMessage } from '@/lib/conversation-service';
 import { streamChat } from '@/lib/stream-chat';
 import { parseCorrections } from '@/lib/parse-corrections';
 import { generateImage, uploadChatImage } from '@/lib/image-service';
 import { toast } from 'sonner';
 import { LearningStyle, STYLE_INFO } from '@/lib/learning-styles';
-import { analyzeMessage, updateProfile, getDominantStyle, VARKProfile } from '@/lib/vark-analyzer';
+import { analyzeMessage, updateProfile, getDominantStyle, getStylePercentages, VARKProfile } from '@/lib/vark-analyzer';
 import { loadVARKProfile, saveVARKProfile } from '@/lib/vark-service';
 import { loadGeniusType, geniusInfo, GeniusType, loadGeniusVark } from '@/lib/genius-type';
 import { GENIUS_TASKS, GENIUS_SCENARIO } from '@/lib/genius-tasks';
@@ -37,6 +59,65 @@ import { getRandomTip } from '@/lib/vark-recommendations';
 import { useBrainwave } from '@/contexts/BrainwaveContext';
 import { markUsed, markCompleted } from '@/lib/material-progress';
 import { recordSessionEnd } from '@/lib/brainwave/behavioral-inference';
+import { LearningGymActivity } from '@/components/practice/LearningGymActivity';
+import {
+  applyGymTaskStart,
+  getGeniusIdentityTraining,
+  getRecommendedGymTasks,
+  getTalentTrainingProfile,
+  LEARNING_GYM_ABILITY_LABELS,
+  LearningGymAbility,
+  LearningGymProgress,
+  LearningGymTask,
+  LearningGymTaskId,
+  loadLearningGymProgress,
+  saveLearningGymProgress,
+  topLearningGymAbilities,
+} from '@/lib/learning-gym';
+
+type PracticeView = 'homework' | 'chat' | 'plan' | 'daily';
+
+const PRACTICE_VIEWS: { key: PracticeView; emoji: string; label: string }[] = [
+  { key: 'homework', emoji: '🧩', label: '功課卡牌' },
+  { key: 'chat', emoji: '💬', label: 'AI 對話' },
+  { key: 'plan', emoji: '📋', label: '訓練方案' },
+  { key: 'daily', emoji: '🎯', label: '每日訓練' },
+];
+
+const VARK_HOMEWORK_STYLES: { key: LearningStyle; emoji: string; label: string; color: string }[] = [
+  { key: 'visual', emoji: '👁️', label: '視覺型學習者', color: '#2563eb' },
+  { key: 'auditory', emoji: '👂', label: '聽覺型學習者', color: '#22c55e' },
+  { key: 'reading', emoji: '📖', label: '讀寫型學習者', color: '#f59e0b' },
+  { key: 'kinesthetic', emoji: '🏃', label: '動覺型學習者', color: '#ec4899' },
+];
+
+const GYM_ICONS: Partial<Record<LearningGymTaskId, typeof MessageCircle>> = {
+  scene_anchor: MessageCircle,
+  data_to_table: Table2,
+  sound_shadow: Music,
+  story_recall: BookOpen,
+  concept_web: Workflow,
+  principle_output: Puzzle,
+  live_output: Mic,
+  memory_palace: Map,
+  number_encoding: CircleDotDashed,
+  similarity_split: Shuffle,
+  error_repair: Repeat,
+  image_morph: Image,
+  color_symbol_notes: Sparkles,
+  rap_word_beat: Music,
+  podcast_host: Mic,
+  mnemonic_meme: MessageCircle,
+  roleplay_quest: Drama,
+  body_anchor: Hand,
+  walking_room: Footprints,
+  root_tree: BookOpen,
+  causal_map: Workflow,
+  ai_debugger: Bug,
+};
+
+const isPracticeView = (value: string | null): value is PracticeView =>
+  value === 'homework' || value === 'chat' || value === 'plan' || value === 'daily';
 
 const Practice = () => {
   const [searchParams] = useSearchParams();
@@ -73,8 +154,10 @@ const Practice = () => {
   const [geniusVark, setGeniusVark] = useState<string | null>(null);
   // Effective VARK: explicit account style wins; otherwise adopt the quiz-derived one
   const effectiveLearningStyle = profile?.learning_style || geniusVark;
-  // Practice view: AI 對話 / 訓練方案 / 每日訓練
-  const [practiceView, setPracticeView] = useState<'chat' | 'plan' | 'daily'>('chat');
+  // Practice view: typed homework remains the first screen after the talent quiz.
+  const [practiceView, setPracticeView] = useState<PracticeView>('homework');
+  const [gymProgress, setGymProgress] = useState<LearningGymProgress>(() => loadLearningGymProgress('guest'));
+  const [activeGymTask, setActiveGymTask] = useState<LearningGymTask | null>(null);
   const voiceUsedRef = useRef(false);
   const audioPlayedRef = useRef(false);
   const userMsgCountRef = useRef(0);
@@ -90,14 +173,26 @@ const Practice = () => {
     if (prompt) setMaterialPrompt(decodeURIComponent(prompt));
     const mid = searchParams.get('materialId');
     if (mid) setMaterialId(mid);
+    const view = searchParams.get('view');
+    if (isPracticeView(view)) {
+      setPracticeView(view);
+    }
   }, [searchParams]);
 
   useEffect(() => {
     const uid = user?.id || 'guest';
+    const storedType = loadGeniusType();
     setVarkProfile(loadVARKProfile(uid));
-    setGeniusType(loadGeniusType());
+    setGeniusType(storedType);
     setGeniusVark(loadGeniusVark());
-  }, [user?.id]);
+    setGymProgress(loadLearningGymProgress(uid));
+
+    // Legacy /practice?lang=english still opens the chat setup for users who
+    // have not taken the memory-genius quiz yet. Typed users land on homework.
+    if (!storedType && searchParams.get('lang') && !isPracticeView(searchParams.get('view'))) {
+      setPracticeView('chat');
+    }
+  }, [user?.id, searchParams]);
 
   const currentLanguage = LANGUAGES.find(l => l.id === selectedLanguage);
 
@@ -278,6 +373,29 @@ const Practice = () => {
     startTypeTask(prompt);
   };
 
+  const startLearningGymTask = (task: LearningGymTask) => {
+    const uid = user?.id || 'guest';
+    const next = applyGymTaskStart(gymProgress, task);
+    setGymProgress(next);
+    saveLearningGymProgress(next, uid);
+    setActiveGymTask(task);
+  };
+
+  const handleGymProgressChange = (
+    next: LearningGymProgress,
+    gained: Partial<Record<LearningGymAbility, number>>,
+    evidence: string
+  ) => {
+    const uid = user?.id || 'guest';
+    setGymProgress(next);
+    saveLearningGymProgress(next, uid);
+    const gainedText = Object.entries(gained)
+      .filter(([, value]) => value)
+      .map(([ability, value]) => `${LEARNING_GYM_ABILITY_LABELS[ability as LearningGymAbility]} +${value}`)
+      .join('、');
+    toast.success(gainedText ? `已記錄功課：${gainedText}` : `已記錄功課：${evidence}`);
+  };
+
   const handleSendMessage = async (content: string, imageBase64?: string, videoFrames?: string[], urlContext?: string) => {
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -439,6 +557,10 @@ const Practice = () => {
   };
 
   const handleBack = () => {
+    if (activeGymTask) {
+      setActiveGymTask(null);
+      return;
+    }
     if (isInConversation) {
       // Persist session end time so behavioral inference can compute daysSinceLastSession
       recordSessionEnd();
@@ -457,6 +579,29 @@ const Practice = () => {
       navigate('/');
     }
   };
+
+  const normalizedLearningStyle = (
+    effectiveLearningStyle === 'visual'
+    || effectiveLearningStyle === 'auditory'
+    || effectiveLearningStyle === 'reading'
+    || effectiveLearningStyle === 'kinesthetic'
+  ) ? effectiveLearningStyle as LearningStyle : null;
+  const varkPercentages = varkProfile ? getStylePercentages(varkProfile) : null;
+  const homeworkTasks = getRecommendedGymTasks(geniusType, normalizedLearningStyle);
+  const identityTraining = getGeniusIdentityTraining(geniusType);
+  const talentProfile = getTalentTrainingProfile(identityTraining?.groupId);
+  const topAbilities = topLearningGymAbilities(gymProgress, 4);
+
+  if (activeGymTask) {
+    return (
+      <LearningGymActivity
+        task={activeGymTask}
+        progress={gymProgress}
+        onProgressChange={handleGymProgressChange}
+        onBack={() => setActiveGymTask(null)}
+      />
+    );
+  }
 
   if (isInConversation && selectedLanguage && selectedScenario) {
     return (
@@ -562,13 +707,9 @@ const Practice = () => {
           );
         })()}
 
-        {/* Practice view switcher: AI 對話 / 訓練方案 / 每日訓練 */}
-        <div className="max-w-4xl mx-auto mb-6 grid grid-cols-3 gap-2">
-          {([
-            { key: 'chat' as const, emoji: '💬', label: 'AI 對話' },
-            { key: 'plan' as const, emoji: '📋', label: '訓練方案' },
-            { key: 'daily' as const, emoji: '🎯', label: '每日訓練' },
-          ]).map(v => (
+        {/* Practice view switcher: 功課卡牌 / AI 對話 / 訓練方案 / 每日訓練 */}
+        <div className="max-w-6xl mx-auto mb-6 grid grid-cols-2 gap-2 md:grid-cols-4">
+          {PRACTICE_VIEWS.map(v => (
             <button
               key={v.key}
               onClick={() => setPracticeView(v.key)}
@@ -598,6 +739,136 @@ const Practice = () => {
           </div>
           <span className="shrink-0 text-xs font-bold text-orange-700">開始玩 →</span>
         </button>
+
+        {/* 有類型後的功課頁面：Learning Gym 卡牌任務 */}
+        {practiceView === 'homework' && (
+          <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[360px_1fr]">
+            <aside className="rounded-2xl border bg-card p-5 shadow-sm">
+              <div className="mb-4">
+                <h2 className="font-display text-xl font-bold">你的訓練依據</h2>
+                {geniusType ? (
+                  <div className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-3">
+                    <div className="flex items-center gap-2 text-sm font-bold text-indigo-800">
+                      <span>{geniusInfo(geniusType)?.emoji}</span>
+                      <span>{geniusInfo(geniusType)?.nameZh}</span>
+                    </div>
+                    {identityTraining && (
+                      <p className="mt-2 text-xs leading-relaxed text-indigo-700/80">
+                        {identityTraining.identityName}：{identityTraining.mechanism}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <a
+                    href="/quizzes/memory-genius-quiz/"
+                    className="mt-3 block rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-3 py-3 text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
+                  >
+                    先做記憶天賦測驗，任務會更準 →
+                  </a>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                {VARK_HOMEWORK_STYLES.map((style) => {
+                  const percent = varkPercentages?.[style.key] ?? (normalizedLearningStyle === style.key ? 55 : 25);
+                  return (
+                    <div key={style.key}>
+                      <div className="mb-1 flex items-center justify-between text-sm">
+                        <span className="font-semibold">
+                          {style.emoji} {style.label}
+                        </span>
+                        <span className="text-muted-foreground">{percent}%</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${Math.max(8, Math.min(100, percent))}%`, backgroundColor: style.color }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="my-5 h-px bg-border" />
+
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <Dumbbell className="h-4 w-4 text-primary" />
+                  <h3 className="font-bold">Learning Gym 能力值</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {topAbilities.map(([ability, value]) => (
+                    <span key={ability} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-700">
+                      {LEARNING_GYM_ABILITY_LABELS[ability]} {value}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {talentProfile && (
+                <div className="mt-5 rounded-xl bg-primary/5 p-3">
+                  <div className="text-sm font-bold text-primary">{talentProfile.name}</div>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{talentProfile.superpower}</p>
+                </div>
+              )}
+            </aside>
+
+            <section className="grid gap-4 sm:grid-cols-2">
+              {homeworkTasks.map((task) => {
+                const Icon = GYM_ICONS[task.id] || Brain;
+                const recommended = Boolean(
+                  identityTraining?.primaryTaskIds.includes(task.id)
+                  || (geniusType && task.genius.includes(geniusType))
+                  || (normalizedLearningStyle && task.vark.includes(normalizedLearningStyle))
+                );
+                return (
+                  <button
+                    key={task.id}
+                    type="button"
+                    onClick={() => startLearningGymTask(task)}
+                    className="group flex min-h-[180px] flex-col rounded-2xl border bg-card p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border bg-background text-primary">
+                        <Icon className="h-6 w-6" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-display text-lg font-bold leading-tight">{task.title}</h3>
+                          {recommended && (
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                              推薦
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{task.subtitle}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {Object.entries(task.abilityWeights).slice(0, 3).map(([ability, value]) => (
+                        <span key={ability} className="rounded-full border bg-background px-2.5 py-1 text-xs text-muted-foreground">
+                          {LEARNING_GYM_ABILITY_LABELS[ability as LearningGymAbility]} +{value}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="mt-auto flex items-end justify-between gap-4 pt-4">
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        {task.duration} · {task.outcome}
+                      </p>
+                      <span className="inline-flex items-center gap-1 text-sm font-bold text-primary">
+                        <Play className="h-4 w-4" />
+                        開始
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </section>
+          </div>
+        )}
 
         {/* 介面一：訓練方案 — 每個天分的完整訓練方法 */}
         {practiceView === 'plan' && (
