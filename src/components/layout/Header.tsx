@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag, Brain, Sparkles } from 'lucide-react';
+import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag, Brain, Sparkles, Building2 } from 'lucide-react';
 import { WhatsNewButton } from '@/components/layout/WhatsNewButton';
 
 interface HeaderProps {
@@ -92,6 +92,12 @@ export function Header({
               <Button variant={isActive('/talent-card-game') ? 'secondary' : 'ghost'} size="sm">
                 <Sparkles className="w-4 h-4 mr-1" />
                 天賦卡牌
+              </Button>
+            </Link>
+            <Link to="/language-city">
+              <Button variant={isActive('/language-city') ? 'secondary' : 'ghost'} size="sm">
+                <Building2 className="w-4 h-4 mr-1" />
+                語言城市
               </Button>
             </Link>
             {isAdmin && (
@@ -199,6 +205,12 @@ export function Header({
                 <Button variant={isActive('/talent-card-game') ? 'secondary' : 'ghost'} className="w-full justify-start">
                   <Sparkles className="w-4 h-4 mr-2" />
                   天賦卡牌
+                </Button>
+              </Link>
+              <Link to="/language-city" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button variant={isActive('/language-city') ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <Building2 className="w-4 h-4 mr-2" />
+                  語言城市
                 </Button>
               </Link>
               {isAdmin && (

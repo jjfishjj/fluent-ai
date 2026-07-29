@@ -22,6 +22,7 @@ import Energy from "./pages/Energy";
 import Shop from "./pages/Shop";
 import Interests from "./pages/Interests";
 import TalentCardGame from "./pages/TalentCardGame";
+import LanguageCity from "./pages/LanguageCity";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,6 +54,7 @@ const App = () => (
                 <Route path="/subjects" element={<SubjectLab />} />
                 <Route path="/learning-gym-plan" element={<LearningGymPlan />} />
                 <Route path="/talent-card-game" element={<TalentCardGame />} />
+                <Route path="/language-city" element={<LanguageCity />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
