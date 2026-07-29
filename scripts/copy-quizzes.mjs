@@ -15,6 +15,7 @@ const files = [
   'quizzes/index.html',
   'quizzes/memory-quiz/index.html',
   'quizzes/memory-genius-quiz/index.html',
+  'quizzes/memory-genius-quiz/scoring.js',
   'pitch/index.html',
 ];
 

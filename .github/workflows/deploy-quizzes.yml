@@ -64,6 +64,7 @@ jobs:
           cp quizzes/index.html dist/quizzes/index.html
           cp quizzes/memory-quiz/index.html dist/quizzes/memory-quiz/index.html
           cp quizzes/memory-genius-quiz/index.html dist/quizzes/memory-genius-quiz/index.html
+          cp quizzes/memory-genius-quiz/scoring.js dist/quizzes/memory-genius-quiz/scoring.js
           cp pitch/index.html dist/pitch/index.html
           cp dist/index.html dist/404.html
           touch dist/.nojekyll

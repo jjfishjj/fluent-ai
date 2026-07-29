@@ -125,6 +125,7 @@
 </head>
 <body>
 <div class="wrap" id="app"></div>
+<script src="./scoring.js"></script>
 <script>
 /* ============================================================
    記憶天才測定 · Memory Genius Type
@@ -532,39 +533,9 @@ function memSubmit(){
 
 /* ---------------- Scoring (5 steps) ---------------- */
 function compute(){
-  const d={s:0,ab:0,d:0,im:0,k:0,a:0,r:0,v:0,cn:0,pf:0,an:0,na:0};
-  ALL.forEach((item,qi)=>{
-    const ai=answers[qi]; if(ai<0) return;
-    const key=item.opts[ai][1]; d[key]=(d[key]||0)+2;
-  });
-  // step 5: Brain Lab calibration — reaction time & memory span nudge the axes
-  if(calib.done){
-    if(calib.avgRt!=null){
-      if(calib.avgRt<650) d.im+=3;        // very fast → 即時反應
-      else if(calib.avgRt<850) d.im+=1;
-      else if(calib.avgRt>1100) d.d+=2;   // deliberate → 深度沉浸
-    }
-    if(calib.memAcc!=null){
-      if(calib.memAcc>=0.8) d.ab+=2;       // strong structural memory → 抽象
-      else if(calib.memAcc<0.5) d.s+=1;    // → 感官
-    }
-  }
-  // step 1: axis scores
-  const xScore=d.ab-d.s;     // >0 抽象, <0 感官
-  const yScore=d.d-d.im;     // >0 深度, <0 即時
-  // step 2: quadrant
-  let quad;
-  if(xScore<=0 && yScore>=0) quad="innovation";
-  else if(xScore>0 && yScore>=0) quad="perception";
-  else if(xScore<=0 && yScore<0) quad="integration";
-  else quad="action";
-  // step 3-4: primary + secondary within quadrant
-  let primary,secondary;
-  if(quad==="innovation"){ if(d.k>=d.a){primary="explorer";secondary="melodist";} else {primary="melodist";secondary="explorer";} }
-  else if(quad==="perception"){ if((d.r+d.an)>=(d.na+d.a)){primary="architect";secondary="narrator";} else {primary="narrator";secondary="architect";} }
-  else if(quad==="integration"){ if(d.cn>=d.pf){primary="connector";secondary="performer";} else {primary="performer";secondary="connector";} }
-  else { if(d.an>=d.v){primary="analyst";secondary="visionary";} else {primary="visionary";secondary="analyst";} }
-  return {d,xScore,yScore,quad,primary,secondary};
+  const keys=[];
+  ALL.forEach((item,qi)=>{ const ai=answers[qi]; if(ai>=0) keys.push(item.opts[ai][1]); });
+  return MemGeniusScoring.scoreAnswerKeys(keys,calib);
 }
 
 /* ---------------- Result ---------------- */
