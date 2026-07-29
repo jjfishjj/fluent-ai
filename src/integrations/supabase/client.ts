@@ -2,8 +2,11 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// Keep public/static builds usable when cloud credentials are intentionally absent.
+// Data calls will fail normally against the non-routable fallback, while offline
+// experiences (including MemoQuest) can still render and persist locally.
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://offline.invalid';
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'offline-anon-key';
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
