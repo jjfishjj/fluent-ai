@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Award, BarChart3, Check, ChevronRight, CircleHelp, Coins, Flame, Heart, Lock, Mic, RotateCcw, ShieldCheck, Sparkles, Star, Trophy, Zap } from 'lucide-react';
+import { ArrowLeft, Award, BarChart3, Check, ChevronRight, CircleHelp, Coins, Flame, Heart, Lock, Mic, MousePointer2, RotateCcw, ShieldCheck, Sparkles, Star, Trophy, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { GENIUS_INFO, GeniusType, loadGeniusType } from '@/lib/genius-type';
@@ -9,9 +9,11 @@ import { ABILITY_COLOR, ABILITY_LABEL, GAME_BADGES, GAME_CARDS, GAME_SCENARIOS, 
 import { getQueuedTalentEvents, isTalentAnalyticsEnabled, setTalentAnalyticsEnabled, summarizeTalentEvents, trackTalentGameEvent } from '@/lib/talent-game-analytics';
 
 type Phase = 'home' | 'map' | 'play' | 'result' | 'collection';
+type TutorialStep = 'intro' | 'start' | 'map' | 'card' | 'input' | 'submit' | 'feedback' | null;
 interface SaveData { xp: number; coins: number; streak: number; lastLogin: string; unlocked: string[]; levels: Record<string, number>; completed: string[]; dailyClaimed: string; badges: string[]; }
 
 const SAVE_KEY = 'talent_card_game_save_v2';
+const TUTORIAL_KEY = 'talent_card_game_tutorial_completed_v1';
 const today = () => new Date().toISOString().slice(0, 10);
 const freshSave = (): SaveData => ({ xp: 0, coins: 100, streak: 1, lastLogin: today(), unlocked: GAME_CARDS.filter(c => c.rarity === 'common').map(c => c.id), levels: {}, completed: [], dailyClaimed: '', badges: [] });
 const loadSave = (): SaveData => {
@@ -55,6 +57,10 @@ export default function TalentCardGame() {
   const [answerMethod, setAnswerMethod] = useState<'text' | 'voice'>('text');
   const [analyticsEnabled, setAnalyticsEnabled] = useState(isTalentAnalyticsEnabled);
   const [analyticsEvents, setAnalyticsEvents] = useState(getQueuedTalentEvents);
+  const [tutorialStep, setTutorialStep] = useState<TutorialStep>(() => {
+    const replay = new URLSearchParams(window.location.search).get('tutorial') === '1';
+    return replay || localStorage.getItem(TUTORIAL_KEY) !== 'true' ? 'intro' : null;
+  });
   const activeScenario = useRef<{ id: string; highestRound: number; startedAt: number } | null>(null);
   const info = GENIUS_INFO[talent];
   const current = scenario.rounds[round];
@@ -95,6 +101,21 @@ export default function TalentCardGame() {
     window.addEventListener('pagehide', captureAbandonment);
     return () => window.removeEventListener('pagehide', captureAbandonment);
   }, [talent]);
+  useEffect(() => {
+    if (tutorialStep === 'start' && phase === 'map') setTutorialStep('map');
+    else if (tutorialStep === 'map' && phase === 'play') setTutorialStep('card');
+    else if (tutorialStep === 'card' && selected) setTutorialStep('input');
+    else if (tutorialStep === 'input' && answer.trim()) setTutorialStep('submit');
+    else if (tutorialStep === 'submit' && feedback) setTutorialStep('feedback');
+  }, [tutorialStep, phase, selected, answer, feedback]);
+
+  const beginTutorial = () => {
+    setPhase('home'); setSelected(null); setAnswer(''); setFeedback(''); setTutorialStep('start');
+  };
+  const finishTutorial = () => {
+    localStorage.setItem(TUTORIAL_KEY, 'true');
+    setTutorialStep(null);
+  };
 
   const ownedCards = useMemo(() => GAME_CARDS.filter(c => save.unlocked.includes(c.id) || c.talents.includes(talent)), [save.unlocked, talent]);
   const hand = useMemo(() => {
@@ -224,7 +245,24 @@ export default function TalentCardGame() {
     {phase === 'result' && <section className="mx-auto max-w-2xl px-4 py-14 text-center"><div className="rounded-[36px] border bg-white p-8 shadow-xl md:p-12"><div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#dce9c7]"><Zap className="h-9 w-9 fill-[#173a34]" /></div><p className="mt-6 text-xs font-black tracking-[.25em] text-[#e26a3b]">QUEST COMPLETE</p><h1 className="mt-2 text-4xl font-black">{scenario.title}完成！</h1><div className="mt-6 flex justify-center gap-2">{[0,1,2].map(i => <Star key={i} className={`h-10 w-10 ${i < (score >= 420 ? 3 : score >= 280 ? 2 : 1) ? 'fill-[#efb83b] text-[#efb83b]' : 'text-[#ddd6ca]'}`} />)}</div><div className="mt-8 grid gap-3 sm:grid-cols-3">{reward.map(item => <div key={item} className="rounded-2xl bg-[#f4efe5] p-4 font-black">{item}</div>)}</div>{newBadges.length > 0 && <div className="mt-8 rounded-3xl bg-[#173a34] p-5 text-white"><div className="flex items-center justify-center gap-2 text-xs font-black tracking-widest text-[#efb83b]"><Award className="h-4 w-4" /> NEW BADGE</div><div className="mt-4 grid gap-3 sm:grid-cols-2">{newBadges.map(badge => <div key={badge.id} className="rounded-2xl bg-white/10 p-4"><div className="text-3xl">{badge.icon}</div><div className="mt-2 font-black">{badge.title}</div><div className="mt-1 text-xs text-white/65">{badge.detail}</div></div>)}</div></div>}<div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Button variant="outline" className="rounded-full" onClick={() => startScenario(scenario)}><RotateCcw className="mr-2 h-4 w-4" />再玩一次</Button><Button className="rounded-full bg-[#173a34]" onClick={() => setPhase('map')}>繼續冒險 <ChevronRight className="ml-1 h-4 w-4" /></Button></div></div></section>}
 
     {phase === 'collection' && <section className="mx-auto max-w-6xl px-4 py-10"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black tracking-widest text-[#6d5bd0]">CARD COLLECTION</p><h1 className="mt-2 text-4xl font-black">我的天份牌庫</h1><p className="mt-2 text-[#57736e]">完成關卡解鎖卡牌，用金幣升級效果，也能收集成就徽章。</p></div><div className="rounded-full bg-white px-4 py-2 text-sm font-black"><Coins className="mr-2 inline h-4 w-4 text-[#d18a29]" />{save.coins}</div></div><BadgeShelf badges={GAME_BADGES} earnedIds={save.badges} /><div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">{GAME_CARDS.map(card => { const owned = save.unlocked.includes(card.id); const cardLevel = save.levels[card.id] || 1; const cost = cardLevel * 50; return <div key={card.id} className={`relative min-h-72 rounded-[26px] border-2 p-5 ${owned ? 'bg-white' : 'bg-[#ded9cf] opacity-60'}`} style={{ borderColor: owned ? `${ABILITY_COLOR[card.ability]}66` : '#bbb' }}><div className="flex justify-between"><span className="text-4xl">{owned ? card.icon : '🔒'}</span><span className="text-[10px] font-black uppercase">{card.rarity}</span></div><h2 className="mt-5 text-xl font-black">{owned ? card.title : '尚未解鎖'}</h2><p className="mt-2 text-sm text-[#57736e]">{owned ? card.subtitle : '完成更多情境取得這張牌。'}</p>{owned && <div className="mt-5"><div className="flex justify-between text-xs font-black"><span>LV.{cardLevel}</span><span>{ABILITY_LABEL[card.ability]}</span></div><Progress value={cardLevel * 20} className="mt-2 h-2" /><Button disabled={cardLevel >= 5 || save.coins < cost} onClick={() => upgrade(card)} size="sm" className="mt-4 w-full rounded-full bg-[#173a34]">{cardLevel >= 5 ? '已滿級' : `升級・${cost} 金幣`}</Button></div>}</div> })}</div></section>}
+    <TutorialCoach step={tutorialStep} onBegin={beginTutorial} onFinish={finishTutorial} onSkip={finishTutorial} />
   </main>;
+}
+
+const TUTORIAL_COPY: Record<Exclude<TutorialStep, 'intro' | null>, { progress: string; title: string; text: string; direction: string }> = {
+  start: { progress: '1 / 6', title: '先進入情境地圖', text: '點頁面上方的「開始冒險」。', direction: '↑' },
+  map: { progress: '2 / 6', title: '選擇第一個練習情境', text: '推薦點「城市咖啡店」，旅行轉運站也可以。', direction: '↑' },
+  card: { progress: '3 / 6', title: '選一張回答策略卡', text: '先選有「天份加成」的卡。卡牌是回答方法，不是標準答案。', direction: '↗' },
+  input: { progress: '4 / 6', title: '組成你的英文回應', text: '點輸入框開始打字；不知道怎麼說，可點示範答案旁的「套用」。', direction: '↗' },
+  submit: { progress: '5 / 6', title: '送出這次回答', text: '確認句子有直接回應左邊角色，再點橘色「送出回應」。', direction: '↗' },
+  feedback: { progress: '6 / 6', title: '完成！記得看教練回饋', text: '回饋會告訴你策略是否命中，以及更自然的英文說法。', direction: '✓' },
+};
+
+function TutorialCoach({ step, onBegin, onFinish, onSkip }: { step: TutorialStep; onBegin: () => void; onFinish: () => void; onSkip: () => void }) {
+  if (!step) return null;
+  if (step === 'intro') return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#102d28]/70 p-4 backdrop-blur-sm"><div role="dialog" aria-modal="true" aria-labelledby="tutorial-title" className="w-full max-w-md rounded-[30px] bg-white p-7 shadow-2xl md:p-9"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#dce9c7]"><MousePointer2 className="h-7 w-7" /></div><p className="mt-5 text-xs font-black tracking-widest text-[#e26a3b]">60 秒新手導覽</p><h2 id="tutorial-title" className="mt-2 text-3xl font-black">第一次玩嗎？<br />我帶你完成第一題</h2><p className="mt-4 leading-relaxed text-[#57736e]">跟著畫面箭頭依序選情境、點卡、輸入英文並送出。實際操作一次就會懂。</p><div className="mt-7 flex flex-col gap-2 sm:flex-row"><Button onClick={onBegin} className="flex-1 rounded-full bg-[#173a34]">開始互動教學 <ChevronRight className="ml-1 h-4 w-4" /></Button><Button onClick={onSkip} variant="ghost" className="rounded-full">先跳過</Button></div></div></div>;
+  const copy = TUTORIAL_COPY[step];
+  return <div className="pointer-events-none fixed inset-x-0 bottom-20 z-[70] flex justify-center px-4 md:bottom-6"><div role="status" className="pointer-events-auto w-full max-w-lg rounded-[26px] border-2 border-[#efb83b] bg-white p-5 shadow-2xl"><div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 animate-bounce items-center justify-center rounded-2xl bg-[#fff0bf] text-2xl font-black text-[#b66f12]">{copy.direction}</div><div className="min-w-0 flex-1"><div className="text-xs font-black tracking-widest text-[#e26a3b]">互動教學 {copy.progress}</div><h3 className="mt-1 text-xl font-black">{copy.title}</h3><p className="mt-1 text-sm leading-relaxed text-[#57736e]">{copy.text}</p></div></div><div className="mt-4 flex justify-end gap-2">{step === 'feedback' ? <Button onClick={onFinish} className="rounded-full bg-[#173a34]">完成教學 <Check className="ml-1 h-4 w-4" /></Button> : <button onClick={onSkip} className="text-xs font-bold text-[#57736e] hover:underline">跳過教學</button>}</div></div></div>;
 }
 
 function BadgeShelf({ badges, earnedIds, compact = false }: { badges: GameBadge[]; earnedIds: string[]; compact?: boolean }) {
