@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Award, Check, ChevronRight, Coins, Flame, Heart, Lock, Mic, RotateCcw, Sparkles, Star, Trophy, Zap } from 'lucide-react';
+import { ArrowLeft, Award, BarChart3, Check, ChevronRight, Coins, Flame, Heart, Lock, Mic, RotateCcw, ShieldCheck, Sparkles, Star, Trophy, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { GENIUS_INFO, GeniusType, loadGeniusType } from '@/lib/genius-type';
 import { streamChat } from '@/lib/stream-chat';
 import { ABILITY_COLOR, ABILITY_LABEL, GAME_BADGES, GAME_CARDS, GAME_SCENARIOS, GameBadge, GameCard, GameScenario, TALENT_TAGLINES } from '@/lib/talent-card-game';
+import { getQueuedTalentEvents, isTalentAnalyticsEnabled, setTalentAnalyticsEnabled, summarizeTalentEvents, trackTalentGameEvent } from '@/lib/talent-game-analytics';
 
 type Phase = 'home' | 'map' | 'play' | 'result' | 'collection';
 interface SaveData { xp: number; coins: number; streak: number; lastLogin: string; unlocked: string[]; levels: Record<string, number>; completed: string[]; dailyClaimed: string; badges: string[]; }
@@ -51,15 +52,49 @@ export default function TalentCardGame() {
   const [reward, setReward] = useState<string[]>([]);
   const [newBadges, setNewBadges] = useState<GameBadge[]>([]);
   const [isListening, setIsListening] = useState(false);
+  const [answerMethod, setAnswerMethod] = useState<'text' | 'voice'>('text');
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(isTalentAnalyticsEnabled);
+  const [analyticsEvents, setAnalyticsEvents] = useState(getQueuedTalentEvents);
+  const activeScenario = useRef<{ id: string; highestRound: number; startedAt: number } | null>(null);
   const info = GENIUS_INFO[talent];
   const current = scenario.rounds[round];
   const level = playerLevel(save.xp);
+  const initialAnalyticsContext = useRef({ talent, level });
+  const latestRoundContext = useRef({ talent, level, energy });
+  latestRoundContext.current = { talent, level, energy };
+  const analyticsSummary = useMemo(() => summarizeTalentEvents(analyticsEvents), [analyticsEvents]);
 
   useEffect(() => { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }, [save]);
   useEffect(() => {
     const todayValue = today();
     if (save.lastLogin !== todayValue) setSave(s => ({ ...s, lastLogin: todayValue, streak: s.streak + 1 }));
   }, [save.lastLogin]);
+  useEffect(() => {
+    const initial = initialAnalyticsContext.current;
+    trackTalentGameEvent('session_started', { talent: initial.talent }, { player_level: initial.level, app_version: 'memoquest-analytics-v1' });
+    const refresh = () => setAnalyticsEvents(getQueuedTalentEvents());
+    window.addEventListener('talent-game-event', refresh);
+    return () => window.removeEventListener('talent-game-event', refresh);
+  }, []);
+  useEffect(() => {
+    trackTalentGameEvent('screen_viewed', { talent }, { screen: phase });
+  }, [phase, talent]);
+  useEffect(() => {
+    if (phase !== 'play') return;
+    if (activeScenario.current) activeScenario.current.highestRound = Math.max(activeScenario.current.highestRound, round);
+    const context = latestRoundContext.current;
+    trackTalentGameEvent('round_viewed', { scenario_id: scenario.id, round_index: round, talent: context.talent }, { energy: context.energy, player_level: context.level });
+  }, [phase, round, scenario.id]);
+  useEffect(() => {
+    const captureAbandonment = () => {
+      const active = activeScenario.current;
+      if (!active) return;
+      trackTalentGameEvent('scenario_abandoned', { scenario_id: active.id, round_index: active.highestRound, talent }, { elapsed_seconds: Math.round((Date.now() - active.startedAt) / 1000) });
+      activeScenario.current = null;
+    };
+    window.addEventListener('pagehide', captureAbandonment);
+    return () => window.removeEventListener('pagehide', captureAbandonment);
+  }, [talent]);
 
   const ownedCards = useMemo(() => GAME_CARDS.filter(c => save.unlocked.includes(c.id) || c.talents.includes(talent)), [save.unlocked, talent]);
   const hand = useMemo(() => {
@@ -71,12 +106,19 @@ export default function TalentCardGame() {
   const claimDaily = () => {
     if (save.dailyClaimed === today()) return;
     setSave(s => ({ ...s, coins: s.coins + 50, dailyClaimed: today() }));
+    trackTalentGameEvent('daily_reward_claimed', { talent }, { streak: save.streak, coins: 50 });
   };
   const startScenario = (item: GameScenario) => {
     if (level < item.unlockLevel) return;
+    if (activeScenario.current) trackTalentGameEvent('scenario_abandoned', { scenario_id: activeScenario.current.id, round_index: activeScenario.current.highestRound, talent }, { reason: 'started_another_scenario' });
+    activeScenario.current = { id: item.id, highestRound: 0, startedAt: Date.now() };
+    trackTalentGameEvent('scenario_started', { scenario_id: item.id, talent }, { player_level: level, first_attempt: !save.completed.includes(item.id) });
     setScenario(item); setRound(0); setEnergy(3); setScore(0); setCombo(0); setBestCombo(0); setSelected(null); setAnswer(''); setFeedback(''); setAiFeedback(''); setReward([]); setNewBadges([]); setPhase('play');
   };
-  const chooseCard = (card: GameCard) => { setSelected(card); setAnswer(card.sentence.includes('___') ? '' : card.sentence); setFeedback(''); setAiFeedback(''); };
+  const chooseCard = (card: GameCard) => {
+    setSelected(card); setAnswer(card.sentence.includes('___') ? '' : card.sentence); setAnswerMethod('text'); setFeedback(''); setAiFeedback('');
+    trackTalentGameEvent('card_selected', { scenario_id: scenario.id, round_index: round, card_id: card.id, talent }, { ability: card.ability, talent_bonus: card.talents.includes(talent), card_level: save.levels[card.id] || 1 });
+  };
   const localEvaluate = () => {
     const text = answer.trim();
     const enough = text.split(/\s+/).length >= 3;
@@ -86,6 +128,11 @@ export default function TalentCardGame() {
   const submitAnswer = async () => {
     if (!selected || !answer.trim() || isEvaluating) return;
     const result = localEvaluate();
+    const wordCount = answer.trim().split(/\s+/).length;
+    trackTalentGameEvent('answer_submitted', { scenario_id: scenario.id, round_index: round, card_id: selected.id, talent }, {
+      valid: result.enough, strategy_matched: result.matched, input_method: answerMethod,
+      word_count_bucket: wordCount < 3 ? '0-2' : wordCount < 8 ? '3-7' : '8+', points: result.points,
+    });
     const nextCombo = result.matched && result.enough ? combo + 1 : 0;
     setScore(v => v + result.points);
     setCombo(nextCombo);
@@ -122,6 +169,8 @@ export default function TalentCardGame() {
     if (nextUnlocked.length >= 8) nextBadges.add('collector');
     const earnedBadges = Array.from(nextBadges).filter(id => !(save.badges || []).includes(id)).map(badgeById).filter(Boolean) as GameBadge[];
     setSave(s => ({ ...s, xp: s.xp + earned, coins: s.coins + 30, completed: nextCompleted, unlocked: nextUnlocked, badges: Array.from(nextBadges) }));
+    trackTalentGameEvent('scenario_completed', { scenario_id: scenario.id, round_index: round, talent }, { score, best_combo: bestCombo, energy_remaining: energy, first_clear: firstClear, earned_xp: earned });
+    activeScenario.current = null;
     setNewBadges(earnedBadges);
     setReward([`+${earned} XP`, '+30 金幣', ...(candidate ? [`解鎖 ${candidate.title}`] : []), ...earnedBadges.map(badge => `徽章 ${badge.title}`)]);
     setPhase('result');
@@ -132,19 +181,20 @@ export default function TalentCardGame() {
     const cost = currentLevel * 50;
     if (save.coins < cost || currentLevel >= 5) return;
     setSave(s => ({ ...s, coins: s.coins - cost, levels: { ...s.levels, [card.id]: currentLevel + 1 } }));
+    trackTalentGameEvent('card_upgraded', { card_id: card.id, talent }, { from_level: currentLevel, to_level: currentLevel + 1, coin_cost: cost });
   };
   const listen = () => {
     const SpeechRecognition = (window as unknown as { webkitSpeechRecognition?: new () => { lang: string; interimResults: boolean; onresult: (event: { results: { 0: { 0: { transcript: string } } }[] }) => void; onend: () => void; start: () => void } }).webkitSpeechRecognition;
     if (!SpeechRecognition) { setFeedback('此瀏覽器不支援語音辨識，請改用文字輸入。'); return; }
     const recognition = new SpeechRecognition(); recognition.lang = 'en-US'; recognition.interimResults = false; setIsListening(true);
-    recognition.onresult = event => setAnswer(event.results[0][0].transcript);
+    recognition.onresult = event => { setAnswer(event.results[0][0].transcript); setAnswerMethod('voice'); };
     recognition.onend = () => setIsListening(false); recognition.start();
   };
 
   return <main className="min-h-screen overflow-x-hidden bg-[#f4efe5] text-[#173a34] pb-24">
     <header className="sticky top-0 z-30 border-b border-[#173a34]/10 bg-[#f4efe5]/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <button onClick={() => phase === 'home' ? navigate(-1) : setPhase('home')} className="flex items-center gap-2 text-sm font-bold"><ArrowLeft className="h-4 w-4" /> {phase === 'home' ? '返回訓練場' : '遊戲首頁'}</button>
+        <button onClick={() => { if (phase === 'play' && activeScenario.current) { trackTalentGameEvent('scenario_abandoned', { scenario_id: scenario.id, round_index: round, talent }, { reason: 'returned_home' }); activeScenario.current = null; } if (phase === 'home') navigate(-1); else setPhase('home'); }} className="flex items-center gap-2 text-sm font-bold"><ArrowLeft className="h-4 w-4" /> {phase === 'home' ? '返回訓練場' : '遊戲首頁'}</button>
         <button onClick={() => setPhase('home')} className="font-black tracking-tight">MEMO<span className="text-[#e26a3b]">QUEST</span></button>
         <div className="flex gap-3 text-xs font-black"><span className="flex items-center gap-1"><Coins className="h-4 w-4 text-[#d18a29]" />{save.coins}</span><span>LV.{level}</span></div>
       </div>
@@ -156,13 +206,19 @@ export default function TalentCardGame() {
         <div className="rounded-[32px] bg-[#173a34] p-7 text-white shadow-xl"><div className="flex items-center justify-between"><div><p className="text-xs font-black tracking-widest text-[#dce9c7]">PLAYER PROFILE</p><h2 className="mt-1 text-2xl font-black">{info.emoji} {info.nameZh}</h2></div><Trophy className="h-9 w-9 text-[#efb83b]" /></div><p className="mt-3 text-white/70">{TALENT_TAGLINES[talent]}</p><div className="mt-6"><div className="mb-2 flex justify-between text-xs font-bold"><span>LV.{level}</span><span>{save.xp % 300}/300 XP</span></div><Progress value={(save.xp % 300) / 3} className="h-2" /></div><div className="mt-6 grid grid-cols-4 gap-2 text-center"><div className="rounded-xl bg-white/10 p-3"><div className="font-black">{save.completed.length}/5</div><div className="text-[10px] text-white/60">關卡</div></div><div className="rounded-xl bg-white/10 p-3"><div className="font-black">{save.unlocked.length}</div><div className="text-[10px] text-white/60">卡牌</div></div><div className="rounded-xl bg-white/10 p-3"><div className="font-black">{save.badges.length}</div><div className="text-[10px] text-white/60">徽章</div></div><div className="rounded-xl bg-white/10 p-3"><div className="font-black">{save.streak}</div><div className="text-[10px] text-white/60">連續日</div></div></div></div>
       </div>
       <div className="mt-12 grid gap-4 md:grid-cols-[1fr_2fr]"><div className="rounded-3xl bg-[#f6dfd5] p-6"><Flame className="h-7 w-7 text-[#e26a3b]" /><h3 className="mt-3 text-xl font-black">每日登入獎勵</h3><p className="mt-1 text-sm text-[#57736e]">連續第 {save.streak} 天・今天可領 50 金幣</p><Button disabled={save.dailyClaimed === today()} onClick={claimDaily} className="mt-4 rounded-full bg-[#e26a3b]">{save.dailyClaimed === today() ? '今日已領取' : '領取獎勵'}</Button></div><div className="rounded-3xl bg-white p-6"><p className="text-xs font-black tracking-widest text-[#6d5bd0]">DAILY QUEST</p><h3 className="mt-2 text-xl font-black">完成一個情境並使用 3 張不同策略卡</h3><div className="mt-5 flex items-center gap-3"><Progress value={Math.min(save.completed.length * 33, 100)} className="h-2" /><span className="text-xs font-black">{Math.min(save.completed.length, 3)}/3</span></div></div></div>
+      <AnalyticsNotice enabled={analyticsEnabled} summary={analyticsSummary} onToggle={() => {
+        const next = !analyticsEnabled;
+        if (!next) trackTalentGameEvent('analytics_preference_changed', { talent }, { enabled: false });
+        setTalentAnalyticsEnabled(next); setAnalyticsEnabled(next); setAnalyticsEvents(getQueuedTalentEvents());
+        if (next) trackTalentGameEvent('analytics_preference_changed', { talent }, { enabled: true });
+      }} />
       <BadgeShelf badges={GAME_BADGES} earnedIds={save.badges} compact />
       <div className="mt-10"><p className="text-xs font-black tracking-widest text-[#e26a3b]">CHOOSE TALENT</p><div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">{(Object.keys(GENIUS_INFO) as GeniusType[]).map(type => <button key={type} onClick={() => setTalent(type)} className={`rounded-2xl border p-4 text-left transition ${talent === type ? 'bg-[#173a34] text-white shadow-lg' : 'bg-white/70'}`}><div>{GENIUS_INFO[type].emoji}</div><div className="mt-2 font-black">{GENIUS_INFO[type].nameZh}</div><div className="mt-1 text-xs opacity-65">{TALENT_TAGLINES[type]}</div></button>)}</div></div>
     </section>}
 
     {phase === 'map' && <section className="mx-auto max-w-6xl px-4 py-10"><div><p className="text-xs font-black tracking-widest text-[#e26a3b]">WORLD MAP</p><h1 className="mt-2 text-4xl font-black">今天想去哪裡冒險？</h1><p className="mt-2 text-[#57736e]">完成情境取得 XP、金幣與你的天份專屬卡。</p></div><div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">{GAME_SCENARIOS.map(item => { const locked = level < item.unlockLevel; const done = save.completed.includes(item.id); return <button key={item.id} disabled={locked} onClick={() => startScenario(item)} className="group relative min-h-64 overflow-hidden rounded-[28px] p-6 text-left text-white shadow-lg transition hover:-translate-y-1 disabled:grayscale" style={{ background: item.color }}><div className="absolute -right-8 -top-10 text-[120px] opacity-15">{item.icon}</div><div className="relative flex h-full flex-col"><div className="flex justify-between"><span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black">LV.{item.unlockLevel}</span>{locked ? <Lock className="h-5 w-5" /> : done ? <span className="flex items-center gap-1 text-xs font-black"><Check className="h-4 w-4" />完成</span> : null}</div><div className="mt-auto"><div className="text-4xl">{item.icon}</div><h2 className="mt-3 text-2xl font-black">{item.title}</h2><p className="mt-1 text-sm text-white/70">{item.subtitle}</p><div className="mt-4 text-xs font-black">獎勵 {item.reward} XP・3 回合</div></div></div></button> })}</div></section>}
 
-    {phase === 'play' && <section className="mx-auto max-w-6xl px-4 py-6 md:py-10"><div className="mb-6 flex flex-wrap items-center justify-between gap-4"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl">{scenario.icon}</div><div><div className="font-black">{scenario.title}</div><div className="text-xs text-[#57736e]">ROUND {round + 1}/{scenario.rounds.length}</div></div></div><div className="flex items-center gap-4 text-sm font-black"><span className="flex gap-1">{[0,1,2].map(i => <Heart key={i} className={`h-5 w-5 ${i < energy ? 'fill-[#e26a3b] text-[#e26a3b]' : 'text-[#baa]'}`} />)}</span><span>COMBO ×{combo}</span><span>{score} XP</span></div></div><div className="grid gap-6 lg:grid-cols-[1.05fr_.95fr]"><div className="relative flex min-h-[420px] flex-col overflow-hidden rounded-[32px] bg-[#173a34] p-7 text-white md:p-9"><span className="w-fit rounded-full bg-white/10 px-3 py-1 text-xs font-black">{current.speaker}</span><h2 className="mt-12 text-3xl font-black leading-tight md:text-5xl">“{current.prompt}”</h2><p className="mt-5 text-white/65">任務：{current.goal}</p>{feedback && <div className="mt-auto pt-8"><div className="rounded-2xl bg-white p-4 text-[#173a34]"><p className="text-xs font-black text-[#e26a3b]">情境結果</p><p className="mt-1 font-bold">{feedback}</p>{aiFeedback && <p className="mt-3 border-t pt-3 text-sm text-[#57736e]">{aiFeedback}</p>}</div></div>}</div><aside className="rounded-[32px] border border-[#173a34]/10 bg-white p-6 shadow-sm md:p-8">{!feedback ? <>{!selected ? <><p className="text-xs font-black tracking-widest text-[#e26a3b]">YOUR HAND</p><h2 className="mt-1 text-2xl font-black">選一張策略卡</h2><div className="mt-5 grid grid-cols-2 gap-3">{hand.map(card => <button key={card.id} onClick={() => chooseCard(card)} className="min-h-44 rounded-2xl border-2 p-4 text-left transition hover:-translate-y-1 hover:shadow-lg" style={{ borderColor: `${ABILITY_COLOR[card.ability]}55`, background: `${ABILITY_COLOR[card.ability]}0d` }}><div className="flex justify-between"><span className="text-3xl">{card.icon}</span>{card.talents.includes(talent) && <span className="h-fit rounded-full bg-[#dce9c7] px-2 py-1 text-[10px] font-black">天份加成</span>}</div><h3 className="mt-4 font-black">{card.title}</h3><p className="mt-1 text-xs text-[#57736e]">{card.subtitle}</p></button>)}</div></> : <><button onClick={() => setSelected(null)} className="text-xs font-bold text-[#57736e]">← 換一張卡</button><div className="mt-4 rounded-2xl p-4" style={{ background: `${ABILITY_COLOR[selected.ability]}12` }}><div className="text-3xl">{selected.icon}</div><h3 className="mt-2 text-xl font-black">{selected.title}</h3><p className="mt-1 text-sm text-[#57736e]">句型提示：{selected.sentence}</p></div><label className="mt-5 block text-sm font-black" htmlFor="game-answer">說出或輸入你的回應</label><textarea id="game-answer" value={answer} onChange={e => setAnswer(e.target.value)} placeholder={current.example} className="mt-2 min-h-28 w-full rounded-2xl border bg-[#faf8f2] p-4 outline-none focus:ring-2 focus:ring-[#1f8a70]" /><div className="mt-3 flex gap-2"><Button variant="outline" onClick={listen} className="rounded-full"><Mic className={`mr-2 h-4 w-4 ${isListening ? 'animate-pulse text-red-500' : ''}`} />{isListening ? '聆聽中' : '語音輸入'}</Button><Button disabled={!answer.trim() || isEvaluating} onClick={submitAnswer} className="flex-1 rounded-full bg-[#e26a3b]">{isEvaluating ? 'AI 評估中…' : '送出回應'}</Button></div></>}</> : <div className="flex h-full flex-col"><div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#dce9c7]"><Check className="h-7 w-7" /></div><h2 className="mt-5 text-2xl font-black">回合完成</h2><p className="mt-3 text-[#57736e]">角色回應：{localEvaluate().enough ? current.successReply : current.retryReply}</p><Button onClick={nextRound} className="mt-auto rounded-full bg-[#173a34]">{round === scenario.rounds.length - 1 || energy === 0 ? '查看結算' : '下一個情境'}<ChevronRight className="ml-1 h-4 w-4" /></Button></div>}</aside></div><div className="mt-6 flex items-center gap-4"><Progress value={((round + (feedback ? 1 : 0)) / scenario.rounds.length) * 100} className="h-2" /><span className="whitespace-nowrap text-xs font-black">QUEST PROGRESS</span></div></section>}
+    {phase === 'play' && <section className="mx-auto max-w-6xl px-4 py-6 md:py-10"><div className="mb-6 flex flex-wrap items-center justify-between gap-4"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl">{scenario.icon}</div><div><div className="font-black">{scenario.title}</div><div className="text-xs text-[#57736e]">ROUND {round + 1}/{scenario.rounds.length}</div></div></div><div className="flex items-center gap-4 text-sm font-black"><span className="flex gap-1">{[0,1,2].map(i => <Heart key={i} className={`h-5 w-5 ${i < energy ? 'fill-[#e26a3b] text-[#e26a3b]' : 'text-[#baa]'}`} />)}</span><span>COMBO ×{combo}</span><span>{score} XP</span></div></div><div className="grid gap-6 lg:grid-cols-[1.05fr_.95fr]"><div className="relative flex min-h-[420px] flex-col overflow-hidden rounded-[32px] bg-[#173a34] p-7 text-white md:p-9"><span className="w-fit rounded-full bg-white/10 px-3 py-1 text-xs font-black">{current.speaker}</span><h2 className="mt-12 text-3xl font-black leading-tight md:text-5xl">“{current.prompt}”</h2><p className="mt-5 text-white/65">任務：{current.goal}</p>{feedback && <div className="mt-auto pt-8"><div className="rounded-2xl bg-white p-4 text-[#173a34]"><p className="text-xs font-black text-[#e26a3b]">情境結果</p><p className="mt-1 font-bold">{feedback}</p>{aiFeedback && <p className="mt-3 border-t pt-3 text-sm text-[#57736e]">{aiFeedback}</p>}</div></div>}</div><aside className="rounded-[32px] border border-[#173a34]/10 bg-white p-6 shadow-sm md:p-8">{!feedback ? <>{!selected ? <><p className="text-xs font-black tracking-widest text-[#e26a3b]">YOUR HAND</p><h2 className="mt-1 text-2xl font-black">選一張策略卡</h2><div className="mt-5 grid grid-cols-2 gap-3">{hand.map(card => <button key={card.id} onClick={() => chooseCard(card)} className="min-h-44 rounded-2xl border-2 p-4 text-left transition hover:-translate-y-1 hover:shadow-lg" style={{ borderColor: `${ABILITY_COLOR[card.ability]}55`, background: `${ABILITY_COLOR[card.ability]}0d` }}><div className="flex justify-between"><span className="text-3xl">{card.icon}</span>{card.talents.includes(talent) && <span className="h-fit rounded-full bg-[#dce9c7] px-2 py-1 text-[10px] font-black">天份加成</span>}</div><h3 className="mt-4 font-black">{card.title}</h3><p className="mt-1 text-xs text-[#57736e]">{card.subtitle}</p></button>)}</div></> : <><button onClick={() => setSelected(null)} className="text-xs font-bold text-[#57736e]">← 換一張卡</button><div className="mt-4 rounded-2xl p-4" style={{ background: `${ABILITY_COLOR[selected.ability]}12` }}><div className="text-3xl">{selected.icon}</div><h3 className="mt-2 text-xl font-black">{selected.title}</h3><p className="mt-1 text-sm text-[#57736e]">句型提示：{selected.sentence}</p></div><label className="mt-5 block text-sm font-black" htmlFor="game-answer">說出或輸入你的回應</label><textarea id="game-answer" value={answer} onChange={e => { setAnswer(e.target.value); setAnswerMethod('text'); }} placeholder={current.example} className="mt-2 min-h-28 w-full rounded-2xl border bg-[#faf8f2] p-4 outline-none focus:ring-2 focus:ring-[#1f8a70]" /><div className="mt-3 flex gap-2"><Button variant="outline" onClick={listen} className="rounded-full"><Mic className={`mr-2 h-4 w-4 ${isListening ? 'animate-pulse text-red-500' : ''}`} />{isListening ? '聆聽中' : '語音輸入'}</Button><Button disabled={!answer.trim() || isEvaluating} onClick={submitAnswer} className="flex-1 rounded-full bg-[#e26a3b]">{isEvaluating ? 'AI 評估中…' : '送出回應'}</Button></div></>}</> : <div className="flex h-full flex-col"><div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#dce9c7]"><Check className="h-7 w-7" /></div><h2 className="mt-5 text-2xl font-black">回合完成</h2><p className="mt-3 text-[#57736e]">角色回應：{localEvaluate().enough ? current.successReply : current.retryReply}</p><Button onClick={nextRound} className="mt-auto rounded-full bg-[#173a34]">{round === scenario.rounds.length - 1 || energy === 0 ? '查看結算' : '下一個情境'}<ChevronRight className="ml-1 h-4 w-4" /></Button></div>}</aside></div><div className="mt-6 flex items-center gap-4"><Progress value={((round + (feedback ? 1 : 0)) / scenario.rounds.length) * 100} className="h-2" /><span className="whitespace-nowrap text-xs font-black">QUEST PROGRESS</span></div></section>}
 
     {phase === 'result' && <section className="mx-auto max-w-2xl px-4 py-14 text-center"><div className="rounded-[36px] border bg-white p-8 shadow-xl md:p-12"><div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#dce9c7]"><Zap className="h-9 w-9 fill-[#173a34]" /></div><p className="mt-6 text-xs font-black tracking-[.25em] text-[#e26a3b]">QUEST COMPLETE</p><h1 className="mt-2 text-4xl font-black">{scenario.title}完成！</h1><div className="mt-6 flex justify-center gap-2">{[0,1,2].map(i => <Star key={i} className={`h-10 w-10 ${i < (score >= 420 ? 3 : score >= 280 ? 2 : 1) ? 'fill-[#efb83b] text-[#efb83b]' : 'text-[#ddd6ca]'}`} />)}</div><div className="mt-8 grid gap-3 sm:grid-cols-3">{reward.map(item => <div key={item} className="rounded-2xl bg-[#f4efe5] p-4 font-black">{item}</div>)}</div>{newBadges.length > 0 && <div className="mt-8 rounded-3xl bg-[#173a34] p-5 text-white"><div className="flex items-center justify-center gap-2 text-xs font-black tracking-widest text-[#efb83b]"><Award className="h-4 w-4" /> NEW BADGE</div><div className="mt-4 grid gap-3 sm:grid-cols-2">{newBadges.map(badge => <div key={badge.id} className="rounded-2xl bg-white/10 p-4"><div className="text-3xl">{badge.icon}</div><div className="mt-2 font-black">{badge.title}</div><div className="mt-1 text-xs text-white/65">{badge.detail}</div></div>)}</div></div>}<div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Button variant="outline" className="rounded-full" onClick={() => startScenario(scenario)}><RotateCcw className="mr-2 h-4 w-4" />再玩一次</Button><Button className="rounded-full bg-[#173a34]" onClick={() => setPhase('map')}>繼續冒險 <ChevronRight className="ml-1 h-4 w-4" /></Button></div></div></section>}
 
@@ -200,6 +256,29 @@ function BadgeShelf({ badges, earnedIds, compact = false }: { badges: GameBadge[
           );
         })}
       </div>
+    </section>
+  );
+}
+
+function AnalyticsNotice({
+  enabled,
+  summary,
+  onToggle,
+}: {
+  enabled: boolean;
+  summary: ReturnType<typeof summarizeTalentEvents>;
+  onToggle: () => void;
+}) {
+  return (
+    <section className="mt-4 rounded-3xl border border-[#173a34]/10 bg-white/75 p-5 md:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex max-w-2xl gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#dce9c7]"><ShieldCheck className="h-5 w-5" /></span>
+          <div><p className="text-xs font-black tracking-widest text-[#1f8a70]">PRIVACY-SAFE ANALYTICS</p><h2 className="mt-1 text-xl font-black">匿名遊戲體驗分析</h2><p className="mt-1 text-sm leading-relaxed text-[#57736e]">只記錄關卡進度、卡牌選擇與回答是否完成；不保存英文原文、語音、姓名或帳號資料。離線時最多暫存 200 筆。</p></div>
+        </div>
+        <Button variant="outline" onClick={onToggle} className="rounded-full">{enabled ? '停止匿名分析' : '開啟匿名分析'}</Button>
+      </div>
+      {enabled && <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"><div className="rounded-2xl bg-[#f4efe5] p-3"><BarChart3 className="h-4 w-4" /><div className="mt-2 text-xl font-black">{summary.starts}</div><div className="text-xs text-[#57736e]">本機開始局數</div></div><div className="rounded-2xl bg-[#f4efe5] p-3"><div className="text-xl font-black">{summary.completionRate}%</div><div className="text-xs text-[#57736e]">關卡完成率</div></div><div className="rounded-2xl bg-[#f4efe5] p-3"><div className="text-xl font-black">{summary.validAnswerRate}%</div><div className="text-xs text-[#57736e]">有效回答率</div></div><div className="rounded-2xl bg-[#f4efe5] p-3"><div className="truncate text-sm font-black">{summary.mostUsedCard || '尚無資料'}</div><div className="mt-1 text-xs text-[#57736e]">最常使用卡牌</div></div></div>}
     </section>
   );
 }
