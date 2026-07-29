@@ -28,7 +28,8 @@ const SAFE_PROPERTY_KEYS = new Set([
   'first_attempt', 'reason', 'elapsed_seconds', 'ability', 'talent_bonus',
   'card_level', 'valid', 'strategy_matched', 'input_method', 'word_count_bucket',
   'points', 'score', 'best_combo', 'energy_remaining', 'first_clear', 'earned_xp',
-  'from_level', 'to_level', 'coin_cost', 'enabled',
+  'from_level', 'to_level', 'coin_cost', 'enabled', 'tutorial_event',
+  'tutorial_step', 'tutorial_step_index', 'entry_point',
 ]);
 const sessionId = createId();
 
@@ -116,6 +117,25 @@ export function summarizeTalentEvents(events = getQueuedTalentEvents()) {
     return counts;
   }, {});
   const mostUsedCard = Object.entries(cardCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  const tutorialEvents = events.filter(event => event.event_name === 'screen_viewed' && event.properties.screen === 'tutorial');
+  const tutorialStarts = tutorialEvents.filter(event => event.properties.tutorial_event === 'started').length;
+  const tutorialCompletions = tutorialEvents.filter(event => event.properties.tutorial_event === 'completed').length;
+  const tutorialMisclicks = tutorialEvents.filter(event => event.properties.tutorial_event === 'misclick').length;
+  const tutorialSkips = tutorialEvents.filter(event => event.properties.tutorial_event === 'skipped');
+  const tutorialStepOrder = ['start', 'map', 'card', 'input', 'submit', 'feedback'];
+  const tutorialStepCounts = tutorialEvents
+    .filter(event => event.properties.tutorial_event === 'step_completed')
+    .reduce<Record<string, number>>((counts, event) => {
+      const step = event.properties.tutorial_step;
+      if (typeof step === 'string') counts[step] = (counts[step] || 0) + 1;
+      return counts;
+    }, {});
+  const skipCounts = tutorialSkips.reduce<Record<string, number>>((counts, event) => {
+    const step = event.properties.tutorial_step;
+    if (typeof step === 'string') counts[step] = (counts[step] || 0) + 1;
+    return counts;
+  }, {});
+  const mostSkippedTutorialStep = Object.entries(skipCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
   return {
     starts,
     completions,
@@ -123,5 +143,16 @@ export function summarizeTalentEvents(events = getQueuedTalentEvents()) {
     answers: answers.length,
     validAnswerRate: answers.length ? Math.round((answers.filter(event => event.properties.valid === true).length / answers.length) * 100) : 0,
     mostUsedCard,
+    tutorialStarts,
+    tutorialCompletions,
+    tutorialCompletionRate: tutorialStarts ? Math.round((tutorialCompletions / tutorialStarts) * 100) : 0,
+    tutorialMisclicks,
+    tutorialSkips: tutorialSkips.length,
+    mostSkippedTutorialStep,
+    tutorialSteps: tutorialStepOrder.map(step => ({
+      step,
+      completions: tutorialStepCounts[step] || 0,
+      rate: tutorialStarts ? Math.round(((tutorialStepCounts[step] || 0) / tutorialStarts) * 100) : 0,
+    })),
   };
 }

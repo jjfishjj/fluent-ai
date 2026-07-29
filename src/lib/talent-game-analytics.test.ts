@@ -36,4 +36,46 @@ describe('talent game analytics', () => {
     trackTalentGameEvent('screen_viewed', {}, { screen: 'map' });
     expect(getQueuedTalentEvents()).toEqual([]);
   });
+
+  it('calculates anonymous tutorial funnel, misclick and skip metrics', () => {
+    const tutorial = (tutorialEvent: string, tutorialStep: string, tutorialStepIndex: number) => {
+      trackTalentGameEvent('screen_viewed', {}, {
+        screen: 'tutorial', tutorial_event: tutorialEvent,
+        tutorial_step: tutorialStep, tutorial_step_index: tutorialStepIndex,
+        private_answer: 'Never store this',
+      });
+    };
+    tutorial('started', 'intro', 0);
+    tutorial('step_completed', 'start', 1);
+    tutorial('step_completed', 'map', 2);
+    tutorial('misclick', 'card', 3);
+    tutorial('misclick', 'card', 3);
+    tutorial('skipped', 'card', 3);
+    tutorial('started', 'intro', 0);
+    tutorial('step_completed', 'start', 1);
+    tutorial('step_completed', 'map', 2);
+    tutorial('step_completed', 'card', 3);
+    tutorial('step_completed', 'input', 4);
+    tutorial('step_completed', 'submit', 5);
+    tutorial('step_completed', 'feedback', 6);
+    tutorial('completed', 'feedback', 6);
+
+    expect(summarizeTalentEvents()).toMatchObject({
+      tutorialStarts: 2,
+      tutorialCompletions: 1,
+      tutorialCompletionRate: 50,
+      tutorialMisclicks: 2,
+      tutorialSkips: 1,
+      mostSkippedTutorialStep: 'card',
+      tutorialSteps: [
+        { step: 'start', completions: 2, rate: 100 },
+        { step: 'map', completions: 2, rate: 100 },
+        { step: 'card', completions: 1, rate: 50 },
+        { step: 'input', completions: 1, rate: 50 },
+        { step: 'submit', completions: 1, rate: 50 },
+        { step: 'feedback', completions: 1, rate: 50 },
+      ],
+    });
+    expect(JSON.stringify(getQueuedTalentEvents())).not.toContain('Never store this');
+  });
 });

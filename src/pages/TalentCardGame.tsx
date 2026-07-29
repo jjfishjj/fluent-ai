@@ -14,6 +14,8 @@ interface SaveData { xp: number; coins: number; streak: number; lastLogin: strin
 
 const SAVE_KEY = 'talent_card_game_save_v2';
 const TUTORIAL_KEY = 'talent_card_game_tutorial_completed_v1';
+const TUTORIAL_STEP_INDEX: Record<Exclude<TutorialStep, null>, number> = { intro: 0, start: 1, map: 2, card: 3, input: 4, submit: 5, feedback: 6 };
+const TUTORIAL_STEP_LABELS: Record<string, string> = { intro: '開場', start: '開始冒險', map: '選擇情境', card: '選擇卡牌', input: '輸入回答', submit: '送出回答', feedback: '查看回饋' };
 const today = () => new Date().toISOString().slice(0, 10);
 const freshSave = (): SaveData => ({ xp: 0, coins: 100, streak: 1, lastLogin: today(), unlocked: GAME_CARDS.filter(c => c.rarity === 'common').map(c => c.id), levels: {}, completed: [], dailyClaimed: '', badges: [] });
 const loadSave = (): SaveData => {
@@ -61,6 +63,7 @@ export default function TalentCardGame() {
     const replay = new URLSearchParams(window.location.search).get('tutorial') === '1';
     return replay || localStorage.getItem(TUTORIAL_KEY) !== 'true' ? 'intro' : null;
   });
+  const tutorialEntryPoint = useRef(new URLSearchParams(window.location.search).get('tutorial') === '1' ? 'replay_link' : 'first_play');
   const activeScenario = useRef<{ id: string; highestRound: number; startedAt: number } | null>(null);
   const info = GENIUS_INFO[talent];
   const current = scenario.rounds[round];
@@ -102,19 +105,36 @@ export default function TalentCardGame() {
     return () => window.removeEventListener('pagehide', captureAbandonment);
   }, [talent]);
   useEffect(() => {
-    if (tutorialStep === 'start' && phase === 'map') setTutorialStep('map');
-    else if (tutorialStep === 'map' && phase === 'play') setTutorialStep('card');
-    else if (tutorialStep === 'card' && selected) setTutorialStep('input');
-    else if (tutorialStep === 'input' && answer.trim()) setTutorialStep('submit');
-    else if (tutorialStep === 'submit' && feedback) setTutorialStep('feedback');
-  }, [tutorialStep, phase, selected, answer, feedback]);
+    let nextStep: TutorialStep = null;
+    if (tutorialStep === 'start' && phase === 'map') nextStep = 'map';
+    else if (tutorialStep === 'map' && phase === 'play') nextStep = 'card';
+    else if (tutorialStep === 'card' && selected) nextStep = 'input';
+    else if (tutorialStep === 'input' && answer.trim()) nextStep = 'submit';
+    else if (tutorialStep === 'submit' && feedback) nextStep = 'feedback';
+    if (!nextStep || !tutorialStep) return;
+    trackTalentGameEvent('screen_viewed', { talent }, { screen: 'tutorial', tutorial_event: 'step_completed', tutorial_step: tutorialStep, tutorial_step_index: TUTORIAL_STEP_INDEX[tutorialStep] });
+    setTutorialStep(nextStep);
+  }, [tutorialStep, phase, selected, answer, feedback, talent]);
 
   const beginTutorial = () => {
+    trackTalentGameEvent('screen_viewed', { talent }, { screen: 'tutorial', tutorial_event: 'started', tutorial_step: 'intro', tutorial_step_index: 0, entry_point: tutorialEntryPoint.current });
     setPhase('home'); setSelected(null); setAnswer(''); setFeedback(''); setTutorialStep('start');
   };
-  const finishTutorial = () => {
+  const closeTutorial = () => {
     localStorage.setItem(TUTORIAL_KEY, 'true');
     setTutorialStep(null);
+  };
+  const completeTutorial = () => {
+    trackTalentGameEvent('screen_viewed', { talent }, { screen: 'tutorial', tutorial_event: 'step_completed', tutorial_step: 'feedback', tutorial_step_index: TUTORIAL_STEP_INDEX.feedback });
+    trackTalentGameEvent('screen_viewed', { talent }, { screen: 'tutorial', tutorial_event: 'completed', tutorial_step: 'feedback', tutorial_step_index: TUTORIAL_STEP_INDEX.feedback });
+    closeTutorial();
+  };
+  const skipTutorial = (step: Exclude<TutorialStep, null>) => {
+    trackTalentGameEvent('screen_viewed', { talent }, { screen: 'tutorial', tutorial_event: 'skipped', tutorial_step: step, tutorial_step_index: TUTORIAL_STEP_INDEX[step] });
+    closeTutorial();
+  };
+  const trackTutorialMisclick = (step: Exclude<TutorialStep, 'intro' | null>) => {
+    trackTalentGameEvent('screen_viewed', { talent }, { screen: 'tutorial', tutorial_event: 'misclick', tutorial_step: step, tutorial_step_index: TUTORIAL_STEP_INDEX[step] });
   };
 
   const ownedCards = useMemo(() => GAME_CARDS.filter(c => save.unlocked.includes(c.id) || c.talents.includes(talent)), [save.unlocked, talent]);
@@ -245,7 +265,7 @@ export default function TalentCardGame() {
     {phase === 'result' && <section className="mx-auto max-w-2xl px-4 py-14 text-center"><div className="rounded-[36px] border bg-white p-8 shadow-xl md:p-12"><div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#dce9c7]"><Zap className="h-9 w-9 fill-[#173a34]" /></div><p className="mt-6 text-xs font-black tracking-[.25em] text-[#e26a3b]">QUEST COMPLETE</p><h1 className="mt-2 text-4xl font-black">{scenario.title}完成！</h1><div className="mt-6 flex justify-center gap-2">{[0,1,2].map(i => <Star key={i} className={`h-10 w-10 ${i < (score >= 420 ? 3 : score >= 280 ? 2 : 1) ? 'fill-[#efb83b] text-[#efb83b]' : 'text-[#ddd6ca]'}`} />)}</div><div className="mt-8 grid gap-3 sm:grid-cols-3">{reward.map(item => <div key={item} className="rounded-2xl bg-[#f4efe5] p-4 font-black">{item}</div>)}</div>{newBadges.length > 0 && <div className="mt-8 rounded-3xl bg-[#173a34] p-5 text-white"><div className="flex items-center justify-center gap-2 text-xs font-black tracking-widest text-[#efb83b]"><Award className="h-4 w-4" /> NEW BADGE</div><div className="mt-4 grid gap-3 sm:grid-cols-2">{newBadges.map(badge => <div key={badge.id} className="rounded-2xl bg-white/10 p-4"><div className="text-3xl">{badge.icon}</div><div className="mt-2 font-black">{badge.title}</div><div className="mt-1 text-xs text-white/65">{badge.detail}</div></div>)}</div></div>}<div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Button variant="outline" className="rounded-full" onClick={() => startScenario(scenario)}><RotateCcw className="mr-2 h-4 w-4" />再玩一次</Button><Button className="rounded-full bg-[#173a34]" onClick={() => setPhase('map')}>繼續冒險 <ChevronRight className="ml-1 h-4 w-4" /></Button></div></div></section>}
 
     {phase === 'collection' && <section className="mx-auto max-w-6xl px-4 py-10"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black tracking-widest text-[#6d5bd0]">CARD COLLECTION</p><h1 className="mt-2 text-4xl font-black">我的天份牌庫</h1><p className="mt-2 text-[#57736e]">完成關卡解鎖卡牌，用金幣升級效果，也能收集成就徽章。</p></div><div className="rounded-full bg-white px-4 py-2 text-sm font-black"><Coins className="mr-2 inline h-4 w-4 text-[#d18a29]" />{save.coins}</div></div><BadgeShelf badges={GAME_BADGES} earnedIds={save.badges} /><div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">{GAME_CARDS.map(card => { const owned = save.unlocked.includes(card.id); const cardLevel = save.levels[card.id] || 1; const cost = cardLevel * 50; return <div key={card.id} className={`relative min-h-72 rounded-[26px] border-2 p-5 ${owned ? 'bg-white' : 'bg-[#ded9cf] opacity-60'}`} style={{ borderColor: owned ? `${ABILITY_COLOR[card.ability]}66` : '#bbb' }}><div className="flex justify-between"><span className="text-4xl">{owned ? card.icon : '🔒'}</span><span className="text-[10px] font-black uppercase">{card.rarity}</span></div><h2 className="mt-5 text-xl font-black">{owned ? card.title : '尚未解鎖'}</h2><p className="mt-2 text-sm text-[#57736e]">{owned ? card.subtitle : '完成更多情境取得這張牌。'}</p>{owned && <div className="mt-5"><div className="flex justify-between text-xs font-black"><span>LV.{cardLevel}</span><span>{ABILITY_LABEL[card.ability]}</span></div><Progress value={cardLevel * 20} className="mt-2 h-2" /><Button disabled={cardLevel >= 5 || save.coins < cost} onClick={() => upgrade(card)} size="sm" className="mt-4 w-full rounded-full bg-[#173a34]">{cardLevel >= 5 ? '已滿級' : `升級・${cost} 金幣`}</Button></div>}</div> })}</div></section>}
-    <TutorialCoach step={tutorialStep} onBegin={beginTutorial} onFinish={finishTutorial} onSkip={finishTutorial} />
+    <TutorialCoach step={tutorialStep} onBegin={beginTutorial} onFinish={completeTutorial} onSkip={skipTutorial} onMisclick={trackTutorialMisclick} />
   </main>;
 }
 
@@ -301,7 +321,7 @@ function useTutorialTarget(step: TutorialStep) {
   return targetRect;
 }
 
-function TutorialCoach({ step, onBegin, onFinish, onSkip }: { step: TutorialStep; onBegin: () => void; onFinish: () => void; onSkip: () => void }) {
+function TutorialCoach({ step, onBegin, onFinish, onSkip, onMisclick }: { step: TutorialStep; onBegin: () => void; onFinish: () => void; onSkip: (step: Exclude<TutorialStep, null>) => void; onMisclick: (step: Exclude<TutorialStep, 'intro' | null>) => void }) {
   const targetRect = useTutorialTarget(step);
   const [blockedAttempt, setBlockedAttempt] = useState<{ step: TutorialStep; count: number }>({ step: null, count: 0 });
   const blockedCount = blockedAttempt.step === step ? blockedAttempt.count : 0;
@@ -322,6 +342,7 @@ function TutorialCoach({ step, onBegin, onFinish, onSkip }: { step: TutorialStep
       event.preventDefault();
       event.stopPropagation();
       setBlockedAttempt(previous => ({ step, count: previous.step === step ? previous.count + 1 : 1 }));
+      onMisclick(step);
     };
     const stopOutsideClick = (event: MouseEvent) => {
       if (isAllowed(event)) return;
@@ -334,10 +355,10 @@ function TutorialCoach({ step, onBegin, onFinish, onSkip }: { step: TutorialStep
       document.removeEventListener('pointerdown', stopOutsidePointer, true);
       document.removeEventListener('click', stopOutsideClick, true);
     };
-  }, [step]);
+  }, [step, onMisclick]);
 
   if (!step) return null;
-  if (step === 'intro') return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#102d28]/70 p-4 backdrop-blur-sm"><div role="dialog" aria-modal="true" aria-labelledby="tutorial-title" className="w-full max-w-md rounded-[30px] bg-white p-7 shadow-2xl md:p-9"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#dce9c7]"><MousePointer2 className="h-7 w-7" /></div><p className="mt-5 text-xs font-black tracking-widest text-[#e26a3b]">60 秒新手導覽</p><h2 id="tutorial-title" className="mt-2 text-3xl font-black">第一次玩嗎？<br />我帶你完成第一題</h2><p className="mt-4 leading-relaxed text-[#57736e]">跟著畫面箭頭依序選情境、點卡、輸入英文並送出。實際操作一次就會懂。</p><div className="mt-7 flex flex-col gap-2 sm:flex-row"><Button onClick={onBegin} className="flex-1 rounded-full bg-[#173a34]">開始互動教學 <ChevronRight className="ml-1 h-4 w-4" /></Button><Button onClick={onSkip} variant="ghost" className="rounded-full">先跳過</Button></div></div></div>;
+  if (step === 'intro') return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#102d28]/70 p-4 backdrop-blur-sm"><div role="dialog" aria-modal="true" aria-labelledby="tutorial-title" className="w-full max-w-md rounded-[30px] bg-white p-7 shadow-2xl md:p-9"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#dce9c7]"><MousePointer2 className="h-7 w-7" /></div><p className="mt-5 text-xs font-black tracking-widest text-[#e26a3b]">60 秒新手導覽</p><h2 id="tutorial-title" className="mt-2 text-3xl font-black">第一次玩嗎？<br />我帶你完成第一題</h2><p className="mt-4 leading-relaxed text-[#57736e]">跟著畫面箭頭依序選情境、點卡、輸入英文並送出。實際操作一次就會懂。</p><div className="mt-7 flex flex-col gap-2 sm:flex-row"><Button onClick={onBegin} className="flex-1 rounded-full bg-[#173a34]">開始互動教學 <ChevronRight className="ml-1 h-4 w-4" /></Button><Button onClick={() => onSkip('intro')} variant="ghost" className="rounded-full">先跳過</Button></div></div></div>;
   const copy = TUTORIAL_COPY[step];
   const coachAtTop = Boolean(targetRect && targetRect.top + targetRect.height / 2 > window.innerHeight / 2);
   const arrowAbove = Boolean(targetRect && targetRect.top > 64);
@@ -351,7 +372,7 @@ function TutorialCoach({ step, onBegin, onFinish, onSkip }: { step: TutorialStep
       <div key={`${step}-${blockedCount}`} aria-hidden="true" className={`pointer-events-none fixed z-[60] rounded-2xl border-[3px] border-[#ffd65a] transition-all duration-200 ${blockedCount ? 'animate-pulse' : ''}`} style={{ top: targetRect.top - 7, left: targetRect.left - 7, width: targetRect.width + 14, height: targetRect.height + 14, boxShadow: '0 0 0 9999px rgba(10, 34, 30, 0.72), 0 0 0 7px rgba(255, 214, 90, 0.25), 0 0 28px 10px rgba(255, 214, 90, 0.65)' }} />
       <div aria-hidden="true" className="pointer-events-none fixed z-[65] flex h-11 w-11 animate-bounce items-center justify-center rounded-full bg-[#ffd65a] text-2xl font-black text-[#173a34] shadow-xl" style={{ left: arrowLeft, top: arrowAbove ? targetRect.top - 58 : targetRect.bottom + 14 }}>{arrowAbove ? '↓' : '↑'}</div>
     </>}
-    <div className={`pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4 ${coachAtTop ? 'top-20' : 'bottom-20 md:bottom-6'}`}><div data-tutorial-coach role="status" className="pointer-events-auto w-full max-w-lg rounded-[26px] border-2 border-[#efb83b] bg-white p-5 shadow-2xl"><div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#fff0bf] text-[#b66f12]"><MousePointer2 className="h-6 w-6" /></div><div className="min-w-0 flex-1"><div className="text-xs font-black tracking-widest text-[#e26a3b]">互動教學 {copy.progress}</div><h3 className="mt-1 text-xl font-black">{copy.title}</h3><p className="mt-1 text-sm leading-relaxed text-[#57736e]">{copy.text}</p>{blockedCount > 0 && <p role="alert" className="mt-2 rounded-xl bg-[#fff0bf] px-3 py-2 text-xs font-black text-[#8a5700]">請點黃色聚光燈中的目標，完成這一步後才能操作其他位置。</p>}</div></div><div className="mt-4 flex justify-end gap-2">{step === 'feedback' ? <Button onClick={onFinish} className="rounded-full bg-[#173a34]">完成教學 <Check className="ml-1 h-4 w-4" /></Button> : <button onClick={onSkip} className="text-xs font-bold text-[#57736e] hover:underline">跳過教學</button>}</div></div></div>
+    <div className={`pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4 ${coachAtTop ? 'top-20' : 'bottom-20 md:bottom-6'}`}><div data-tutorial-coach role="status" className="pointer-events-auto w-full max-w-lg rounded-[26px] border-2 border-[#efb83b] bg-white p-5 shadow-2xl"><div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#fff0bf] text-[#b66f12]"><MousePointer2 className="h-6 w-6" /></div><div className="min-w-0 flex-1"><div className="text-xs font-black tracking-widest text-[#e26a3b]">互動教學 {copy.progress}</div><h3 className="mt-1 text-xl font-black">{copy.title}</h3><p className="mt-1 text-sm leading-relaxed text-[#57736e]">{copy.text}</p>{blockedCount > 0 && <p role="alert" className="mt-2 rounded-xl bg-[#fff0bf] px-3 py-2 text-xs font-black text-[#8a5700]">請點黃色聚光燈中的目標，完成這一步後才能操作其他位置。</p>}</div></div><div className="mt-4 flex justify-end gap-2">{step === 'feedback' ? <Button onClick={onFinish} className="rounded-full bg-[#173a34]">完成教學 <Check className="ml-1 h-4 w-4" /></Button> : <button onClick={() => onSkip(step)} className="text-xs font-bold text-[#57736e] hover:underline">跳過教學</button>}</div></div></div>
   </>;
 }
 
@@ -403,11 +424,17 @@ function AnalyticsNotice({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex max-w-2xl gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#dce9c7]"><ShieldCheck className="h-5 w-5" /></span>
-          <div><p className="text-xs font-black tracking-widest text-[#1f8a70]">PRIVACY-SAFE ANALYTICS</p><h2 className="mt-1 text-xl font-black">匿名遊戲體驗分析</h2><p className="mt-1 text-sm leading-relaxed text-[#57736e]">只記錄關卡進度、卡牌選擇與回答是否完成；不保存英文原文、語音、姓名或帳號資料。離線時最多暫存 200 筆。</p></div>
+          <div><p className="text-xs font-black tracking-widest text-[#1f8a70]">PRIVACY-SAFE ANALYTICS</p><h2 className="mt-1 text-xl font-black">匿名遊戲體驗分析</h2><p className="mt-1 text-sm leading-relaxed text-[#57736e]">只記錄關卡進度、教學步驟、誤點與回答是否完成；不保存英文原文、語音、姓名或帳號資料。離線時最多暫存 200 筆。</p></div>
         </div>
         <Button variant="outline" onClick={onToggle} className="rounded-full">{enabled ? '停止匿名分析' : '開啟匿名分析'}</Button>
       </div>
-      {enabled && <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"><div className="rounded-2xl bg-[#f4efe5] p-3"><BarChart3 className="h-4 w-4" /><div className="mt-2 text-xl font-black">{summary.starts}</div><div className="text-xs text-[#57736e]">本機開始局數</div></div><div className="rounded-2xl bg-[#f4efe5] p-3"><div className="text-xl font-black">{summary.completionRate}%</div><div className="text-xs text-[#57736e]">關卡完成率</div></div><div className="rounded-2xl bg-[#f4efe5] p-3"><div className="text-xl font-black">{summary.validAnswerRate}%</div><div className="text-xs text-[#57736e]">有效回答率</div></div><div className="rounded-2xl bg-[#f4efe5] p-3"><div className="truncate text-sm font-black">{summary.mostUsedCard || '尚無資料'}</div><div className="mt-1 text-xs text-[#57736e]">最常使用卡牌</div></div></div>}
+      {enabled && <>
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"><div className="rounded-2xl bg-[#f4efe5] p-3"><BarChart3 className="h-4 w-4" /><div className="mt-2 text-xl font-black">{summary.starts}</div><div className="text-xs text-[#57736e]">本機開始局數</div></div><div className="rounded-2xl bg-[#f4efe5] p-3"><div className="text-xl font-black">{summary.completionRate}%</div><div className="text-xs text-[#57736e]">關卡完成率</div></div><div className="rounded-2xl bg-[#f4efe5] p-3"><div className="text-xl font-black">{summary.validAnswerRate}%</div><div className="text-xs text-[#57736e]">有效回答率</div></div><div className="rounded-2xl bg-[#f4efe5] p-3"><div className="truncate text-sm font-black">{summary.mostUsedCard || '尚無資料'}</div><div className="mt-1 text-xs text-[#57736e]">最常使用卡牌</div></div></div>
+        {(summary.tutorialStarts > 0 || summary.tutorialSkips > 0) && <div className="mt-5 rounded-2xl border border-[#1f8a70]/15 bg-[#f7fbf7] p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black tracking-widest text-[#1f8a70]">TUTORIAL FUNNEL</p><h3 className="mt-1 font-black">新手教學漏斗</h3></div><div className="flex gap-4 text-xs text-[#57736e]"><span><strong className="text-[#173a34]">{summary.tutorialCompletionRate}%</strong> 完整通關</span><span><strong className="text-[#173a34]">{summary.tutorialMisclicks}</strong> 次誤點</span><span>常跳過：<strong className="text-[#173a34]">{summary.mostSkippedTutorialStep ? TUTORIAL_STEP_LABELS[summary.mostSkippedTutorialStep] : '尚無'}</strong></span></div></div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{summary.tutorialSteps.map(item => <div key={item.step} className="rounded-xl bg-white p-3"><div className="flex justify-between text-xs font-black"><span>{TUTORIAL_STEP_LABELS[item.step]}</span><span>{item.rate}%</span></div><Progress value={item.rate} className="mt-2 h-1.5" /></div>)}</div>
+        </div>}
+      </>}
     </section>
   );
 }
