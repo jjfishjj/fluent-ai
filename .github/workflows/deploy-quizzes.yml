@@ -1,11 +1,6 @@
-name: Deploy quizzes to GitHub Pages
+name: Deploy Fluent AI to GitHub Pages
 
-# Publishes the two standalone quizzes (and a landing hub) to GitHub Pages.
-# Site layout once deployed:
-#   /                      -> landing hub (quizzes/index.html)
-#   /memory-quiz/          -> 記憶語言天賦測驗
-#   /memory-genius-quiz/   -> 記憶天才測定
-#   /pitch/                -> Fluent AI × Brain Lab pitch deck
+# Publishes the complete Fluent AI app plus standalone quizzes and pitch deck.
 #
 # ONE-TIME SETUP: this requires GitHub Pages to be enabled with the
 # "GitHub Actions" source (Repo → Settings → Pages → Source: GitHub Actions).
@@ -21,7 +16,13 @@ on:
     branches:
       - main
     paths:
+      - 'src/**'
+      - 'public/**'
       - 'quizzes/**'
+      - 'pitch/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
       - '.github/workflows/deploy-quizzes.yml'
   workflow_dispatch:
 
@@ -41,13 +42,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Assemble site
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build app for GitHub Pages
+        env:
+          GITHUB_PAGES: 'true'
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run build
+
+      - name: Add standalone experiences
         run: |
-          mkdir -p _site/memory-quiz _site/memory-genius-quiz _site/pitch
-          cp quizzes/index.html _site/index.html
-          cp quizzes/memory-quiz/index.html _site/memory-quiz/index.html
-          cp quizzes/memory-genius-quiz/index.html _site/memory-genius-quiz/index.html
-          cp pitch/index.html _site/pitch/index.html
+          mkdir -p dist/quizzes/memory-quiz dist/quizzes/memory-genius-quiz dist/pitch
+          cp quizzes/index.html dist/quizzes/index.html
+          cp quizzes/memory-quiz/index.html dist/quizzes/memory-quiz/index.html
+          cp quizzes/memory-genius-quiz/index.html dist/quizzes/memory-genius-quiz/index.html
+          cp pitch/index.html dist/pitch/index.html
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -55,7 +74,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: dist
 
   deploy:
     needs: build

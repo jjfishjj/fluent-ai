@@ -1,190 +1,154 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Brain, Check, ChevronRight, Heart, RotateCcw, Sparkles, Star, Zap } from 'lucide-react';
+import { ArrowLeft, Award, Check, ChevronRight, Coins, Flame, Heart, Lock, Mic, RotateCcw, Sparkles, Star, Trophy, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { GENIUS_INFO, GeniusType, loadGeniusType } from '@/lib/genius-type';
+import { streamChat } from '@/lib/stream-chat';
+import { ABILITY_COLOR, ABILITY_LABEL, GAME_BADGES, GAME_CARDS, GAME_SCENARIOS, GameBadge, GameCard, GameScenario, TALENT_TAGLINES } from '@/lib/talent-card-game';
 
-type Ability = 'observe' | 'connect' | 'express' | 'listen' | 'memory' | 'repair';
-type Phase = 'choose' | 'play' | 'result';
+type Phase = 'home' | 'map' | 'play' | 'result' | 'collection';
+interface SaveData { xp: number; coins: number; streak: number; lastLogin: string; unlocked: string[]; levels: Record<string, number>; completed: string[]; dailyClaimed: string; badges: string[]; }
 
-interface TalentCard {
-  id: string;
-  title: string;
-  subtitle: string;
-  icon: string;
-  ability: Ability;
-  talents: GeniusType[];
-  sentence: string;
-  effect: string;
-}
-
-interface SceneRound {
-  speaker: string;
-  place: string;
-  prompt: string;
-  goal: string;
-  best: Ability;
-  reply: string;
-}
-
-const TALENT_TAGLINES: Record<GeniusType, string> = {
-  explorer: '用行動試出一句話', architect: '用結構搭好語言骨架', melodist: '用聲音抓住語感', narrator: '用故事讓句子活起來',
-  connector: '把新句子連回已知', analyst: '拆規則、找出精準表達', performer: '勇敢開口，邊演邊學', visionary: '把語言變成腦中畫面',
+const SAVE_KEY = 'talent_card_game_save_v2';
+const today = () => new Date().toISOString().slice(0, 10);
+const freshSave = (): SaveData => ({ xp: 0, coins: 100, streak: 1, lastLogin: today(), unlocked: GAME_CARDS.filter(c => c.rarity === 'common').map(c => c.id), levels: {}, completed: [], dailyClaimed: '', badges: [] });
+const loadSave = (): SaveData => {
+  try {
+    const base = freshSave();
+    const parsed = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}') as Partial<SaveData>;
+    return {
+      ...base,
+      ...parsed,
+      unlocked: Array.from(new Set([...base.unlocked, ...(parsed.unlocked || [])])),
+      completed: parsed.completed || base.completed,
+      badges: parsed.badges || base.badges,
+      levels: parsed.levels || base.levels,
+    };
+  } catch {
+    return freshSave();
+  }
 };
-
-const CARDS: TalentCard[] = [
-  { id: 'scene-scan', title: '情境掃描', subtitle: '先看人、地點與線索', icon: '👀', ability: 'observe', talents: ['explorer', 'visionary'], sentence: 'Let me make sure I understand the situation first.', effect: '觀察 +2・壓力 -1' },
-  { id: 'sound-loop', title: '聲音迴圈', subtitle: '跟著節奏複誦關鍵句', icon: '🎧', ability: 'listen', talents: ['melodist', 'performer'], sentence: 'Could you say that one more time, a little slower?', effect: '聽力 +2・音感 +1' },
-  { id: 'sentence-frame', title: '句型骨架', subtitle: '把需求放進清楚結構', icon: '🧱', ability: 'connect', talents: ['architect', 'analyst'], sentence: 'I’d like ___, because ___.', effect: '連結 +2・精準 +1' },
-  { id: 'story-bridge', title: '故事橋接', subtitle: '用一個小故事延伸對話', icon: '🌉', ability: 'connect', talents: ['narrator', 'connector'], sentence: 'That reminds me of a time when…', effect: '連結 +2・好感 +1' },
-  { id: 'brave-move', title: '勇敢出招', subtitle: '先說再修正，不讓回合停住', icon: '⚡', ability: 'express', talents: ['explorer', 'performer'], sentence: 'What I’m trying to say is…', effect: '表達 +2・勇氣 +1' },
-  { id: 'picture-anchor', title: '圖像錨點', subtitle: '把關鍵字綁在鮮明畫面', icon: '🖼️', ability: 'memory', talents: ['visionary', 'connector'], sentence: 'I picture it like this…', effect: '記憶 +2・畫面 +1' },
-  { id: 'repair-loop', title: '修補迴路', subtitle: '聽不懂時重述與確認', icon: '🔁', ability: 'repair', talents: ['analyst', 'connector'], sentence: 'So you mean ___, right?', effect: '修補 +2・對話不中斷' },
-  { id: 'emotion-switch', title: '情緒換裝', subtitle: '同一句話換成禮貌、興奮或冷靜', icon: '🎭', ability: 'express', talents: ['performer', 'narrator'], sentence: 'I’m excited about it, but I’d like to check one thing.', effect: '表達 +2・語氣 +1' },
-  { id: 'keyword-radar', title: '關鍵字雷達', subtitle: '先抓數字、時間、地點與動詞', icon: '📡', ability: 'listen', talents: ['analyst', 'explorer'], sentence: 'The key details are time, place, and action.', effect: '聽力 +2・資訊擷取' },
-  { id: 'memory-palace', title: '記憶宮殿', subtitle: '把新詞放進房間路線', icon: '🏛️', ability: 'memory', talents: ['visionary', 'architect'], sentence: 'I’ll put this word in a clear mental location.', effect: '記憶 +2・提取 +1' },
-  { id: 'social-pass', title: '社交傳球', subtitle: '用追問把話題丟回去', icon: '🏀', ability: 'repair', talents: ['connector', 'explorer'], sentence: 'How about you? What would you choose?', effect: '修補 +2・互動 +1' },
-  { id: 'fast-map', title: '快速地圖', subtitle: '把想法切成 first / then / finally', icon: '🗺️', ability: 'connect', talents: ['architect', 'analyst'], sentence: 'First I’ll explain the goal, then the reason, finally the next step.', effect: '連結 +2・流暢 +1' },
-];
-
-const ROUNDS: SceneRound[] = [
-  { place: '城市咖啡店', speaker: 'MIA・咖啡師', prompt: 'Hi! What can I get started for you?', goal: '看懂菜單線索，選出你想要的飲料。', best: 'observe', reply: 'Great choice! Would you like that hot or iced?' },
-  { place: '機場轉機口', speaker: '地勤人員', prompt: 'Your gate has changed to B17, boarding starts in ten minutes.', goal: '抓到 gate、時間與下一步方向。', best: 'listen', reply: 'Yes, B17. Please follow the signs on your right.' },
-  { place: '遊戲公會頻道', speaker: '隊友', prompt: 'Can you explain the plan before the next boss fight?', goal: '用簡短結構說明分工和下一步。', best: 'connect', reply: 'Clear plan. I’ll take defense and follow your timing.' },
-  { place: '語言交換桌', speaker: '新朋友', prompt: 'I didn’t quite catch what you meant. Can you explain it another way?', goal: '不僵住，重述自己的意思。', best: 'repair', reply: 'Oh, I get it now. That makes sense.' },
-  { place: '單字迷宮', speaker: '學習任務板', prompt: 'Remember these three words and use one in a sentence: vivid, delay, recover.', goal: '把新詞放進畫面或故事，避免只靠硬背。', best: 'memory', reply: 'The image is strong. You can recall it faster now.' },
-  { place: '產品面試室', speaker: '面試官', prompt: 'Tell me about a project where you used AI to improve a workflow.', goal: '勇敢輸出，讓回答有情境、方法與成果。', best: 'express', reply: 'That answer feels concrete and easy to follow.' },
-];
-
-const ABILITY_LABEL: Record<Ability, string> = {
-  observe: '觀察力',
-  listen: '聽力預測',
-  connect: '結構連結',
-  repair: '對話修補',
-  memory: '記憶錨定',
-  express: '勇敢表達',
-};
-const ABILITY_COLOR: Record<Ability, string> = {
-  observe: '#1f8a70',
-  listen: '#2474a6',
-  connect: '#e26a3b',
-  repair: '#c0557a',
-  memory: '#8c6a24',
-  express: '#6d5bd0',
-};
-const STORAGE_KEY = 'talent_card_game_best_v1';
+const playerLevel = (xp: number) => Math.floor(xp / 300) + 1;
+const badgeById = (id: string) => GAME_BADGES.find(badge => badge.id === id);
 
 export default function TalentCardGame() {
   const navigate = useNavigate();
-  const [phase, setPhase] = useState<Phase>('choose');
+  const [phase, setPhase] = useState<Phase>('home');
   const [talent, setTalent] = useState<GeniusType>(() => loadGeniusType() || 'explorer');
+  const [save, setSave] = useState<SaveData>(loadSave);
+  const [scenario, setScenario] = useState<GameScenario>(GAME_SCENARIOS[0]);
   const [round, setRound] = useState(0);
-  const [energy, setEnergy] = useState(4);
+  const [energy, setEnergy] = useState(3);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
-  const [selected, setSelected] = useState<TalentCard | null>(null);
+  const [selected, setSelected] = useState<GameCard | null>(null);
+  const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState('');
-  const [bestScore, setBestScore] = useState(() => Number(localStorage.getItem(STORAGE_KEY) || 0));
+  const [aiFeedback, setAiFeedback] = useState('');
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [reward, setReward] = useState<string[]>([]);
+  const [isListening, setIsListening] = useState(false);
   const info = GENIUS_INFO[talent];
-  const scene = ROUNDS[round];
-  const hand = useMemo(() => [...CARDS].sort((a, b) => Number(b.talents.includes(talent)) - Number(a.talents.includes(talent))).slice(0, 5), [talent]);
+  const current = scenario.rounds[round];
+  const level = playerLevel(save.xp);
 
+  useEffect(() => { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }, [save]);
   useEffect(() => {
-    if (phase === 'result' && score > bestScore) {
-      setBestScore(score);
-      localStorage.setItem(STORAGE_KEY, String(score));
-    }
-  }, [phase, score, bestScore]);
+    if (save.lastLogin !== today()) setSave(s => ({ ...s, lastLogin: today(), streak: s.streak + 1 }));
+  }, []);
 
-  const start = () => { setRound(0); setEnergy(4); setScore(0); setCombo(0); setSelected(null); setFeedback(''); setPhase('play'); };
-  const playCard = (card: TalentCard) => {
-    if (selected) return;
-    const matched = card.ability === scene.best;
-    const talentBonus = card.talents.includes(talent);
-    const points = (matched ? 120 : 70) + (talentBonus ? 30 : 0) + combo * 10;
-    setSelected(card);
-    setScore(value => value + points);
-    setCombo(matched ? value => value + 1 : 0);
-    if (!matched) setEnergy(value => Math.max(0, value - 1));
-    setFeedback(matched ? `Perfect！${ABILITY_LABEL[card.ability]}正是這個情境需要的能力。` : `有效，但還可以更貼近情境。這回合最需要的是${ABILITY_LABEL[scene.best]}。`);
+  const ownedCards = useMemo(() => GAME_CARDS.filter(c => save.unlocked.includes(c.id) || c.talents.includes(talent)), [save.unlocked, talent]);
+  const hand = useMemo(() => {
+    const talentCards = ownedCards.filter(c => c.talents.includes(talent));
+    const common = ownedCards.filter(c => !c.talents.length);
+    return [...talentCards, ...common].slice(0, 4);
+  }, [ownedCards, talent]);
+
+  const claimDaily = () => {
+    if (save.dailyClaimed === today()) return;
+    setSave(s => ({ ...s, coins: s.coins + 50, dailyClaimed: today() }));
   };
-  const next = () => {
-    if (round === ROUNDS.length - 1 || energy === 0) setPhase('result');
-    else { setRound(value => value + 1); setSelected(null); setFeedback(''); }
+  const startScenario = (item: GameScenario) => {
+    if (level < item.unlockLevel) return;
+    setScenario(item); setRound(0); setEnergy(3); setScore(0); setCombo(0); setSelected(null); setAnswer(''); setFeedback(''); setAiFeedback(''); setReward([]); setPhase('play');
   };
-  const stars = score >= 420 ? 3 : score >= 300 ? 2 : 1;
+  const chooseCard = (card: GameCard) => { setSelected(card); setAnswer(card.sentence.includes('___') ? '' : card.sentence); setFeedback(''); setAiFeedback(''); };
+  const localEvaluate = () => {
+    const text = answer.trim();
+    const enough = text.split(/\s+/).length >= 3;
+    const matched = selected?.ability === current.best;
+    return { enough, matched, points: (matched ? 120 : 70) + (selected?.talents.includes(talent) ? 30 : 0) + (enough ? 30 : 0) + combo * 10 };
+  };
+  const submitAnswer = async () => {
+    if (!selected || !answer.trim() || isEvaluating) return;
+    const result = localEvaluate();
+    setScore(v => v + result.points);
+    setCombo(result.matched && result.enough ? v => v + 1 : 0);
+    if (!result.enough) setEnergy(v => Math.max(0, v - 1));
+    setFeedback(result.enough ? (result.matched ? `Perfect！${ABILITY_LABEL[selected.ability]}與你的句子都命中情境。` : `句子成立！若改用${ABILITY_LABEL[current.best]}策略，效果會更好。`) : '再多說一點會更自然；至少完成一個三個字以上的英文句子。');
+    setIsEvaluating(true);
+    let response = '';
+    await streamChat({
+      messages: [{ role: 'user', content: `You are evaluating one line in a language card game. Situation: ${current.prompt}. Goal: ${current.goal}. Learner said: "${answer}". Reply in Traditional Chinese in exactly 2 short sentences: first give one specific correction or praise, then show one natural English version. Do not roleplay further.` }],
+      settings: { language: 'english', difficulty: 'intermediate', tone: 'semi-formal', mode: 'practice', speed: 'normal', scenario: scenario.title },
+      geniusType: talent, learningStyle: null,
+      onDelta: delta => { response += delta; setAiFeedback(response.replace(/<<<[^>]+>>>/g, '')); },
+      onDone: () => setIsEvaluating(false),
+      onError: () => { setAiFeedback(`離線教練：可以這樣說得更完整——“${current.example}”`); setIsEvaluating(false); },
+    });
+  };
+  const nextRound = () => {
+    if (round >= scenario.rounds.length - 1 || energy === 0) return finishScenario();
+    setRound(v => v + 1); setSelected(null); setAnswer(''); setFeedback(''); setAiFeedback('');
+  };
+  const finishScenario = () => {
+    const firstClear = !save.completed.includes(scenario.id);
+    const candidate = GAME_CARDS.find(c => c.talents.includes(talent) && !save.unlocked.includes(c.id));
+    const earned = scenario.reward + Math.floor(score / 10);
+    setSave(s => ({ ...s, xp: s.xp + earned, coins: s.coins + 30, completed: firstClear ? [...s.completed, scenario.id] : s.completed, unlocked: candidate ? [...s.unlocked, candidate.id] : s.unlocked }));
+    setReward([`+${earned} XP`, '+30 金幣', ...(candidate ? [`解鎖 ${candidate.title}`] : [])]);
+    setPhase('result');
+  };
+  const upgrade = (card: GameCard) => {
+    if (!save.unlocked.includes(card.id)) return;
+    const currentLevel = save.levels[card.id] || 1;
+    const cost = currentLevel * 50;
+    if (save.coins < cost || currentLevel >= 5) return;
+    setSave(s => ({ ...s, coins: s.coins - cost, levels: { ...s.levels, [card.id]: currentLevel + 1 } }));
+  };
+  const listen = () => {
+    const SpeechRecognition = (window as unknown as { webkitSpeechRecognition?: new () => { lang: string; interimResults: boolean; onresult: (event: { results: { 0: { 0: { transcript: string } } }[] }) => void; onend: () => void; start: () => void } }).webkitSpeechRecognition;
+    if (!SpeechRecognition) { setFeedback('此瀏覽器不支援語音辨識，請改用文字輸入。'); return; }
+    const recognition = new SpeechRecognition(); recognition.lang = 'en-US'; recognition.interimResults = false; setIsListening(true);
+    recognition.onresult = event => setAnswer(event.results[0][0].transcript);
+    recognition.onend = () => setIsListening(false); recognition.start();
+  };
 
-  return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f4efe5] text-[#173a34] pb-24">
-      <header className="border-b border-[#173a34]/10 bg-[#f4efe5]/90 backdrop-blur sticky top-0 z-20">
-        <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
-          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm font-bold hover:text-[#e26a3b]"><ArrowLeft className="w-4 h-4" /> 返回訓練場</button>
-          <div className="font-black tracking-tight">MEMO<span className="text-[#e26a3b]">QUEST</span></div>
-          <div className="text-xs font-bold rounded-full border border-[#173a34]/15 px-3 py-1.5">BEST {bestScore}</div>
-        </div>
-      </header>
+  return <main className="min-h-screen overflow-x-hidden bg-[#f4efe5] text-[#173a34] pb-24">
+    <header className="sticky top-0 z-30 border-b border-[#173a34]/10 bg-[#f4efe5]/90 backdrop-blur">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+        <button onClick={() => phase === 'home' ? navigate(-1) : setPhase('home')} className="flex items-center gap-2 text-sm font-bold"><ArrowLeft className="h-4 w-4" /> {phase === 'home' ? '返回訓練場' : '遊戲首頁'}</button>
+        <button onClick={() => setPhase('home')} className="font-black tracking-tight">MEMO<span className="text-[#e26a3b]">QUEST</span></button>
+        <div className="flex gap-3 text-xs font-black"><span className="flex items-center gap-1"><Coins className="h-4 w-4 text-[#d18a29]" />{save.coins}</span><span>LV.{level}</span></div>
+      </div>
+    </header>
 
-      {phase === 'choose' && (
-        <section className="mx-auto max-w-6xl px-4 py-10 md:py-16">
-          <div className="grid lg:grid-cols-[1.05fr_.95fr] gap-10 items-center">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-[#dce9c7] px-3 py-1.5 text-xs font-extrabold tracking-wider"><Sparkles className="w-4 h-4" /> TALENT CARD ADVENTURE</div>
-              <h1 className="mt-5 text-5xl md:text-7xl font-black leading-[.95] tracking-[-.055em]">把語言天份<br />變成你的<span className="text-[#e26a3b]">卡牌技能</span></h1>
-              <p className="mt-6 max-w-xl text-lg text-[#355b54] leading-relaxed">我把外語能力拆成像積木一樣可組合的卡牌。抽出咖啡店、機場、遊戲公會、面試等情境任務，再選最適合的策略卡解題。</p>
-              <div className="mt-7 flex flex-wrap gap-3 text-sm font-bold"><span className="rounded-xl bg-white px-4 py-3 shadow-sm">6 個情境關卡</span><span className="rounded-xl bg-white px-4 py-3 shadow-sm">12 張策略卡</span><span className="rounded-xl bg-white px-4 py-3 shadow-sm">即時能力回饋</span></div>
-            </div>
-            <div className="relative min-h-[420px] flex items-center justify-center">
-              <div className="absolute w-72 h-72 rounded-full bg-[#dce9c7] blur-2xl opacity-80" />
-              {CARDS.slice(0, 3).map((card, index) => (
-                <div key={card.id} className="absolute w-56 h-80 rounded-[28px] border-4 border-white p-5 shadow-2xl flex flex-col justify-between text-white transition-transform" style={{ background: ABILITY_COLOR[card.ability], transform: `translateX(${(index - 1) * 115}px) rotate(${(index - 1) * 10}deg) translateY(${Math.abs(index - 1) * 22}px)`, zIndex: index === 1 ? 3 : 2 }}>
-                  <div className="text-5xl">{card.icon}</div><div><div className="text-xs font-black opacity-70">{ABILITY_LABEL[card.ability]}</div><h3 className="text-2xl font-black mt-1">{card.title}</h3><p className="text-sm mt-2 opacity-85">{card.subtitle}</p></div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="mt-10 border-t border-[#173a34]/15 pt-8">
-            <div className="flex items-end justify-between gap-4"><div><p className="text-xs font-black tracking-widest text-[#e26a3b]">CHOOSE YOUR TALENT</p><h2 className="text-2xl font-black mt-1">選擇這局的天份角色</h2></div><Button onClick={start} className="rounded-full bg-[#173a34] hover:bg-[#28564d] px-6">開始冒險 <ChevronRight className="w-4 h-4 ml-1" /></Button></div>
-            <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
-              {(Object.keys(GENIUS_INFO) as GeniusType[]).map(type => { const item = GENIUS_INFO[type]; const active = talent === type; return <button key={type} onClick={() => setTalent(type)} className={`text-left rounded-2xl border p-4 transition-all ${active ? 'bg-[#173a34] text-white border-[#173a34] -translate-y-1 shadow-lg' : 'bg-white/70 border-[#173a34]/10 hover:border-[#173a34]/35'}`}><div className="text-xl">{item.emoji}</div><div className="font-black mt-2">{item.nameZh}</div><div className={`text-xs mt-1 ${active ? 'text-white/70' : 'text-[#57736e]'}`}>{TALENT_TAGLINES[type]}</div></button>; })}
-            </div>
-          </div>
-        </section>
-      )}
+    {phase === 'home' && <section className="mx-auto max-w-6xl px-4 py-10 md:py-16">
+      <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_.95fr]">
+        <div><div className="inline-flex items-center gap-2 rounded-full bg-[#dce9c7] px-3 py-1.5 text-xs font-extrabold tracking-wider"><Sparkles className="h-4 w-4" /> TALENT CARD ADVENTURE</div><h1 className="mt-5 text-5xl font-black leading-[.95] tracking-[-.055em] md:text-7xl">把語言天份<br />變成你的<span className="text-[#e26a3b]">超能力</span></h1><p className="mt-6 max-w-xl text-lg leading-relaxed text-[#355b54]">走進五種真實情境，選策略卡、說出英文，讓 AI 教練依你的天份即時改變故事。</p><div className="mt-7 flex flex-wrap gap-3"><Button onClick={() => setPhase('map')} className="rounded-full bg-[#173a34] px-7">開始冒險 <ChevronRight className="ml-1 h-4 w-4" /></Button><Button onClick={() => setPhase('collection')} variant="outline" className="rounded-full">我的牌庫</Button></div></div>
+        <div className="rounded-[32px] bg-[#173a34] p-7 text-white shadow-xl"><div className="flex items-center justify-between"><div><p className="text-xs font-black tracking-widest text-[#dce9c7]">PLAYER PROFILE</p><h2 className="mt-1 text-2xl font-black">{info.emoji} {info.nameZh}</h2></div><Trophy className="h-9 w-9 text-[#efb83b]" /></div><p className="mt-3 text-white/70">{TALENT_TAGLINES[talent]}</p><div className="mt-6"><div className="mb-2 flex justify-between text-xs font-bold"><span>LV.{level}</span><span>{save.xp % 300}/300 XP</span></div><Progress value={(save.xp % 300) / 3} className="h-2" /></div><div className="mt-6 grid grid-cols-3 gap-2 text-center"><div className="rounded-xl bg-white/10 p-3"><div className="font-black">{save.completed.length}/5</div><div className="text-[10px] text-white/60">關卡</div></div><div className="rounded-xl bg-white/10 p-3"><div className="font-black">{save.unlocked.length}</div><div className="text-[10px] text-white/60">卡牌</div></div><div className="rounded-xl bg-white/10 p-3"><div className="font-black">{save.streak}</div><div className="text-[10px] text-white/60">連續日</div></div></div></div>
+      </div>
+      <div className="mt-12 grid gap-4 md:grid-cols-[1fr_2fr]"><div className="rounded-3xl bg-[#f6dfd5] p-6"><Flame className="h-7 w-7 text-[#e26a3b]" /><h3 className="mt-3 text-xl font-black">每日登入獎勵</h3><p className="mt-1 text-sm text-[#57736e]">連續第 {save.streak} 天・今天可領 50 金幣</p><Button disabled={save.dailyClaimed === today()} onClick={claimDaily} className="mt-4 rounded-full bg-[#e26a3b]">{save.dailyClaimed === today() ? '今日已領取' : '領取獎勵'}</Button></div><div className="rounded-3xl bg-white p-6"><p className="text-xs font-black tracking-widest text-[#6d5bd0]">DAILY QUEST</p><h3 className="mt-2 text-xl font-black">完成一個情境並使用 3 張不同策略卡</h3><div className="mt-5 flex items-center gap-3"><Progress value={Math.min(save.completed.length * 33, 100)} className="h-2" /><span className="text-xs font-black">{Math.min(save.completed.length, 3)}/3</span></div></div></div>
+      <div className="mt-10"><p className="text-xs font-black tracking-widest text-[#e26a3b]">CHOOSE TALENT</p><div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">{(Object.keys(GENIUS_INFO) as GeniusType[]).map(type => <button key={type} onClick={() => setTalent(type)} className={`rounded-2xl border p-4 text-left transition ${talent === type ? 'bg-[#173a34] text-white shadow-lg' : 'bg-white/70'}`}><div>{GENIUS_INFO[type].emoji}</div><div className="mt-2 font-black">{GENIUS_INFO[type].nameZh}</div><div className="mt-1 text-xs opacity-65">{TALENT_TAGLINES[type]}</div></button>)}</div></div>
+    </section>}
 
-      {phase === 'play' && (
-        <section className="mx-auto max-w-6xl px-4 py-6 md:py-10">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-              <div className="flex items-center gap-3"><div className="w-11 h-11 rounded-2xl bg-white flex items-center justify-center text-xl shadow-sm">{info.emoji}</div><div><div className="font-black">{info.nameZh}牌組</div><div className="text-xs text-[#57736e]">{TALENT_TAGLINES[talent]}</div></div></div>
-            <div className="flex items-center gap-4 text-sm font-black"><span className="flex gap-1">{[0,1,2,3].map(i => <Heart key={i} className={`w-5 h-5 ${i < energy ? 'fill-[#e26a3b] text-[#e26a3b]' : 'text-[#baa]'}`} />)}</span><span>COMBO ×{combo}</span><span>{score} XP</span></div>
-          </div>
-          <div className="grid lg:grid-cols-[1.1fr_.9fr] gap-6">
-            <div className="rounded-[32px] bg-[#173a34] text-white p-6 md:p-9 min-h-[390px] flex flex-col relative overflow-hidden">
-              <div className="absolute -right-16 -top-16 w-52 h-52 rounded-full bg-[#dce9c7]/10" />
-              <div className="flex items-center gap-3"><span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black">情境任務・{scene.place}</span><span className="text-xs text-white/60">ROUND {round + 1}/{ROUNDS.length}</span></div>
-              <div className="mt-12"><p className="text-xs font-black tracking-widest text-[#dce9c7]">{scene.speaker}</p><h2 className="mt-3 text-3xl md:text-5xl font-black leading-tight">“{scene.prompt}”</h2><p className="mt-5 text-white/65">任務：{scene.goal}</p></div>
-              {selected && <div className="mt-auto pt-8"><div className="rounded-2xl bg-white text-[#173a34] p-4"><p className="text-xs font-black text-[#e26a3b]">你的回應</p><p className="font-bold mt-1">“{selected.sentence}”</p></div><p className="text-sm mt-4 text-[#dce9c7]">MIA：{scene.reply}</p></div>}
-            </div>
-            <aside className="rounded-[32px] bg-white p-6 md:p-8 shadow-sm border border-[#173a34]/10">
-              {!selected ? <><p className="text-xs font-black tracking-widest text-[#e26a3b]">YOUR HAND</p><h2 className="text-2xl font-black mt-1">你要打出哪張策略卡？</h2><div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">{hand.map(card => <button key={card.id} onClick={() => playCard(card)} className="group min-h-40 rounded-2xl border-2 p-4 text-left hover:-translate-y-1 hover:shadow-lg transition-all" style={{ borderColor: `${ABILITY_COLOR[card.ability]}55`, background: `${ABILITY_COLOR[card.ability]}0d` }}><div className="flex justify-between"><span className="text-3xl">{card.icon}</span>{card.talents.includes(talent) && <span className="text-[10px] font-black rounded-full bg-[#dce9c7] px-2 py-1 h-fit">天份加成</span>}</div><h3 className="mt-4 font-black text-lg">{card.title}</h3><p className="text-xs text-[#57736e] mt-1">{card.subtitle}</p><div className="mt-4 text-[11px] font-black" style={{ color: ABILITY_COLOR[card.ability] }}>{card.effect}</div></button>)}</div></> : <div className="h-full flex flex-col"><div className={`w-14 h-14 rounded-full flex items-center justify-center ${selected.ability === scene.best ? 'bg-[#dce9c7]' : 'bg-[#f6dfd5]'}`}>{selected.ability === scene.best ? <Check className="w-7 h-7" /> : <Brain className="w-7 h-7" />}</div><h2 className="text-2xl font-black mt-5">{feedback}</h2><div className="mt-5 rounded-2xl bg-[#f4efe5] p-4"><p className="text-xs font-black text-[#57736e]">語言拆招</p><p className="mt-2 font-bold">{selected.sentence}</p><p className="text-sm text-[#57736e] mt-2">不用背完整答案，記住這個句型開頭，下次可以替換內容再出牌。</p></div><Button onClick={next} className="mt-auto rounded-full bg-[#e26a3b] hover:bg-[#cc582d]">{round === ROUNDS.length - 1 || energy === 0 ? '查看結算' : '下一個情境'} <ChevronRight className="w-4 h-4 ml-1" /></Button></div>}
-            </aside>
-          </div>
-          <div className="mt-6 flex items-center gap-4"><Progress value={((round + (selected ? 1 : 0)) / ROUNDS.length) * 100} className="h-2" /><span className="text-xs font-black whitespace-nowrap">QUEST PROGRESS</span></div>
-        </section>
-      )}
+    {phase === 'map' && <section className="mx-auto max-w-6xl px-4 py-10"><div><p className="text-xs font-black tracking-widest text-[#e26a3b]">WORLD MAP</p><h1 className="mt-2 text-4xl font-black">今天想去哪裡冒險？</h1><p className="mt-2 text-[#57736e]">完成情境取得 XP、金幣與你的天份專屬卡。</p></div><div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">{GAME_SCENARIOS.map(item => { const locked = level < item.unlockLevel; const done = save.completed.includes(item.id); return <button key={item.id} disabled={locked} onClick={() => startScenario(item)} className="group relative min-h-64 overflow-hidden rounded-[28px] p-6 text-left text-white shadow-lg transition hover:-translate-y-1 disabled:grayscale" style={{ background: item.color }}><div className="absolute -right-8 -top-10 text-[120px] opacity-15">{item.icon}</div><div className="relative flex h-full flex-col"><div className="flex justify-between"><span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black">LV.{item.unlockLevel}</span>{locked ? <Lock className="h-5 w-5" /> : done ? <span className="flex items-center gap-1 text-xs font-black"><Check className="h-4 w-4" />完成</span> : null}</div><div className="mt-auto"><div className="text-4xl">{item.icon}</div><h2 className="mt-3 text-2xl font-black">{item.title}</h2><p className="mt-1 text-sm text-white/70">{item.subtitle}</p><div className="mt-4 text-xs font-black">獎勵 {item.reward} XP・3 回合</div></div></div></button> })}</div></section>}
 
-      {phase === 'result' && (
-        <section className="mx-auto max-w-2xl px-4 py-14 text-center">
-          <div className="rounded-[36px] bg-white border border-[#173a34]/10 p-8 md:p-12 shadow-xl">
-            <div className="mx-auto w-20 h-20 rounded-full bg-[#dce9c7] flex items-center justify-center"><Zap className="w-9 h-9 fill-[#173a34]" /></div>
-            <p className="mt-6 text-xs font-black tracking-[.25em] text-[#e26a3b]">QUEST COMPLETE</p><h1 className="mt-2 text-4xl font-black">語言卡牌任務完成！</h1>
-            <div className="mt-6 flex justify-center gap-2">{[0,1,2].map(i => <Star key={i} className={`w-10 h-10 ${i < stars ? 'fill-[#efb83b] text-[#efb83b]' : 'text-[#ddd6ca]'}`} />)}</div>
-            <div className="mt-8 grid grid-cols-3 gap-3"><div className="rounded-2xl bg-[#f4efe5] p-4"><div className="text-2xl font-black">{score}</div><div className="text-xs text-[#57736e]">總 XP</div></div><div className="rounded-2xl bg-[#f4efe5] p-4"><div className="text-2xl font-black">{combo}</div><div className="text-xs text-[#57736e]">最高連擊</div></div><div className="rounded-2xl bg-[#f4efe5] p-4"><div className="text-2xl font-black">+{stars * 20}</div><div className="text-xs text-[#57736e]">天份熟練</div></div></div>
-            <p className="mt-7 text-[#57736e]">你的「{info.nameZh}」天份在這局把學習策略變成了可使用的英文句型。接著到 Practice，把句型放進真正的 AI 對話。</p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center"><Button variant="outline" className="rounded-full" onClick={start}><RotateCcw className="w-4 h-4 mr-2" />再玩一次</Button><Button className="rounded-full bg-[#173a34]" onClick={() => navigate(`/practice?lang=english&prompt=${encodeURIComponent('Let’s role-play ordering at a café. Help me practice the phrases I just learned, one turn at a time.')}`)}>進入 AI 實戰 <ChevronRight className="w-4 h-4 ml-1" /></Button></div>
-          </div>
-        </section>
-      )}
-    </main>
-  );
+    {phase === 'play' && <section className="mx-auto max-w-6xl px-4 py-6 md:py-10"><div className="mb-6 flex flex-wrap items-center justify-between gap-4"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl">{scenario.icon}</div><div><div className="font-black">{scenario.title}</div><div className="text-xs text-[#57736e]">ROUND {round + 1}/{scenario.rounds.length}</div></div></div><div className="flex items-center gap-4 text-sm font-black"><span className="flex gap-1">{[0,1,2].map(i => <Heart key={i} className={`h-5 w-5 ${i < energy ? 'fill-[#e26a3b] text-[#e26a3b]' : 'text-[#baa]'}`} />)}</span><span>COMBO ×{combo}</span><span>{score} XP</span></div></div><div className="grid gap-6 lg:grid-cols-[1.05fr_.95fr]"><div className="relative flex min-h-[420px] flex-col overflow-hidden rounded-[32px] bg-[#173a34] p-7 text-white md:p-9"><span className="w-fit rounded-full bg-white/10 px-3 py-1 text-xs font-black">{current.speaker}</span><h2 className="mt-12 text-3xl font-black leading-tight md:text-5xl">“{current.prompt}”</h2><p className="mt-5 text-white/65">任務：{current.goal}</p>{feedback && <div className="mt-auto pt-8"><div className="rounded-2xl bg-white p-4 text-[#173a34]"><p className="text-xs font-black text-[#e26a3b]">情境結果</p><p className="mt-1 font-bold">{feedback}</p>{aiFeedback && <p className="mt-3 border-t pt-3 text-sm text-[#57736e]">{aiFeedback}</p>}</div></div>}</div><aside className="rounded-[32px] border border-[#173a34]/10 bg-white p-6 shadow-sm md:p-8">{!feedback ? <>{!selected ? <><p className="text-xs font-black tracking-widest text-[#e26a3b]">YOUR HAND</p><h2 className="mt-1 text-2xl font-black">選一張策略卡</h2><div className="mt-5 grid grid-cols-2 gap-3">{hand.map(card => <button key={card.id} onClick={() => chooseCard(card)} className="min-h-44 rounded-2xl border-2 p-4 text-left transition hover:-translate-y-1 hover:shadow-lg" style={{ borderColor: `${ABILITY_COLOR[card.ability]}55`, background: `${ABILITY_COLOR[card.ability]}0d` }}><div className="flex justify-between"><span className="text-3xl">{card.icon}</span>{card.talents.includes(talent) && <span className="h-fit rounded-full bg-[#dce9c7] px-2 py-1 text-[10px] font-black">天份加成</span>}</div><h3 className="mt-4 font-black">{card.title}</h3><p className="mt-1 text-xs text-[#57736e]">{card.subtitle}</p></button>)}</div></> : <><button onClick={() => setSelected(null)} className="text-xs font-bold text-[#57736e]">← 換一張卡</button><div className="mt-4 rounded-2xl p-4" style={{ background: `${ABILITY_COLOR[selected.ability]}12` }}><div className="text-3xl">{selected.icon}</div><h3 className="mt-2 text-xl font-black">{selected.title}</h3><p className="mt-1 text-sm text-[#57736e]">句型提示：{selected.sentence}</p></div><label className="mt-5 block text-sm font-black" htmlFor="game-answer">說出或輸入你的回應</label><textarea id="game-answer" value={answer} onChange={e => setAnswer(e.target.value)} placeholder={current.example} className="mt-2 min-h-28 w-full rounded-2xl border bg-[#faf8f2] p-4 outline-none focus:ring-2 focus:ring-[#1f8a70]" /><div className="mt-3 flex gap-2"><Button variant="outline" onClick={listen} className="rounded-full"><Mic className={`mr-2 h-4 w-4 ${isListening ? 'animate-pulse text-red-500' : ''}`} />{isListening ? '聆聽中' : '語音輸入'}</Button><Button disabled={!answer.trim() || isEvaluating} onClick={submitAnswer} className="flex-1 rounded-full bg-[#e26a3b]">{isEvaluating ? 'AI 評估中…' : '送出回應'}</Button></div></>}</> : <div className="flex h-full flex-col"><div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#dce9c7]"><Check className="h-7 w-7" /></div><h2 className="mt-5 text-2xl font-black">回合完成</h2><p className="mt-3 text-[#57736e]">角色回應：{localEvaluate().enough ? current.successReply : current.retryReply}</p><Button onClick={nextRound} className="mt-auto rounded-full bg-[#173a34]">{round === scenario.rounds.length - 1 || energy === 0 ? '查看結算' : '下一個情境'}<ChevronRight className="ml-1 h-4 w-4" /></Button></div>}</aside></div><div className="mt-6 flex items-center gap-4"><Progress value={((round + (feedback ? 1 : 0)) / scenario.rounds.length) * 100} className="h-2" /><span className="whitespace-nowrap text-xs font-black">QUEST PROGRESS</span></div></section>}
+
+    {phase === 'result' && <section className="mx-auto max-w-2xl px-4 py-14 text-center"><div className="rounded-[36px] border bg-white p-8 shadow-xl md:p-12"><div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#dce9c7]"><Zap className="h-9 w-9 fill-[#173a34]" /></div><p className="mt-6 text-xs font-black tracking-[.25em] text-[#e26a3b]">QUEST COMPLETE</p><h1 className="mt-2 text-4xl font-black">{scenario.title}完成！</h1><div className="mt-6 flex justify-center gap-2">{[0,1,2].map(i => <Star key={i} className={`h-10 w-10 ${i < (score >= 420 ? 3 : score >= 280 ? 2 : 1) ? 'fill-[#efb83b] text-[#efb83b]' : 'text-[#ddd6ca]'}`} />)}</div><div className="mt-8 grid gap-3 sm:grid-cols-3">{reward.map(item => <div key={item} className="rounded-2xl bg-[#f4efe5] p-4 font-black">{item}</div>)}</div><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Button variant="outline" className="rounded-full" onClick={() => startScenario(scenario)}><RotateCcw className="mr-2 h-4 w-4" />再玩一次</Button><Button className="rounded-full bg-[#173a34]" onClick={() => setPhase('map')}>繼續冒險 <ChevronRight className="ml-1 h-4 w-4" /></Button></div></div></section>}
+
+    {phase === 'collection' && <section className="mx-auto max-w-6xl px-4 py-10"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black tracking-widest text-[#6d5bd0]">CARD COLLECTION</p><h1 className="mt-2 text-4xl font-black">我的天份牌庫</h1><p className="mt-2 text-[#57736e]">完成關卡解鎖卡牌，用金幣升級效果。</p></div><div className="rounded-full bg-white px-4 py-2 text-sm font-black"><Coins className="mr-2 inline h-4 w-4 text-[#d18a29]" />{save.coins}</div></div><div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">{GAME_CARDS.map(card => { const owned = save.unlocked.includes(card.id); const cardLevel = save.levels[card.id] || 1; const cost = cardLevel * 50; return <div key={card.id} className={`relative min-h-72 rounded-[26px] border-2 p-5 ${owned ? 'bg-white' : 'bg-[#ded9cf] opacity-60'}`} style={{ borderColor: owned ? `${ABILITY_COLOR[card.ability]}66` : '#bbb' }}><div className="flex justify-between"><span className="text-4xl">{owned ? card.icon : '🔒'}</span><span className="text-[10px] font-black uppercase">{card.rarity}</span></div><h2 className="mt-5 text-xl font-black">{owned ? card.title : '尚未解鎖'}</h2><p className="mt-2 text-sm text-[#57736e]">{owned ? card.subtitle : '完成更多情境取得這張牌。'}</p>{owned && <div className="mt-5"><div className="flex justify-between text-xs font-black"><span>LV.{cardLevel}</span><span>{ABILITY_LABEL[card.ability]}</span></div><Progress value={cardLevel * 20} className="mt-2 h-2" /><Button disabled={cardLevel >= 5 || save.coins < cost} onClick={() => upgrade(card)} size="sm" className="mt-4 w-full rounded-full bg-[#173a34]">{cardLevel >= 5 ? '已滿級' : `升級・${cost} 金幣`}</Button></div>}</div> })}</div></section>}
+  </main>;
 }
