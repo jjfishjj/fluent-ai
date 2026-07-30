@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -16,7 +16,16 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { useAuth } from '@/contexts/AuthContext';
 import { GENIUS_INFO, GeniusType, loadGeniusType } from '@/lib/genius-type';
+import {
+  logRound,
+  logSessionDone,
+  logSessionStart,
+  newSessionId,
+  RoundLog,
+  SessionContext,
+} from '@/lib/language-city-telemetry';
 import { streamChat } from '@/lib/stream-chat';
 import {
   ABILITY_COLOR,
@@ -65,13 +74,14 @@ const EVENT_KIND: Record<CityEventKind, { label: string; tone: string }> = {
   gossip: { label: '提到別人', tone: '#e26a3b' },
 };
 
-/** What the dialogue engine is currently running. */
+/** What the dialogue engine is currently running. `ctx` correlates its telemetry rows. */
 type Session =
-  | { kind: 'build'; def: BuildingDef; rounds: GameRound[] }
-  | { kind: 'event'; event: CityEvent; rounds: GameRound[] };
+  | { kind: 'build'; def: BuildingDef; rounds: GameRound[]; ctx: SessionContext }
+  | { kind: 'event'; event: CityEvent; rounds: GameRound[]; ctx: SessionContext };
 
 export default function LanguageCity() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [talent] = useState<GeniusType>(() => loadGeniusType() || 'explorer');
   const [city, setCity] = useState<CityState>(() => advanceCity(loadCity()));
   const [phase, setPhase] = useState<Phase>('city');
@@ -87,12 +97,29 @@ export default function LanguageCity() {
   const totalBlocks = city.blocks.observe + city.blocks.connect + city.blocks.express;
 
   const startBuild = (def: BuildingDef) => {
-    setSession({ kind: 'build', def, rounds: def.rounds });
+    const ctx: SessionContext = {
+      sessionId: newSessionId(),
+      source: 'build',
+      buildingId: def.id,
+      geniusType: talent,
+      cityDay: city.day,
+    };
+    logSessionStart(user?.id, ctx, def.rounds.length);
+    setSession({ kind: 'build', def, rounds: def.rounds, ctx });
     setPhase('talk');
   };
 
   const startEvent = (event: CityEvent) => {
-    setSession({ kind: 'event', event, rounds: [event.round] });
+    const ctx: SessionContext = {
+      sessionId: newSessionId(),
+      source: 'event',
+      residentId: event.residentId,
+      eventKind: event.kind,
+      geniusType: talent,
+      cityDay: city.day,
+    };
+    logSessionStart(user?.id, ctx, 1);
+    setSession({ kind: 'event', event, rounds: [event.round], ctx });
     setPhase('talk');
   };
 
@@ -101,8 +128,19 @@ export default function LanguageCity() {
     setCity(prev => addBlocks(prev, blocks));
   };
 
-  const onSessionDone = (lastLine: string) => {
+  /** Leaving a scenario, finished or not — closes out the funnel for this run. */
+  const closeSession = (completed: boolean, roundsCleared: number) => {
     if (!session) return;
+    logSessionDone(user?.id, session.ctx, {
+      completed,
+      roundsCleared,
+      roundTotal: session.rounds.length,
+    });
+  };
+
+  const onSessionDone = (lastLine: string, roundsCleared: number) => {
+    if (!session) return;
+    closeSession(true, roundsCleared);
     if (session.kind === 'event') {
       setCity(prev => resolveEvent(prev, session.event, lastLine, talent));
       const def = residentDef(session.event.residentId);
@@ -135,8 +173,13 @@ export default function LanguageCity() {
           ? memoryHintFor(city, session.event.residentId)
           : ''}
         onRoundCleared={onRoundCleared}
+        onRoundSettled={log => logRound(user?.id, session.ctx, log)}
         onDone={onSessionDone}
-        onQuit={() => { setSession(null); setPhase('city'); }}
+        onQuit={roundsCleared => {
+          closeSession(false, roundsCleared);
+          setSession(null);
+          setPhase('city');
+        }}
       />
     );
   }
@@ -504,6 +547,7 @@ function Dialogue({
   talent,
   memoryHint,
   onRoundCleared,
+  onRoundSettled,
   onDone,
   onQuit,
 }: {
@@ -516,8 +560,9 @@ function Dialogue({
   talent: GeniusType;
   memoryHint: string;
   onRoundCleared: (blocks: Partial<BlockBank>) => void;
-  onDone: (lastLine: string) => void;
-  onQuit: () => void;
+  onRoundSettled: (log: RoundLog) => void;
+  onDone: (lastLine: string, roundsCleared: number) => void;
+  onQuit: (roundsCleared: number) => void;
 }) {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<GameCard | null>(null);
@@ -527,6 +572,10 @@ function Dialogue({
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [lastLine, setLastLine] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
+  const [cleared, setCleared] = useState(0);
+  // Wall-clock for the current attempt, so a retry is timed on its own.
+  const attemptStartedAt = useRef(Date.now());
   const round = rounds[index];
   const isLast = index === rounds.length - 1;
 
@@ -541,8 +590,24 @@ function Dialogue({
   const settle = (card: GameCard, score: RoundScore, graded: boolean) => {
     const blocks = blocksForRound(score, card, round, talent);
     setVerdict({ score, blocks, graded });
-    if (score > 0) onRoundCleared(blocks);
+    if (score > 0) {
+      onRoundCleared(blocks);
+      setCleared(v => v + 1);
+    }
     setIsEvaluating(false);
+    onRoundSettled({
+      roundIndex: index,
+      roundTotal: rounds.length,
+      cardId: card.id,
+      cardAbility: card.ability,
+      bestAbility: round.best,
+      talentBonus: card.talents.includes(talent),
+      score,
+      graded,
+      retryCount,
+      durationMs: Date.now() - attemptStartedAt.current,
+      blocksEarned: Object.values(blocks).reduce((a, b) => a + b, 0),
+    });
   };
 
   const submit = async () => {
@@ -593,15 +658,19 @@ function Dialogue({
   const retry = () => {
     setVerdict(null);
     setCoach('');
+    setRetryCount(v => v + 1);
+    attemptStartedAt.current = Date.now();
   };
 
   const next = () => {
-    if (isLast) return onDone(lastLine);
+    if (isLast) return onDone(lastLine, cleared);
     setIndex(v => v + 1);
     setSelected(null);
     setAnswer('');
     setVerdict(null);
     setCoach('');
+    setRetryCount(0);
+    attemptStartedAt.current = Date.now();
   };
 
   const listen = () => {
@@ -629,7 +698,7 @@ function Dialogue({
     <main className="min-h-screen bg-[#f4efe5] pb-24 text-[#173a34]">
       <header className="sticky top-0 z-30 border-b border-[#173a34]/10 bg-[#f4efe5]/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <button onClick={onQuit} className="flex items-center gap-2 text-sm font-bold">
+          <button onClick={() => onQuit(cleared)} className="flex items-center gap-2 text-sm font-bold">
             <ArrowLeft className="h-4 w-4" /> 離開對話
           </button>
           <span className="text-xs font-black">ROUND {index + 1}/{rounds.length}</span>

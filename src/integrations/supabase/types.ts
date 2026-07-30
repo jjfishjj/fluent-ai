@@ -414,6 +414,90 @@ export type Database = {
           },
         ]
       }
+      city_activity_logs: {
+        Row: {
+          ability_matched: boolean | null
+          best_ability: string | null
+          blocks_earned: number | null
+          building_id: string | null
+          card_ability: string | null
+          card_id: string | null
+          city_day: number | null
+          completed: boolean | null
+          created_at: string
+          duration_ms: number | null
+          event_kind: string | null
+          genius_type: string | null
+          graded: boolean | null
+          id: string
+          kind: string
+          resident_id: string | null
+          retry_count: number
+          round_index: number | null
+          round_total: number | null
+          rounds_cleared: number | null
+          score: number | null
+          session_id: string
+          source: string
+          talent_bonus: boolean | null
+          user_id: string
+        }
+        Insert: {
+          ability_matched?: boolean | null
+          best_ability?: string | null
+          blocks_earned?: number | null
+          building_id?: string | null
+          card_ability?: string | null
+          card_id?: string | null
+          city_day?: number | null
+          completed?: boolean | null
+          created_at?: string
+          duration_ms?: number | null
+          event_kind?: string | null
+          genius_type?: string | null
+          graded?: boolean | null
+          id?: string
+          kind: string
+          resident_id?: string | null
+          retry_count?: number
+          round_index?: number | null
+          round_total?: number | null
+          rounds_cleared?: number | null
+          score?: number | null
+          session_id: string
+          source: string
+          talent_bonus?: boolean | null
+          user_id: string
+        }
+        Update: {
+          ability_matched?: boolean | null
+          best_ability?: string | null
+          blocks_earned?: number | null
+          building_id?: string | null
+          card_ability?: string | null
+          card_id?: string | null
+          city_day?: number | null
+          completed?: boolean | null
+          created_at?: string
+          duration_ms?: number | null
+          event_kind?: string | null
+          genius_type?: string | null
+          graded?: boolean | null
+          id?: string
+          kind?: string
+          resident_id?: string | null
+          retry_count?: number
+          round_index?: number | null
+          round_total?: number | null
+          rounds_cleared?: number | null
+          score?: number | null
+          session_id?: string
+          source?: string
+          talent_bonus?: boolean | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       training_sessions: {
         Row: {
           ability_deltas: Json
