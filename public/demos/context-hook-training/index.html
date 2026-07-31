@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>情境鉤子卡互動訓練 · MemoLingua</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f4f7fb;color:#122033;font-family:Inter,"Noto Sans TC",system-ui,sans-serif}.top{height:68px;background:#fff;border-bottom:1px solid #dfe6ee;display:flex;align-items:center;justify-content:space-between;padding:0 5vw;position:sticky;top:0;z-index:20}.top a{color:#334155;text-decoration:none;font-weight:800}.badge{background:#e8fff9;color:#087565;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:900}.wrap{max-width:1220px;margin:auto;padding:28px 20px 70px}.hero{position:relative;overflow:hidden;border-radius:30px;padding:38px;background:#101a37;color:white}.hero:after{content:"";position:absolute;width:310px;height:310px;border-radius:50%;right:-90px;top:-110px;background:#23d5b93b;filter:blur(35px)}.eyebrow{position:relative;color:#72f3df;font-size:12px;font-weight:900;letter-spacing:.18em}.hero h1{position:relative;margin:12px 0;font-size:clamp(32px,5vw,50px);line-height:1.1}.hero p{position:relative;max-width:760px;color:#c7d2e3;line-height:1.75}.config{margin-top:22px;background:#fff;border:1px solid #dfe6ee;border-radius:24px;padding:24px}.config h2,.card h2,.card h3{margin-top:0}.fields{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}.field label{display:block;font-size:12px;font-weight:900;color:#526174;margin-bottom:6px}.field input,.field select{width:100%;height:44px;border:1px solid #cbd5e1;border-radius:11px;padding:0 12px;background:#fff;font:inherit}.field.wide{grid-column:span 2}.vark{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:16px}.vbox{padding:12px;border-radius:13px;background:#f8fafc}.vbox label{font-weight:900;font-size:12px}.vbox input{width:100%}.start{margin-top:18px;width:100%;border:0;border-radius:13px;background:linear-gradient(135deg,#14a98f,#13899a);color:#fff;padding:14px;font-weight:900;font-size:16px;cursor:pointer}.app{display:none;margin-top:22px}.progress{display:grid;grid-template-columns:repeat(8,1fr);gap:7px;margin-bottom:18px}.step{border:1px solid #dce3eb;border-radius:12px;padding:9px 5px;background:#fff;text-align:center;color:#8190a3;font-size:11px;font-weight:800}.step strong{display:block;font-size:15px}.step.on{background:#eafff9;border-color:#37c9aa;color:#087565}.step.done{background:#0f9e86;color:#fff;border-color:#0f9e86}.layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px}.stack{display:grid;gap:16px}.card{background:#fff;border:1px solid #dfe6ee;border-radius:22px;padding:22px}.scene{background:linear-gradient(145deg,#123c50,#14695f);color:#fff;min-height:285px;position:relative;overflow:hidden}.scene:after{content:"";position:absolute;inset:auto -60px -80px auto;width:240px;height:240px;border-radius:50%;background:#72f3df20}.scene-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:17px}.fact{background:#ffffff14;border:1px solid #ffffff20;border-radius:13px;padding:12px}.fact small{display:block;color:#a7f3df;font-weight:900;margin-bottom:5px}.objects{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.object{background:#fff;color:#163044;border-radius:12px;padding:10px 12px;font-weight:800}.task{border-left:4px solid #27c5a4;background:#effdfa;padding:14px;border-radius:0 12px 12px 0;line-height:1.65}.options{display:grid;gap:10px}.option{border:1px solid #d6dee8;background:#fff;border-radius:13px;padding:13px;text-align:left;font-weight:800;cursor:pointer}.option:hover,.option.selected{border-color:#21b99d;background:#edfff9}.option.correct{border-color:#22c55e;background:#ecfdf5}.option.wrong{border-color:#fb7185;background:#fff1f2}.input{width:100%;min-height:115px;border:1px solid #cbd5e1;border-radius:13px;padding:14px;font:inherit;resize:vertical}.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:13px}.btn{border:0;border-radius:11px;background:#109b85;color:#fff;padding:11px 16px;font-weight:900;cursor:pointer}.btn.secondary{background:#fff;color:#415166;border:1px solid #cbd5e1}.btn:disabled{opacity:.4;cursor:not-allowed}.feedback{display:none;margin-top:12px;border-radius:12px;padding:12px;line-height:1.6}.feedback.good{display:block;background:#ecfdf5;color:#166534}.feedback.bad{display:block;background:#fff1f2;color:#9f1239}.hint{display:none;margin-top:12px;background:#fff8dc;border:1px solid #f5d672;border-radius:12px;padding:13px;line-height:1.65}.coach{position:sticky;top:88px}.coach .card{margin-bottom:14px}.meter{height:9px;background:#e7edf3;border-radius:99px;overflow:hidden;margin:7px 0 12px}.fill{height:100%;border-radius:99px}.v{background:#3b82f6}.a{background:#22c55e}.r{background:#f59e0b}.k{background:#ec4899}.metric{display:flex;justify-content:space-between;font-size:12px}.score{font-size:42px;font-weight:950;color:#0f9e86}.hidden-scene{filter:blur(14px);pointer-events:none;user-select:none}.result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.result{background:#f8fafc;border-radius:14px;padding:15px;text-align:center}.result b{display:block;font-size:26px;margin-top:5px}.transfer{background:linear-gradient(145deg,#f7edff,#edf5ff)}@media(max-width:900px){.fields{grid-template-columns:repeat(2,1fr)}.layout{grid-template-columns:1fr}.coach{position:static}.progress{grid-template-columns:repeat(4,1fr)}}@media(max-width:560px){.fields,.vark,.scene-grid,.result-grid{grid-template-columns:1fr}.field.wide{grid-column:auto}.progress{grid-template-columns:repeat(2,1fr)}.hero{padding:28px}.top{padding:0 18px}}
+  </style>
+</head>
+<body>
+  <header class="top"><a href="../../practice">← 返回 Fluent AI 練習場</a><span class="badge">MemoLingua · 情境鉤子 Demo</span></header>
+  <main class="wrap">
+    <section class="hero"><div class="eyebrow">CONTEXT HOOK TRAINING LAB</div><h1>從「看得懂」到<br>真實情境中說得出來</h1><p>依目標語言、程度、VARK 與記憶天賦生成八階段互動訓練。提示會從完整句子逐步減少，最後以新情境遷移與前後測驗證提取能力。</p></section>
+
+    <section id="config" class="config">
+      <h2>建立你的情境鉤子卡</h2>
+      <div class="fields">
+        <div class="field"><label>學習語言</label><select id="targetLanguage"><option>English</option><option>Japanese</option><option>Korean</option><option>Spanish</option></select></div>
+        <div class="field"><label>使用者母語</label><select id="nativeLanguage"><option>繁體中文</option><option>English</option><option>日本語</option></select></div>
+        <div class="field"><label>語言程度</label><select id="level"><option>A2 初級</option><option selected>B1 中級</option><option>B2 中高級</option><option>C1 進階</option></select></div>
+        <div class="field"><label>訓練時間</label><select id="duration"><option>6</option><option selected>10</option><option>15</option><option>20</option></select></div>
+        <div class="field wide"><label>學習主題</label><input id="topic" value="商務會議與專案時程協商"></div>
+        <div class="field wide"><label>五個目標詞彙或句型（逗號分隔）</label><input id="vocabulary" value="negotiate, compromise, deadline, budget, proposal"></div>
+        <div class="field wide"><label>主要記憶天份</label><select id="talent"><option value="explorer">🔵 探索者</option><option value="architect">🟣 建築師</option><option value="melodist">🟠 旋律人</option><option value="narrator">🟡 敘事者</option><option value="connector">🟢 織網者</option><option value="analyst">🔴 分析師</option><option value="performer">🌸 表演者</option><option value="visionary" selected>🔶 圖像家</option></select></div>
+        <div class="field"><label>前測信心（1–5）</label><select id="pre"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option></select></div>
+      </div>
+      <div class="vark">
+        <div class="vbox"><label>V 視覺 <span id="vv">40</span>%</label><input id="vRange" type="range" min="0" max="100" value="40"></div>
+        <div class="vbox"><label>A 聽覺 <span id="av">20</span>%</label><input id="aRange" type="range" min="0" max="100" value="20"></div>
+        <div class="vbox"><label>R 讀寫 <span id="rv">25</span>%</label><input id="rRange" type="range" min="0" max="100" value="25"></div>
+        <div class="vbox"><label>K 動覺 <span id="kv">15</span>%</label><input id="kRange" type="range" min="0" max="100" value="15"></div>
+      </div>
+      <button id="start" class="start">產生情境鉤子互動題 →</button>
+    </section>
+
+    <section id="app" class="app">
+      <div id="progress" class="progress"></div>
+      <div class="layout">
+        <section class="stack">
+          <article id="scene" class="card scene"></article>
+          <article id="activity" class="card"></article>
+        </section>
+        <aside class="coach">
+          <div class="card"><h3>你的個人化訓練</h3><div id="talentInfo"></div><div id="varkMeters"></div></div>
+          <div class="card"><h3>提示層級</h3><p id="hintLevel" class="task"></p><p style="font-size:12px;color:#64748b;line-height:1.7">完整句子 → 關鍵字 → 圖像／聲音 → 無提示</p></div>
+          <div class="card"><h3>本關記憶目標</h3><p id="memoryGoal" style="line-height:1.7;color:#526174"></p></div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $=s=>document.querySelector(s);
+    const stepNames=['場景觀察','目的選擇','四選一','關鍵字組句','AI 追問','無提示回答','情境遷移','前後測'];
+    const talents={
+      explorer:['探索者','把場景當作記憶入口，透過角色任務與行動提取。'],
+      architect:['建築師','用「時間—地點—角色—目的—突發狀況」框架整理情境。'],
+      melodist:['旋律人','先聽角色台詞、跟讀重音，再遮稿複述。'],
+      narrator:['敘事者','用人物情緒與事件轉折綁定核心詞彙。'],
+      connector:['織網者','把新詞和工作經驗、已知概念建立跨域連結。'],
+      analyst:['分析師','理解協商邏輯與句型條件後再輸出。'],
+      performer:['表演者','分飾雙方即興對話，用說出口的動作形成記憶。'],
+      visionary:['圖像家','使用物件、顏色與空間位置建立視覺索引。']
+    };
+    let state={step:0,score:0,attempts:0,chosenPurpose:'',mcq:false,config:null};
+    ['v','a','r','k'].forEach(x=>$('#'+x+'Range').oninput=e=>$('#'+x+'v').textContent=e.target.value);
+    function readConfig(){
+      const vocab=$('#vocabulary').value.split(/[,，]/).map(x=>x.trim()).filter(Boolean).slice(0,5);
+      while(vocab.length<5)vocab.push(['confirm','schedule','option','agree','revise'][vocab.length]);
+      return {target:$('#targetLanguage').value,native:$('#nativeLanguage').value,level:$('#level').value,topic:$('#topic').value.trim(),vocab,duration:+$('#duration').value,talent:$('#talent').value,pre:+$('#pre').value,vark:{V:+$('#vRange').value,A:+$('#aRange').value,R:+$('#rRange').value,K:+$('#kRange').value}};
+    }
+    function sceneData(transfer=false){
+      const c=state.config;
+      return transfer?{time:'週五下午 4:20',place:'共享辦公室的視訊會議區',ai:'海外供應商代表 Alex',user:'臨時接手的採購專員',goal:'在不增加總預算下，更換交貨方式',surprise:'原本的運送公司突然取消班次',objects:['💻 視訊畫面','📦 樣品箱','🗺️ 路線圖','🧾 新報價單']}:{time:'週二上午 10:15',place:'玻璃牆專案會議室',ai:'要求提前上線的客戶經理 Alex',user:'負責時程與預算的專案經理',goal:'協商一個雙方都能接受的新上線日期',surprise:'投影到一半，客戶通知預算被削減 15%',objects:['📅 藍色時程表','💻 報價簡報','☕ 兩杯咖啡','📝 黃色便條紙','🔴 逾期警示燈']};
+    }
+    function renderProgress(){
+      $('#progress').innerHTML=stepNames.map((n,i)=>`<div class="step ${i===state.step?'on':i<state.step?'done':''}"><strong>${i+1}</strong>${n}</div>`).join('');
+      const levels=['完整場景與物件提示','完整句子提示','完整句子提示','只保留核心關鍵字','只提供圖像／聲音提示','無提示','新物件與新角色','無提示測驗'];
+      $('#hintLevel').textContent=`第 ${state.step+1} 層：${levels[state.step]}`;
+    }
+    function renderScene(transfer=false,hidden=false){
+      const s=sceneData(transfer),c=state.config;
+      $('#scene').className='card scene'+(hidden?' hidden-scene':'');
+      $('#scene').innerHTML=`<div class="eyebrow">${transfer?'TRANSFER SCENE':'LIVE SCENE'} · ${c.target} · ${c.level}</div><h2>${transfer?'突發物流協商':'專案上線日協商'}</h2><div class="scene-grid"><div class="fact"><small>明確時間</small>${s.time}</div><div class="fact"><small>具體地點</small>${s.place}</div><div class="fact"><small>AI 角色</small>${s.ai}</div><div class="fact"><small>你的角色</small>${s.user}</div></div><p class="task"><b>你的目的：</b>${s.goal}<br><b>突發狀況：</b>${s.surprise}</p><div class="objects">${s.objects.map(x=>`<span class="object">${x}</span>`).join('')}</div>`;
+    }
+    function next(){state.step=Math.min(7,state.step+1);render()}
+    function feedback(good,text){const f=$('#feedback');f.className='feedback '+(good?'good':'bad');f.textContent=text}
+    function speak(text){if('speechSynthesis'in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=.82;speechSynthesis.speak(u)}}
+    function render(){
+      renderProgress();renderScene(state.step===6,state.step===5);
+      const c=state.config,v=c.vocab,a=$('#activity');
+      if(state.step===0)a.innerHTML=`<h2>1. 場景觀察</h2><p>用 25 秒觀察時間、位置、角色、突發狀況與物件。完成後不要回頭逐字閱讀。</p><div class="options"><label class="option"><input id="observe1" type="checkbox"> 我能指出客戶與我的位置</label><label class="option"><input id="observe2" type="checkbox"> 我能說出至少 3 個可見物件</label><label class="option"><input id="observe3" type="checkbox"> 我知道突發狀況改變了什麼</label></div><div class="row"><button class="btn" onclick="if(observe1.checked&&observe2.checked&&observe3.checked)next();else feedback(false,'請完成三項觀察再繼續。')">完成觀察</button></div><div id="feedback" class="feedback"></div>`;
+      if(state.step===1)a.innerHTML=`<h2>2. 選擇溝通目的</h2><p>此刻最合理的第一個溝通目的為何？</p><div class="options">${['立刻答應客戶所有要求','先確認不可變動的條件，再提出交換方案','直接拒絕並結束會議'].map((x,i)=>`<button class="option" onclick="state.chosenPurpose='${x}';document.querySelectorAll('.option').forEach(b=>b.classList.remove('selected'));this.classList.add('selected');goPurpose.disabled=false">${x}</button>`).join('')}</div><div class="hint">完整句型：Before we decide, could we confirm which conditions are fixed?</div><div class="row"><button class="btn secondary" onclick="this.closest('.card').querySelector('.hint').style.display='block'">顯示完整句子提示</button><button id="goPurpose" class="btn" disabled onclick="if(state.chosenPurpose.includes('確認')){state.score+=10;next()}else feedback(false,'這個選擇沒有先釐清條件。請找出能開始協商的目的。')">確認目的</button></div><div id="feedback" class="feedback"></div>`;
+      if(state.step===2)a.innerHTML=`<h2>3. 四選一回答</h2><p>Alex 說：「We need the launch two weeks earlier, but the budget is lower.」你如何開始回應？</p><div class="options">${['No. That is impossible.','Sure, we can do everything.','Let’s negotiate the deadline and see where we can compromise.','Your budget is not my problem.'].map((x,i)=>`<button class="option" onclick="state.attempts++;document.querySelectorAll('.option').forEach(b=>b.classList.remove('correct','wrong'));this.classList.add(${i===2}?'correct':'wrong');feedback(${i===2},${i===2}?'答對了：先提出 negotiate，再以 compromise 尋找交換空間。':'這句不是直接拒絕，就是過度承諾，沒有啟動協商。');nextMcq.disabled=${i!==2}">${x}</button>`).join('')}</div><div id="feedback" class="feedback"></div><div class="row"><button id="nextMcq" class="btn" disabled onclick="state.score+=15;next()">進入關鍵字組句</button></div>`;
+      if(state.step===3)a.innerHTML=`<h2>4. 關鍵字組句</h2><p>只使用下列關鍵字組成一句符合你目的的回應：</p><div class="objects">${v.map(x=>`<span class="object">${x}</span>`).join('')}</div><textarea id="sentenceInput" class="input" placeholder="請用 ${c.target} 輸入一句話"></textarea><div class="hint">關鍵字提示：negotiate + deadline / compromise + budget / revise + proposal</div><div class="row"><button class="btn secondary" onclick="this.closest('.card').querySelector('.hint').style.display='block'">顯示關鍵字</button><button class="btn" onclick="const t=sentenceInput.value.toLowerCase();if(t.includes(v[0].toLowerCase())&&t.length>20){state.score+=15;next()}else feedback(false,'請至少使用第一個核心詞，並寫出一個完整句子。')">送出句子</button></div><div id="feedback" class="feedback"></div>`;
+      if(state.step===4)a.innerHTML=`<h2>5. AI 角色追問</h2><p class="task"><b>Alex：</b>If we keep the current budget, what can your team change in the proposal?</p><p>這一輪不顯示完整句子，只保留圖像與聲音入口。</p><div class="objects"><span class="object">📅 deadline</span><span class="object">💰 budget</span><span class="object">📄 proposal</span></div><textarea id="followInput" class="input" placeholder="回覆 Alex，提出一項交換條件"></textarea><div class="row"><button class="btn secondary" onclick="speak('If we keep the current budget, what can your team change in the proposal?')">🔊 純聽追問</button><button class="btn" onclick="if(followInput.value.trim().length>20){state.score+=15;next()}else feedback(false,'請提出具體交換條件，例如調整範圍、時程或交付方式。')">回覆 AI 角色</button></div><div id="feedback" class="feedback"></div>`;
+      if(state.step===5)a.innerHTML=`<h2>6. 無提示文字或語音回答</h2><p>場景資料已模糊。請不看提示，回答以下三件事：</p><ol><li>你在哪裡、扮演誰？</li><li>突發狀況是什麼？</li><li>用目標語言說出你的協商方案。</li></ol><textarea id="recallInput" class="input" placeholder="完全無提示回答……"></textarea><div class="row"><button class="btn" onclick="if(recallInput.value.trim().length>55){state.score+=20;next()}else feedback(false,'回答還不夠完整；請包含場景、突發狀況與協商方案。')">完成無提示提取</button></div><div id="feedback" class="feedback"></div>`;
+      if(state.step===6)a.innerHTML=`<h2>7. 新情境遷移</h2><p>人物、物件與地點都已更換。請保留相同協商原理，而不是背上一題答案。</p><div class="transfer task"><b>新任務：</b>運送公司取消班次。你要在不增加總預算下，和供應商協商新的交付方式。</div><textarea id="transferInput" class="input" placeholder="請提出確認條件、交換方案與下一步"></textarea><div class="row"><button class="btn" onclick="const t=transferInput.value.toLowerCase();if(t.length>45&&(t.includes(v[0].toLowerCase())||t.includes(v[1].toLowerCase()))){state.score+=15;next()}else feedback(false,'請套用至少一個核心詞，並提出完整交換方案。')">完成情境遷移</button></div><div id="feedback" class="feedback"></div>`;
+      if(state.step===7)a.innerHTML=`<h2>8. 前後測比較</h2><p>最後一次不看提示完成三項檢核。</p><div class="options"><label class="option"><input class="postCheck" type="checkbox"> 我能說出五個核心詞</label><label class="option"><input class="postCheck" type="checkbox"> 我能在原場景自然使用至少三個詞</label><label class="option"><input class="postCheck" type="checkbox"> 我能把協商策略遷移到新場景</label></div><div class="row"><button class="btn" onclick="finish()">產生訓練報告</button></div><div id="report"></div>`;
+    }
+    function finish(){
+      const checks=[...document.querySelectorAll('.postCheck')].filter(x=>x.checked).length;
+      const post=Math.min(5,Math.max(state.config.pre+1,checks+2));
+      const accuracy=Math.min(100,state.score+checks*5);
+      $('#report').innerHTML=`<div class="result-grid" style="margin-top:18px"><div class="result">前測信心<b>${state.config.pre}/5</b></div><div class="result">後測信心<b>${post}/5</b></div><div class="result">任務正確率<b>${accuracy}%</b></div></div><div class="task" style="margin-top:14px"><b>錯誤回饋規則：</b>直接拒絕 → 先確認條件；過度承諾 → 加入交換條件；詞彙正確但情境不合 → 重做新情境；無提示卡住 → 回到圖像／聲音層，不回到全文。<br><b>建議複習：</b>第 1、3、7 天各做一次無提示回答與新情境遷移。</div>`;
+    }
+    function initCoach(){
+      const c=state.config,t=talents[c.talent];
+      $('#talentInfo').innerHTML=`<b>${t[0]}</b><p style="color:#64748b;line-height:1.65">${t[1]}</p>`;
+      $('#varkMeters').innerHTML=Object.entries(c.vark).map(([k,v])=>`<div class="metric"><span>${k}</span><b>${v}%</b></div><div class="meter"><div class="fill ${k.toLowerCase()}" style="width:${v}%"></div></div>`).join('');
+      const high=Object.entries(c.vark).sort((a,b)=>b[1]-a[1])[0][0],adapt={V:'增加彩色物件、位置與圖像回想',A:'增加純聽、跟讀與口說追問',R:'增加句型拆解、改寫與摘要',K:'增加角色行動、物件操作與劇情分支'};
+      $('#memoryGoal').textContent=`在 ${c.duration} 分鐘內，能在無提示狀態使用「${c.vocab.join('、')}」完成協商，並遷移到新場景。${high} 型最高：${adapt[high]}。`;
+    }
+    $('#start').onclick=()=>{
+      state={step:0,score:0,attempts:0,chosenPurpose:'',mcq:false,config:readConfig()};
+      if(!state.config.topic||!state.config.vocab[0])return;
+      $('#config').style.display='none';$('#app').style.display='block';initCoach();render();window.scrollTo({top:430,behavior:'smooth'});
+    };
+  </script>
+</body>
+</html>
