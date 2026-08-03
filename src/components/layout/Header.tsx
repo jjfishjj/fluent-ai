@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag, Brain, Sparkles } from 'lucide-react';
+import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag, Brain, Sparkles, Waves } from 'lucide-react';
 import { WhatsNewButton } from '@/components/layout/WhatsNewButton';
 
 interface HeaderProps {
@@ -59,6 +59,11 @@ export function Header({
                 size="sm"
               >
                 Practice
+              </Button>
+            </Link>
+            <Link to="/shadowing">
+              <Button variant={isActive('/shadowing') ? 'secondary' : 'ghost'} size="sm">
+                <Waves className="w-4 h-4 mr-1" /> Shadowing
               </Button>
             </Link>
             <Link to="/friends">
