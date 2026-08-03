@@ -13,6 +13,12 @@ import { GENIUS_INFO, loadGeniusType, type GeniusType } from '@/lib/genius-type'
 
 type Stage = 'understand' | 'listen' | 'slow' | 'shadow' | 'recall';
 
+type NextPlan = {
+  prediction: string;
+  why: string;
+  options: { title: string; detail: string; value: string }[];
+};
+
 const TYPES = Object.keys(GENIUS_INFO) as GeniusType[];
 const STAGES: { id: Stage; label: string; short: string }[] = [
   { id: 'understand', label: '熟悉文本', short: '看懂' },
@@ -21,6 +27,45 @@ const STAGES: { id: Stage; label: string; short: string }[] = [
   { id: 'shadow', label: '影子同步', short: '跟上' },
   { id: 'recall', label: '遮稿提取', short: '記住' },
 ];
+
+const NEXT_PLANS: Record<Exclude<Stage, 'recall'>, NextPlan> = {
+  understand: {
+    prediction: '下一階段，你會先建立完整的「聲音藍圖」。',
+    why: '你已經理解句意，接著需要暫停閱讀，讓耳朵辨認語速、重音與語調。',
+    options: [
+      { title: '節奏優先', detail: '第一遍只感受快慢與停頓，不強求每個字。', value: 'rhythm' },
+      { title: '重音獵人', detail: '專注找出句中最凸顯的 3–5 個內容詞。', value: 'stress' },
+      { title: '情緒雷達', detail: '判斷說話者的情緒，追蹤句尾升降調。', value: 'emotion' },
+    ],
+  },
+  listen: {
+    prediction: '下一階段，你會用 0.75× 慢速把聲音轉成口腔動作。',
+    why: '聲音輪廓已進入工作記憶，現在最適合校準發音、連音與嘴型。',
+    options: [
+      { title: '發音精準', detail: '每次只修一個最容易卡住的音。', value: 'pronunciation' },
+      { title: '連音拆解', detail: '把相連的字視為一個聲音區塊來模仿。', value: 'linking' },
+      { title: '短句循環', detail: '切成 5–10 秒片段，各跟讀三次。', value: 'loop' },
+    ],
+  },
+  slow: {
+    prediction: '下一階段，你會回到 1.00×，落後原音約 0.5–1 秒同步輸出。',
+    why: '發音已經校準，接下來要把精準度轉成不中斷的真實語流。',
+    options: [
+      { title: '流暢優先', detail: '跟丟時直接接回來，不因一個錯音停下。', value: 'fluency' },
+      { title: '語調模仿', detail: '誇張複製強弱、停頓和句尾走向。', value: 'intonation' },
+      { title: '動作帶讀', detail: '站起來或加入手勢，讓身體帶動節奏。', value: 'movement' },
+    ],
+  },
+  shadow: {
+    prediction: '下一階段，逐字稿會消失，你將只靠聲音與記憶完成提取。',
+    why: '同步跟讀建立了聲音迴路；遮稿能找出真正內化與仍會停頓的片段。',
+    options: [
+      { title: '完整盲跟', detail: '不看文字完成整句，先確認能否持續跟上。', value: 'blind' },
+      { title: '關鍵詞提取', detail: '先回想重音詞，再用它們重建完整句子。', value: 'keywords' },
+      { title: '錄音診斷', detail: '錄下盲跟版本，回聽比較節奏與遺漏處。', value: 'diagnose' },
+    ],
+  },
+};
 
 const TYPE_GUIDES: Record<GeniusType, { cue: string; action: string; color: string; schedule: string }> = {
   explorer: { cue: '把句子放進真實情境，站起來邊走邊說。', action: '想像你正在和新同事分享一個好消息。', color: '#1f8fff', schedule: '1・3・8・20 天' },
@@ -57,6 +102,8 @@ export default function ShadowingLab() {
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [completed, setCompleted] = useState<Stage[]>([]);
   const [showScore, setShowScore] = useState(false);
+  const [showNextPlan, setShowNextPlan] = useState(false);
+  const [selectedStrategy, setSelectedStrategy] = useState('');
   const [score, setScore] = useState(3);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -123,12 +170,23 @@ export default function ShadowingLab() {
     setCompleted(nextCompleted);
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ completed: nextCompleted, lastPractice: new Date().toISOString(), type }));
     if (stageIndex < STAGES.length - 1) {
-      const next = STAGES[stageIndex + 1].id;
-      setStage(next);
-      if (next === 'recall') setShowText(false);
-      if (next === 'slow') setSpeed(0.75);
-      if (next === 'shadow') setSpeed(1);
+      setSelectedStrategy('');
+      setShowNextPlan(true);
     } else setShowScore(true);
+  };
+
+  const enterNextStage = (strategy: string) => {
+    const next = STAGES[stageIndex + 1].id;
+    setSelectedStrategy(strategy);
+    setStage(next);
+    setShowNextPlan(false);
+    if (next === 'recall') setShowText(false);
+    if (next === 'slow') setSpeed(0.75);
+    if (next === 'shadow') setSpeed(1);
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...saved, nextStrategy: strategy, nextStage: next, type }));
+    } catch { /* ignore corrupt local data */ }
   };
 
   return (
@@ -229,9 +287,41 @@ export default function ShadowingLab() {
               </div>
             </Card>
             <div className="px-2 text-xs leading-relaxed text-black/45"><Volume2 className="inline w-3.5 h-3.5 mr-1" /> 建議選擇音質清晰、有逐字稿且可重複的 30–60 秒素材。</div>
+            {selectedStrategy && <Card className="p-5 border-0 shadow-none rounded-3xl bg-[#dff4eb]">
+              <div className="text-xs font-black text-[#236d52] tracking-wider">本階段採用策略</div>
+              <div className="font-black mt-2">{Object.values(NEXT_PLANS).flatMap(plan => plan.options).find(option => option.value === selectedStrategy)?.title}</div>
+            </Card>}
           </aside>
         </div>
       </section>
+
+      {showNextPlan && stage !== 'recall' && (() => {
+        const plan = NEXT_PLANS[stage];
+        const nextStage = STAGES[stageIndex + 1];
+        return <div className="fixed inset-0 z-50 bg-[#17201d]/65 backdrop-blur-sm grid place-items-center p-4" role="dialog" aria-modal="true" aria-labelledby="next-plan-title">
+          <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-[30px] p-6 md:p-8 border-0 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#fff0e9] grid place-items-center"><Sparkles className="w-6 h-6 text-[#d55b38]" /></div>
+              <div className="text-xs font-black rounded-full bg-[#17201d] text-white px-3 py-1.5">下一步 · {nextStage.label}</div>
+            </div>
+            <div className="mt-5 text-xs font-black text-[#d55b38] tracking-widest">NEXT STAGE PREDICTION</div>
+            <h2 id="next-plan-title" className="text-2xl md:text-3xl font-black mt-2 leading-tight">{plan.prediction}</h2>
+            <p className="mt-3 text-sm md:text-base text-black/55 leading-relaxed">{plan.why}</p>
+            <div className="mt-6 text-sm font-black">選一個這次要採用的策略</div>
+            <div className="grid md:grid-cols-3 gap-3 mt-3">
+              {plan.options.map((option, index) => <button key={option.value} onClick={() => enterNextStage(option.value)} className="text-left rounded-2xl border border-black/10 p-4 hover:border-[#d55b38] hover:bg-[#fff8f4] focus:outline-none focus:ring-2 focus:ring-[#d55b38] transition group">
+                <div className="flex items-center justify-between"><span className="text-[11px] font-black text-black/35">0{index + 1}</span><ChevronRight className="w-4 h-4 text-black/25 group-hover:text-[#d55b38]" /></div>
+                <div className="font-black mt-3">{option.title}</div>
+                <p className="text-xs text-black/50 leading-relaxed mt-1.5">{option.detail}</p>
+              </button>)}
+            </div>
+            <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-black/10 pt-5">
+              <p className="text-xs text-black/45">依 {info.nameZh} · VARK {info.vark} 預測，你也可以直接採用推薦選項。</p>
+              <Button variant="ghost" onClick={() => enterNextStage(plan.options[0].value)}>採用推薦：{plan.options[0].title}<ChevronRight className="w-4 h-4 ml-2" /></Button>
+            </div>
+          </Card>
+        </div>;
+      })()}
 
       {showScore && <div className="fixed inset-0 z-50 bg-black/50 grid place-items-center p-4" role="dialog" aria-modal="true">
         <Card className="max-w-md w-full rounded-[30px] p-7 border-0 shadow-2xl">
