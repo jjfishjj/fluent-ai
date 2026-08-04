@@ -24,6 +24,9 @@ import Interests from "./pages/Interests";
 import TalentCardGame from "./pages/TalentCardGame";
 import TalentCardGameGuide from "./pages/TalentCardGameGuide";
 import NotFound from "./pages/NotFound";
+import TrainingDemo from "./pages/TrainingDemo";
+import ShadowingLab from "./pages/ShadowingLab";
+import MnemoVerse from "./pages/MnemoVerse";
 
 const queryClient = new QueryClient();
 const basename = import.meta.env.BASE_URL === "/" ? undefined : import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -40,6 +43,7 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/practice" element={<Practice />} />
+                <Route path="/practice/:demoSlug" element={<TrainingDemo />} />
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/quiz" element={<Quiz />} />
@@ -53,8 +57,10 @@ const App = () => (
                 <Route path="/memory" element={<MemoryLab />} />
                 <Route path="/subjects" element={<SubjectLab />} />
                 <Route path="/learning-gym-plan" element={<LearningGymPlan />} />
+                <Route path="/shadowing" element={<ShadowingLab />} />
                 <Route path="/talent-card-game" element={<TalentCardGame />} />
                 <Route path="/talent-card-game-guide" element={<TalentCardGameGuide />} />
+                <Route path="/mnemoverse" element={<MnemoVerse />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
