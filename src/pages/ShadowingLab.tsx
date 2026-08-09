@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Brain, Check, ChevronRight, Ear, Eye, Gauge, Mic, Pause,
-  Play, RotateCcw, Sparkles, Square, Volume2, Waves, X
+  Play, RotateCcw, Sparkles, Square, Volume2, Waves, X, Library,
+  Flame, Cloud, CloudOff, ScanText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -10,6 +11,12 @@ import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { GENIUS_INFO, loadGeniusType, type GeniusType } from '@/lib/genius-type';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  SHADOWING_MATERIALS, addPracticeDay, calculateStreak, compareTranscript,
+  loadCloudProgress, syncCloudProgress, todayKey,
+  type DailyProgress, type ShadowingLevel,
+} from '@/lib/shadowing-lab';
 
 type Stage = 'understand' | 'listen' | 'slow' | 'shadow' | 'recall';
 
@@ -80,6 +87,8 @@ const TYPE_GUIDES: Record<GeniusType, { cue: string; action: string; color: stri
 
 const DEFAULT_TEXT = "I've been working on this project for three years, and it's finally ready.";
 const STORAGE_KEY = 'memo_shadowing_progress';
+const DAILY_KEY = 'memo_shadowing_daily';
+const EMPTY_DAILY: DailyProgress = { practicedDates: [], totalSessions: 0 };
 
 function markTranscript(text: string) {
   const stress = new Set(['working', 'project', 'three', 'years', 'finally', 'ready.']);
@@ -91,6 +100,7 @@ function markTranscript(text: string) {
 }
 
 export default function ShadowingLab() {
+  const { user } = useAuth();
   const detected = useMemo(() => loadGeniusType(), []);
   const [type, setType] = useState<GeniusType>(detected ?? 'melodist');
   const [stage, setStage] = useState<Stage>('understand');
@@ -105,11 +115,21 @@ export default function ShadowingLab() {
   const [showNextPlan, setShowNextPlan] = useState(false);
   const [selectedStrategy, setSelectedStrategy] = useState('');
   const [score, setScore] = useState(3);
+  const [level, setLevel] = useState<ShadowingLevel>('intermediate');
+  const [materialId, setMaterialId] = useState('project-ready');
+  const [spokenText, setSpokenText] = useState('');
+  const [recognizing, setRecognizing] = useState(false);
+  const [daily, setDaily] = useState<DailyProgress>(EMPTY_DAILY);
+  const [syncState, setSyncState] = useState<'local' | 'syncing' | 'synced' | 'error'>('local');
   const recorderRef = useRef<MediaRecorder | null>(null);
+  const recognitionRef = useRef<any>(null);
   const chunksRef = useRef<Blob[]>([]);
   const info = GENIUS_INFO[type];
   const guide = TYPE_GUIDES[type];
   const stageIndex = STAGES.findIndex(s => s.id === stage);
+  const comparison = useMemo(() => spokenText.trim() ? compareTranscript(text, spokenText) : null, [text, spokenText]);
+  const streak = calculateStreak(daily.practicedDates);
+  const practicedToday = daily.practicedDates.includes(todayKey());
 
   useEffect(() => {
     try {
@@ -118,10 +138,87 @@ export default function ShadowingLab() {
     } catch { /* ignore corrupt local data */ }
   }, []);
 
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(DAILY_KEY) || 'null');
+      if (saved?.practicedDates && Array.isArray(saved.practicedDates)) setDaily(saved);
+    } catch { /* ignore corrupt local data */ }
+  }, []);
+
+  useEffect(() => {
+    if (!user) { setSyncState('local'); return; }
+    let active = true;
+    setSyncState('syncing');
+    loadCloudProgress(user.id).then(cloud => {
+      if (!active) return;
+      if (cloud) {
+        setDaily(current => {
+          const merged = {
+            practicedDates: Array.from(new Set([...current.practicedDates, ...cloud.practicedDates])).sort(),
+            totalSessions: Math.max(current.totalSessions, cloud.totalSessions),
+            lastMaterialId: cloud.lastMaterialId ?? current.lastMaterialId,
+          };
+          localStorage.setItem(DAILY_KEY, JSON.stringify(merged));
+          return merged;
+        });
+      }
+      setSyncState('synced');
+    }).catch(() => active && setSyncState('error'));
+    return () => { active = false; };
+  }, [user]);
+
   useEffect(() => () => {
     speechSynthesis.cancel();
+    recognitionRef.current?.abort?.();
     if (recordingUrl) URL.revokeObjectURL(recordingUrl);
   }, [recordingUrl]);
+
+  const chooseMaterial = (id: string) => {
+    const material = SHADOWING_MATERIALS.find(item => item.id === id);
+    if (!material) return;
+    setMaterialId(id);
+    setLevel(material.level);
+    setText(material.text);
+    setSpokenText('');
+    setCompleted([]);
+    setStage('understand');
+    setShowText(true);
+  };
+
+  const toggleRecognition = () => {
+    if (recognizing) { recognitionRef.current?.stop?.(); return; }
+    const Recognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!Recognition) {
+      window.alert('此瀏覽器未提供即時語音辨識，仍可在下方輸入你說出的內容進行逐字比對。');
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.onresult = (event: any) => {
+      const result = Array.from(event.results as ArrayLike<any>).map((item: any) => item[0]?.transcript ?? '').join(' ');
+      setSpokenText(result.trim());
+    };
+    recognition.onend = () => setRecognizing(false);
+    recognition.onerror = () => setRecognizing(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setRecognizing(true);
+  };
+
+  const saveCompletedSession = async () => {
+    const nextDaily = addPracticeDay(daily, materialId);
+    setDaily(nextDaily);
+    localStorage.setItem(DAILY_KEY, JSON.stringify(nextDaily));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ completed: STAGES.map(s => s.id), score, transcriptScore: comparison?.score ?? null, lastPractice: new Date().toISOString(), type }));
+    setShowScore(false);
+    if (user) {
+      setSyncState('syncing');
+      try { await syncCloudProgress(user.id, nextDaily); setSyncState('synced'); }
+      catch { setSyncState('error'); }
+    }
+  };
 
   const speak = () => {
     if (!text.trim()) return;
@@ -222,6 +319,21 @@ export default function ShadowingLab() {
           </Card>
         </div>
 
+        <Card className="mt-8 border border-black/10 shadow-none rounded-[28px] bg-white p-5 md:p-7">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <div><div className="flex items-center gap-2 text-sm font-black"><Library className="w-4 h-4 text-[#d55b38]" /> 分級練習素材</div><p className="text-sm text-black/45 mt-1">選一段符合目前負荷的短句，完成五階段循環。</p></div>
+            <div className="flex gap-2" role="group" aria-label="素材難度">
+              {(['beginner', 'intermediate', 'advanced'] as ShadowingLevel[]).map(item => <button key={item} onClick={() => setLevel(item)} className={`rounded-full px-4 py-2 text-xs font-black border transition ${level === item ? 'bg-[#17201d] text-white border-[#17201d]' : 'bg-white border-black/10'}`}>{item === 'beginner' ? '初階' : item === 'intermediate' ? '中階' : '進階'}</button>)}
+            </div>
+          </div>
+          <div className="grid md:grid-cols-3 gap-3 mt-5">
+            {SHADOWING_MATERIALS.filter(item => item.level === level).map(material => <button key={material.id} onClick={() => chooseMaterial(material.id)} className={`text-left rounded-2xl border p-4 transition ${materialId === material.id ? 'border-[#d55b38] bg-[#fff8f4] ring-1 ring-[#d55b38]' : 'border-black/10 hover:border-black/30'}`}>
+              <div className="flex items-center justify-between gap-3"><span className="font-black">{material.title}</span>{materialId === material.id && <Check className="w-4 h-4 text-[#d55b38]" />}</div>
+              <div className="text-xs text-black/40 mt-1">{material.context}</div><p className="text-xs leading-relaxed text-black/60 mt-3 line-clamp-2">{material.text}</p><div className="text-[11px] font-bold text-[#a6482d] mt-3">練習：{material.focus}</div>
+            </button>)}
+          </div>
+        </Card>
+
         <div className="mt-10 overflow-x-auto pb-2">
           <div className="min-w-[650px] grid grid-cols-5 gap-2">
             {STAGES.map((s, i) => {
@@ -266,6 +378,20 @@ export default function ShadowingLab() {
               </div>
               {recordingUrl && <audio className="w-full mt-4" controls src={recordingUrl} />}
 
+              <div className="mt-6 rounded-3xl border border-black/10 p-5 md:p-6 bg-[#fbfbf8]">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div><div className="text-sm font-black flex items-center gap-2"><ScanText className="w-4 h-4 text-[#d55b38]" /> 語音辨識與逐字比對</div><p className="text-xs text-black/45 mt-1">說完整句子，系統會找出正確、遺漏與替換的詞。</p></div>
+                  <Button onClick={toggleRecognition} variant={recognizing ? 'destructive' : 'outline'} className={recognizing ? 'animate-pulse' : ''}><Mic className="w-4 h-4 mr-2" />{recognizing ? '正在聆聽…' : '開始語音辨識'}</Button>
+                </div>
+                <Textarea aria-label="語音辨識文字" value={spokenText} onChange={event => setSpokenText(event.target.value)} placeholder="辨識結果會顯示在這裡；若瀏覽器不支援，也可以手動輸入你說出的句子。" className="mt-4 min-h-20 bg-white" />
+                {comparison && <div className="mt-4">
+                  <div className="flex items-center justify-between"><span className="text-xs font-black text-black/50">逐字相似度</span><span className={`text-2xl font-black ${comparison.score >= 80 ? 'text-[#27845f]' : comparison.score >= 55 ? 'text-[#c47a18]' : 'text-[#c34b3f]'}`}>{comparison.score}%</span></div>
+                  <Progress value={comparison.score} className="h-2 mt-2" />
+                  <div className="flex flex-wrap gap-2 mt-4">{comparison.compared.map((item, index) => <span key={`${item.word}-${index}`} title={item.status === 'replaced' ? `你說：${item.spoken}` : undefined} className={`rounded-lg px-2 py-1 text-sm font-bold ${item.status === 'correct' ? 'bg-[#dff4eb] text-[#236d52]' : item.status === 'missed' ? 'bg-[#fbe3df] text-[#a83b31] line-through' : 'bg-[#fff0cf] text-[#925f12]'}`}>{item.word}</span>)}</div>
+                  <div className="flex flex-wrap gap-4 mt-3 text-[11px] text-black/45"><span>綠色＝正確</span><span>紅色＝遺漏</span><span>黃色＝替換（游標停留可看辨識詞）</span></div>
+                </div>}
+              </div>
+
               <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
                 <Button variant="ghost" onClick={() => { setCompleted([]); localStorage.removeItem(STORAGE_KEY); setStage('understand'); setShowText(true); }}><RotateCcw className="w-4 h-4 mr-2" />重新開始</Button>
                 <Button size="lg" className="rounded-full bg-[#17201d] hover:bg-black px-7" disabled={!text.trim()} onClick={finishStage}>{stageIndex === 4 ? '完成並自評' : '完成這一步'}<ChevronRight className="w-4 h-4 ml-2" /></Button>
@@ -274,6 +400,11 @@ export default function ShadowingLab() {
           </Card>
 
           <aside className="space-y-4">
+            <Card className="p-5 border-0 shadow-none rounded-3xl bg-[#17201d] text-white">
+              <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm font-black"><Flame className="w-4 h-4 text-[#ff8a58]" /> 每日任務</div><div className="text-xs text-white/55">{practicedToday ? '今日完成' : '待完成'}</div></div>
+              <div className="grid grid-cols-2 gap-3 mt-4"><div className="rounded-2xl bg-white/10 p-3"><div className="text-2xl font-black">{streak}</div><div className="text-[11px] text-white/55">連續天數</div></div><div className="rounded-2xl bg-white/10 p-3"><div className="text-2xl font-black">{daily.totalSessions}</div><div className="text-[11px] text-white/55">完成輪數</div></div></div>
+              <div className="mt-4 flex items-center gap-2 text-xs text-white/65">{syncState === 'synced' ? <Cloud className="w-4 h-4 text-[#7be0ba]" /> : <CloudOff className="w-4 h-4" />} {syncState === 'syncing' ? '正在同步…' : syncState === 'synced' ? '已跨裝置同步' : syncState === 'error' ? '同步失敗，已保存在本機' : '登入後可跨裝置同步'}</div>
+            </Card>
             <Card className="p-5 border border-black/10 shadow-none rounded-3xl bg-[#fff7e8]">
               <div className="flex items-center gap-2 text-sm font-black"><Brain className="w-4 h-4 text-[#d55b38]" /> 你的天賦提示</div>
               <p className="mt-3 text-sm leading-relaxed text-black/70">{guide.action}</p>
@@ -329,7 +460,8 @@ export default function ShadowingLab() {
           <h2 className="text-2xl font-black mt-5">一輪完成，聲音軌道已建立。</h2>
           <p className="text-sm text-black/55 mt-2">你覺得這次能跟上多少？結果會用來安排下一次提取。</p>
           <div className="grid grid-cols-4 gap-2 mt-6">{[1,2,3,4].map(n => <button key={n} onClick={() => setScore(n)} className={`rounded-xl py-3 border font-black ${score === n ? 'bg-[#17201d] text-white border-[#17201d]' : 'border-black/10'}`}>{n}</button>)}</div>
-          <div className="flex gap-3 mt-6"><Button variant="outline" className="flex-1" onClick={() => setShowScore(false)}>再練一次</Button><Button className="flex-1 bg-[#d55b38] hover:bg-[#bb4829]" onClick={() => { localStorage.setItem(STORAGE_KEY, JSON.stringify({ completed: STAGES.map(s => s.id), score, lastPractice: new Date().toISOString(), type })); setShowScore(false); }}>儲存結果</Button></div>
+          {comparison && <div className="mt-4 rounded-2xl bg-[#f1efe8] p-4 flex items-center justify-between"><span className="text-sm font-bold">本次逐字相似度</span><span className="text-xl font-black">{comparison.score}%</span></div>}
+          <div className="flex gap-3 mt-6"><Button variant="outline" className="flex-1" onClick={() => setShowScore(false)}>再練一次</Button><Button className="flex-1 bg-[#d55b38] hover:bg-[#bb4829]" onClick={saveCompletedSession}>儲存結果</Button></div>
         </Card>
       </div>}
     </main>
