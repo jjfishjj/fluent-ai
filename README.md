@@ -16,8 +16,8 @@
 - 有設定 Supabase 時會同步真人玩家，否則自動改用模擬玩家
 - 架構說明見 [`docs/xianjing-3d-mmorpg.md`](docs/xianjing-3d-mmorpg.md)
 
-> Demo 由 `.github/workflows/deploy-quizzes.yml` 在推上 `main` 後自動部署到 GitHub Pages。
-> 首次使用需由管理者在 Repo → Settings → Pages 將 Source 設為 **GitHub Actions**。
+> Demo 由 `.github/workflows/deploy-quizzes.yml` 在推上 `main` 後自動部署到 GitHub Pages
+> （Pages 已啟用並持續部署成功，不需要額外設定）。
 
 ## How can I edit this code?
 
