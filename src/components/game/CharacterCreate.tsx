@@ -77,7 +77,24 @@ export function CharacterCreate({
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-5 grid gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[11px] leading-relaxed text-white/60 sm:grid-cols-2">
+          <div>
+            <div className="mb-1 font-semibold text-white/80">電腦操作</div>
+            左鍵點地面移動、點怪物選取目標<br />
+            右鍵拖曳轉視角 · 滾輪縮放<br />
+            WASD 移動 · 1–4 技能 · R/T 喝藥<br />
+            Tab 換目標 · F 對話 · C 角色 · Enter 聊天
+          </div>
+          <div>
+            <div className="mb-1 font-semibold text-white/80">手機操作</div>
+            點一下地面移動、點怪物選取目標<br />
+            單指拖曳轉視角 · 雙指縮放<br />
+            下方按鈕放技能與喝藥<br />
+            右側 🎯 換目標 · 💬 對話 · 🎒 角色
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <button
             onClick={() => onStart(name.trim() || '無名俠客', classId)}
             className="flex-1 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-300"

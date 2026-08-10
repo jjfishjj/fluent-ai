@@ -16,6 +16,7 @@ import {
   QuestTracker,
   SkillBar,
   TargetFrame,
+  TouchActions,
   ZoneBanner,
 } from './GameHud';
 import { Minimap } from './Minimap';
@@ -231,6 +232,11 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
   // ── pointer ────────────────────────────────────────────────────────────
   const orbiting = useRef(false);
   const lastPointer = useRef({ x: 0, y: 0 });
+  /** Live touch points, so two fingers can be recognised as a pinch. */
+  const touches = useRef(new Map<number, { x: number; y: number }>());
+  const pinchDistance = useRef(0);
+  /** The touch that might still turn out to be a tap rather than a drag. */
+  const tapCandidate = useRef<{ id: number; x: number; y: number; at: number } | null>(null);
 
   const updatePointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -240,19 +246,11 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
     );
   };
 
-  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    updatePointer(e);
+  /** Select, talk to, or walk towards whatever is under the cursor. */
+  const actAtPointer = () => {
     const w = worldRef.current;
     const r = rendererRef.current;
     if (!w || !r) return;
-
-    if (e.button === 2 || e.button === 1) {
-      orbiting.current = true;
-      lastPointer.current = { x: e.clientX, y: e.clientY };
-      e.currentTarget.setPointerCapture(e.pointerId);
-      return;
-    }
-    if (e.button !== 0) return;
 
     const entityId = r.pickEntity();
     const entity = w.entity(entityId);
@@ -273,8 +271,60 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
     if (ground) w.moveTo(ground);
   };
 
+  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    updatePointer(e);
+    if (!worldRef.current || !rendererRef.current) return;
+
+    if (e.pointerType === 'touch') {
+      touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      e.currentTarget.setPointerCapture(e.pointerId);
+      if (touches.current.size === 2) {
+        // Second finger down: this is a pinch, not a tap or a drag.
+        const [a, b] = [...touches.current.values()];
+        pinchDistance.current = Math.hypot(a.x - b.x, a.y - b.y);
+        tapCandidate.current = null;
+        orbiting.current = false;
+        return;
+      }
+      // A single finger is a tap until it travels far enough to be a drag.
+      tapCandidate.current = { id: e.pointerId, x: e.clientX, y: e.clientY, at: performance.now() };
+      lastPointer.current = { x: e.clientX, y: e.clientY };
+      return;
+    }
+
+    if (e.button === 2 || e.button === 1) {
+      orbiting.current = true;
+      lastPointer.current = { x: e.clientX, y: e.clientY };
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
+    if (e.button !== 0) return;
+    actAtPointer();
+  };
+
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     updatePointer(e);
+
+    if (e.pointerType === 'touch') {
+      if (!touches.current.has(e.pointerId)) return;
+      touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (touches.current.size >= 2) {
+        const [a, b] = [...touches.current.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        rendererRef.current?.zoom((pinchDistance.current - d) * 3);
+        pinchDistance.current = d;
+        return;
+      }
+
+      const tap = tapCandidate.current;
+      if (tap && e.pointerId === tap.id && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 12) {
+        // Travelled too far to be a tap — treat the rest of the gesture as an orbit.
+        tapCandidate.current = null;
+        orbiting.current = true;
+      }
+    }
+
     if (!orbiting.current) return;
     const dx = e.clientX - lastPointer.current.x;
     const dy = e.clientY - lastPointer.current.y;
@@ -282,8 +332,16 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
     rendererRef.current?.orbit(dx, dy);
   };
 
-  const endOrbit = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!orbiting.current) return;
+  const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerType === 'touch') {
+      touches.current.delete(e.pointerId);
+      const tap = tapCandidate.current;
+      if (tap && e.pointerId === tap.id && performance.now() - tap.at < 500) {
+        tapCandidate.current = null;
+        actAtPointer();
+      }
+      if (touches.current.size < 2) pinchDistance.current = 0;
+    }
     orbiting.current = false;
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
   };
@@ -315,7 +373,7 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
 
   if (!hud) {
     return (
-      <div ref={wrapRef} className="relative h-[calc(100vh-4rem)] w-full bg-slate-950">
+      <div ref={wrapRef} className="relative min-h-0 w-full flex-1 bg-slate-950">
         <canvas ref={canvasRef} className="h-full w-full" />
         <div className="absolute inset-0 grid place-items-center text-sm text-white/70">正在生成仙境…</div>
       </div>
@@ -323,14 +381,14 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
   }
 
   return (
-    <div ref={wrapRef} className="relative h-[calc(100vh-4rem)] w-full overflow-hidden bg-slate-950 select-none">
+    <div ref={wrapRef} className="relative min-h-0 w-full flex-1 select-none overflow-hidden bg-slate-950">
       <canvas
         ref={canvasRef}
         className="h-full w-full touch-none"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerUp={endOrbit}
-        onPointerCancel={endOrbit}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
         onContextMenu={(e) => e.preventDefault()}
       />
 
@@ -355,7 +413,7 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
       </div>
 
       {/* bottom-left: chat */}
-      <div className="absolute bottom-3 left-3 space-y-2">
+      <div className="absolute bottom-[4.75rem] left-2 space-y-2 sm:bottom-3 sm:left-3">
         <ChatPanel
           lines={chat}
           inputRef={chatInputRef}
@@ -370,6 +428,15 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
           hud={hud}
           onCast={cast}
           onUseItem={(itemId) => withWorld((w) => w.useItem(itemId))}
+        />
+      </div>
+
+      {/* bottom-right: touch-only equivalents of Tab / F / C */}
+      <div className="absolute bottom-20 right-3">
+        <TouchActions
+          onCycleTarget={() => withWorld((w) => w.cycleTarget())}
+          onInteract={interact}
+          onOpenSheet={() => setSheetOpen(true)}
         />
       </div>
 

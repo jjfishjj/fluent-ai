@@ -33,7 +33,7 @@ export function PlayerFrame({ hud, onOpenSheet }: { hud: HudSnapshot; onOpenShee
   const cls = CLASSES[hud.classId];
   const expPct = hud.expToNext === Infinity ? 100 : (hud.exp / hud.expToNext) * 100;
   return (
-    <div className="pointer-events-auto w-64 rounded-xl border border-white/15 bg-slate-950/70 p-2.5 backdrop-blur-md">
+    <div className="pointer-events-auto w-52 rounded-xl sm:w-64 border border-white/15 bg-slate-950/70 p-2.5 backdrop-blur-md">
       <div className="flex items-center gap-2.5">
         <button
           onClick={onOpenSheet}
@@ -93,7 +93,7 @@ export function TargetFrame({ hud }: { hud: HudSnapshot }) {
   if (!hud.target) return null;
   const t = hud.target;
   return (
-    <div className="pointer-events-none w-56 rounded-xl border border-white/15 bg-slate-950/70 p-2.5 backdrop-blur-md">
+    <div className="pointer-events-none w-44 rounded-xl sm:w-56 border border-white/15 bg-slate-950/70 p-2.5 backdrop-blur-md">
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-1 truncate text-sm font-semibold text-white">
           {t.boss && <Crown className="h-3.5 w-3.5 shrink-0 text-amber-300" />}
@@ -157,7 +157,7 @@ export function QuestTracker({
 }) {
   if (!hud.quests.length) return null;
   return (
-    <div className="pointer-events-auto w-60 rounded-xl border border-white/15 bg-slate-950/70 p-2.5 backdrop-blur-md">
+    <div className="pointer-events-auto w-44 rounded-xl sm:w-60 border border-white/15 bg-slate-950/70 p-2.5 backdrop-blur-md">
       <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-amber-200">
         <Sparkles className="h-3.5 w-3.5" />
         任務
@@ -203,7 +203,7 @@ export function SkillBar({
 }) {
   const potions = hud.inventory.filter((i) => i.kind === 'consumable').slice(0, 2);
   return (
-    <div className="pointer-events-auto flex items-end gap-2">
+    <div className="pointer-events-auto flex items-end gap-1.5 sm:gap-2">
       {hud.skills.map((s, i) => {
         const locked = s.level <= 0;
         const cdPct = s.cooldownLeft > 0 ? (s.cooldownLeft / s.cooldown) * 100 : 0;
@@ -214,7 +214,7 @@ export function SkillBar({
             disabled={locked}
             title={`${s.name} — ${s.spCost} 靈力`}
             className={cn(
-              'relative h-14 w-14 overflow-hidden rounded-xl border text-xl backdrop-blur-md transition',
+              'relative h-12 w-12 overflow-hidden rounded-xl border text-lg backdrop-blur-md transition sm:h-14 sm:w-14 sm:text-xl',
               locked
                 ? 'cursor-not-allowed border-white/10 bg-slate-900/60 opacity-40'
                 : s.ready
@@ -250,11 +250,45 @@ export function SkillBar({
           key={p.itemId}
           onClick={() => onUseItem(p.itemId)}
           title={`${p.name} ×${p.qty}`}
-          className="relative h-14 w-14 rounded-xl border border-white/15 bg-slate-900/70 text-xl backdrop-blur-md transition hover:border-emerald-300/60"
+          className="relative h-12 w-12 rounded-xl border border-white/15 bg-slate-900/70 text-lg backdrop-blur-md transition hover:border-emerald-300/60 sm:h-14 sm:w-14 sm:text-xl"
         >
           <span>{p.icon}</span>
           <span className="absolute bottom-0.5 right-1 text-[10px] font-semibold text-white/80">{p.qty}</span>
           <span className="absolute left-1 top-0.5 text-[9px] font-bold text-white/70">{i === 0 ? 'R' : 'T'}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Touch equivalents of the Tab / F / C keys. Only rendered on small screens,
+ * where there is no keyboard to reach them with.
+ */
+export function TouchActions({
+  onCycleTarget,
+  onInteract,
+  onOpenSheet,
+}: {
+  onCycleTarget: () => void;
+  onInteract: () => void;
+  onOpenSheet: () => void;
+}) {
+  const buttons = [
+    { icon: '🎯', label: '選取', onClick: onCycleTarget },
+    { icon: '💬', label: '對話', onClick: onInteract },
+    { icon: '🎒', label: '角色', onClick: onOpenSheet },
+  ];
+  return (
+    <div className="pointer-events-auto flex flex-col gap-1.5 sm:hidden">
+      {buttons.map((b) => (
+        <button
+          key={b.label}
+          onClick={b.onClick}
+          className="grid h-11 w-11 place-items-center rounded-xl border border-white/15 bg-slate-950/70 backdrop-blur-md active:bg-slate-800/80"
+          aria-label={b.label}
+        >
+          <span className="text-base leading-none">{b.icon}</span>
         </button>
       ))}
     </div>

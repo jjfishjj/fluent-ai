@@ -30,7 +30,8 @@ export function ChatPanel({
 }) {
   const [channel, setChannel] = useState<(typeof CHANNELS)[number]['id']>('all');
   const [draft, setDraft] = useState('');
-  const [collapsed, setCollapsed] = useState(false);
+  // Phones have no room for a log above the skill bar, so start folded there.
+  const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(
@@ -44,7 +45,7 @@ export function ChatPanel({
   }, [filtered.length]);
 
   return (
-    <div className="pointer-events-auto w-[19rem] rounded-xl border border-white/15 bg-slate-950/70 backdrop-blur-md">
+    <div className="pointer-events-auto w-[15rem] rounded-xl sm:w-[19rem] border border-white/15 bg-slate-950/70 backdrop-blur-md">
       <div className="flex items-center gap-1 border-b border-white/10 px-2 py-1">
         {CHANNELS.map((c) => (
           <button

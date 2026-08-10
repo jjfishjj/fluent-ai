@@ -34,13 +34,17 @@ export default function XianjingWorld() {
     setSaveExists(hasSave());
   }, []);
 
+  // Locked to the viewport: the game must never let the page scroll underneath
+  // the sticky header. The extra 4rem on small screens is the mobile bottom nav.
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden bg-slate-950 md:h-dvh">
       <Header />
       {profile ? (
         <XianjingGame profile={profile} onExit={exit} />
       ) : (
-        <CharacterCreate hasSave={saveExists} onStart={start} onContinue={resume} />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <CharacterCreate hasSave={saveExists} onStart={start} onContinue={resume} />
+        </div>
       )}
     </div>
   );
