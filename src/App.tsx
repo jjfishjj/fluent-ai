@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,6 +26,9 @@ import TalentCardGame from "./pages/TalentCardGame";
 import TalentCardGameGuide from "./pages/TalentCardGameGuide";
 import NotFound from "./pages/NotFound";
 import ShadowingLab from "./pages/ShadowingLab";
+
+// The 3D world pulls in three.js, so it is split out of the main bundle.
+const XianjingWorld = lazy(() => import("./pages/XianjingWorld"));
 
 const queryClient = new QueryClient();
 const basename = import.meta.env.BASE_URL === "/" ? undefined : import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -55,6 +59,20 @@ const App = () => (
                 <Route path="/subjects" element={<SubjectLab />} />
                 <Route path="/learning-gym-plan" element={<LearningGymPlan />} />
                 <Route path="/shadowing" element={<ShadowingLab />} />
+                <Route
+                  path="/xianjing"
+                  element={
+                    <Suspense
+                      fallback={
+                        <div className="grid min-h-screen place-items-center bg-slate-950 text-sm text-white/70">
+                          正在載入仙境…
+                        </div>
+                      }
+                    >
+                      <XianjingWorld />
+                    </Suspense>
+                  }
+                />
                 <Route path="/talent-card-game" element={<TalentCardGame />} />
                 <Route path="/talent-card-game-guide" element={<TalentCardGameGuide />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
