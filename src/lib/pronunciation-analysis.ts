@@ -6,6 +6,7 @@ export interface AcousticFeatures {
   rhythmPeaks: number;
   pitchVariation: number;
   endingSlope: number;
+  meanPitch: number;
   energyContour: number[];
   pitchContour: number[];
 }
@@ -18,6 +19,14 @@ export interface PronunciationScores {
   weakest: 'phoneme' | 'stress' | 'intonation';
   advice: string;
   features: AcousticFeatures;
+  personalized: boolean;
+}
+
+export interface PronunciationBaseline {
+  rms: number;
+  dynamicRange: number;
+  pitchVariation: number;
+  meanPitch: number;
 }
 
 const clamp = (value: number, min = 0, max = 100) => Math.min(max, Math.max(min, value));
@@ -82,6 +91,7 @@ export function extractAcousticFeatures(samples: Float32Array, sampleRate: numbe
     rhythmPeaks,
     pitchVariation: pitchDeviation / Math.max(meanPitch, 1),
     endingSlope,
+    meanPitch,
     energyContour: energy.map(value => clamp(value / Math.max(percentile(0.95), 0.001), 0, 1)),
     pitchContour: pitchFrames.map(value => value ? clamp((value - 75) / 275, 0, 1) : 0),
   };
@@ -107,15 +117,18 @@ export function buildReferenceContours(text: string, points: number) {
   return { energy, pitch };
 }
 
-export function scorePronunciation(features: AcousticFeatures, transcriptScore: number | null, expectedWords: number): PronunciationScores {
+export function scorePronunciation(features: AcousticFeatures, transcriptScore: number | null, expectedWords: number, baseline?: PronunciationBaseline): PronunciationScores {
   if (features.durationSeconds < 0.8 || features.rms < 0.006) throw new Error('audio-too-short-or-quiet');
   const lexical = transcriptScore ?? 65;
   const phoneme = Math.round(clamp(lexical * 0.78 + clamp(features.voicedRatio * 120) * 0.22));
   const expectedPeaks = Math.max(2, Math.round(expectedWords * 0.35));
   const peakFit = clamp(100 - (Math.abs(features.rhythmPeaks - expectedPeaks) / expectedPeaks) * 70);
-  const rangeFit = clamp(55 + Math.min(features.dynamicRange, 6) * 8);
-  const stress = Math.round(peakFit * 0.7 + rangeFit * 0.3);
-  const variationFit = clamp(100 - Math.abs(features.pitchVariation - 0.16) * 300);
+  const rangeTarget = baseline?.dynamicRange ?? 3.5;
+  const rangeFit = clamp(100 - Math.abs(features.dynamicRange - rangeTarget) / Math.max(rangeTarget, 1) * 55);
+  const loudnessFit = baseline ? clamp(100 - Math.abs(features.rms - baseline.rms) / Math.max(baseline.rms, 0.006) * 45) : 80;
+  const stress = Math.round(peakFit * 0.6 + rangeFit * 0.25 + loudnessFit * 0.15);
+  const pitchTarget = baseline?.pitchVariation ?? 0.16;
+  const variationFit = clamp(100 - Math.abs(features.pitchVariation - pitchTarget) / Math.max(pitchTarget, 0.05) * 55);
   const endingFit = clamp(85 - Math.abs(features.endingSlope + 0.08) * 180);
   const intonation = Math.round(variationFit * 0.7 + endingFit * 0.3);
   const values = { phoneme, stress, intonation };
@@ -125,16 +138,16 @@ export function scorePronunciation(features: AcousticFeatures, transcriptScore: 
     : weakest === 'stress'
       ? '下一輪用手指打拍，只凸顯內容詞，功能詞快速帶過。'
       : '下一輪誇張模仿音高起伏，尤其注意句尾的下降收束。';
-  return { phoneme, stress, intonation, overall: Math.round(phoneme * 0.45 + stress * 0.3 + intonation * 0.25), weakest, advice, features };
+  return { phoneme, stress, intonation, overall: Math.round(phoneme * 0.45 + stress * 0.3 + intonation * 0.25), weakest, advice, features, personalized: Boolean(baseline) };
 }
 
-export async function analyzeAudioBlob(blob: Blob, transcriptScore: number | null, expectedWords: number) {
+export async function analyzeAudioBlob(blob: Blob, transcriptScore: number | null, expectedWords: number, baseline?: PronunciationBaseline) {
   const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
   if (!AudioContextClass) throw new Error('audio-context-unsupported');
   const context = new AudioContextClass();
   try {
     const buffer = await context.decodeAudioData(await blob.arrayBuffer());
     const features = extractAcousticFeatures(buffer.getChannelData(0), buffer.sampleRate);
-    return scorePronunciation(features, transcriptScore, expectedWords);
+    return scorePronunciation(features, transcriptScore, expectedWords, baseline);
   } finally { await context.close(); }
 }

@@ -17,9 +17,16 @@ describe('pronunciation acoustic analysis', () => {
     expect(scores.phoneme).toBeGreaterThan(0);
     expect(scores.stress).toBeGreaterThan(0);
     expect(scores.intonation).toBeGreaterThan(0);
+    expect(scores.personalized).toBe(false);
     expect(features.energyContour.length).toBeGreaterThan(10);
     expect(features.pitchContour.length).toBe(features.energyContour.length);
     expect(['phoneme', 'stress', 'intonation']).toContain(scores.weakest);
+  });
+
+  it('marks scores as personalized when a voice baseline is supplied', () => {
+    const features = extractAcousticFeatures(syntheticVoice(), 16000);
+    const scores = scorePronunciation(features, 88, 12, { rms: features.rms, dynamicRange: features.dynamicRange, pitchVariation: features.pitchVariation, meanPitch: features.meanPitch });
+    expect(scores.personalized).toBe(true);
   });
 
   it('rejects silent recordings instead of inventing a score', () => {

@@ -19,6 +19,10 @@ import {
 } from '@/lib/shadowing-lab';
 import { analyzeAudioBlob, buildReferenceContours, type PronunciationScores } from '@/lib/pronunciation-analysis';
 import { diagnoseWordPhonemes } from '@/lib/ipa-alignment';
+import {
+  addCalibrationSample, CALIBRATION_PROMPT, loadVoiceCalibration, sampleFromFeatures,
+  saveVoiceCalibration, VOICE_CALIBRATION_KEY, type VoiceCalibrationProfile,
+} from '@/lib/voice-calibration';
 
 type Stage = 'understand' | 'listen' | 'slow' | 'shadow' | 'recall';
 
@@ -150,9 +154,13 @@ export default function ShadowingLab() {
   const [syncState, setSyncState] = useState<'local' | 'syncing' | 'synced' | 'error'>('local');
   const [pronunciation, setPronunciation] = useState<PronunciationScores | null>(null);
   const [analysisState, setAnalysisState] = useState<'idle' | 'analyzing' | 'ready' | 'error'>('idle');
+  const [calibration, setCalibration] = useState<VoiceCalibrationProfile>(() => loadVoiceCalibration());
+  const [calibrationRecording, setCalibrationRecording] = useState(false);
+  const [calibrationState, setCalibrationState] = useState<'idle' | 'analyzing' | 'error'>('idle');
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recognitionRef = useRef<any>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const calibrationRecorderRef = useRef<MediaRecorder | null>(null);
   const info = GENIUS_INFO[type];
   const guide = TYPE_GUIDES[type];
   const stageIndex = STAGES.findIndex(s => s.id === stage);
@@ -288,7 +296,7 @@ export default function ShadowingLab() {
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
         setRecordingUrl(URL.createObjectURL(blob));
         setAnalysisState('analyzing');
-        analyzeAudioBlob(blob, comparison?.score ?? null, text.trim().split(/\s+/).length)
+        analyzeAudioBlob(blob, comparison?.score ?? null, text.trim().split(/\s+/).length, calibration.baseline)
           .then(result => { setPronunciation(result); setAnalysisState('ready'); })
           .catch(() => { setPronunciation(null); setAnalysisState('error'); });
       };
@@ -297,6 +305,36 @@ export default function ShadowingLab() {
     } catch {
       window.alert('需要麥克風權限才能錄下跟讀。請允許存取後再試一次。');
     }
+  };
+
+  const toggleCalibration = async () => {
+    if (calibrationRecording && calibrationRecorderRef.current) {
+      calibrationRecorderRef.current.stop(); setCalibrationRecording(false); return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const chunks: Blob[] = [];
+      const recorder = new MediaRecorder(stream);
+      calibrationRecorderRef.current = recorder;
+      recorder.ondataavailable = event => event.data.size && chunks.push(event.data);
+      recorder.onstop = () => {
+        stream.getTracks().forEach(track => track.stop());
+        setCalibrationState('analyzing');
+        const blob = new Blob(chunks, { type: recorder.mimeType });
+        analyzeAudioBlob(blob, 100, CALIBRATION_PROMPT.split(/\s+/).length)
+          .then(result => {
+            const next = addCalibrationSample(calibration, sampleFromFeatures(result.features));
+            setCalibration(next); saveVoiceCalibration(next); setCalibrationState('idle');
+          })
+          .catch(() => setCalibrationState('error'));
+      };
+      recorder.start(); setCalibrationRecording(true); setCalibrationState('idle');
+    } catch { window.alert('需要麥克風權限才能建立個人聲線基準。'); }
+  };
+
+  const resetCalibration = () => {
+    const empty: VoiceCalibrationProfile = { version: 1, samples: [] };
+    setCalibration(empty); localStorage.removeItem(VOICE_CALIBRATION_KEY); setCalibrationState('idle');
   };
 
   const finishStage = () => {
@@ -416,7 +454,7 @@ export default function ShadowingLab() {
               {recordingUrl && <audio className="w-full mt-4" controls src={recordingUrl} />}
               {(analysisState !== 'idle' || pronunciation) && <div className="mt-4 rounded-3xl border border-black/10 p-5 md:p-6 bg-[#f4f0ff]" aria-live="polite">
                 <div className="flex items-start justify-between gap-4">
-                  <div><div className="text-sm font-black flex items-center gap-2"><AudioLines className="w-4 h-4 text-[#7357d9]" /> 發音教練評分</div><p className="text-xs text-black/45 mt-1">錄音只在你的裝置內分析；分數是聲學練習指標，不是臨床或母語者認證。</p></div>
+                  <div><div className="text-sm font-black flex flex-wrap items-center gap-2"><AudioLines className="w-4 h-4 text-[#7357d9]" /> 發音教練評分{pronunciation?.personalized && <span className="rounded-full bg-[#dff4eb] px-2 py-0.5 text-[9px] text-[#236d52]">個人聲線已套用</span>}</div><p className="text-xs text-black/45 mt-1">錄音只在你的裝置內分析；分數是聲學練習指標，不是臨床或母語者認證。</p></div>
                   {pronunciation && <div className="text-right"><div className="text-3xl font-black text-[#5b43bc]">{pronunciation.overall}</div><div className="text-[10px] text-black/40">綜合分數</div></div>}
                 </div>
                 {analysisState === 'analyzing' && <div className="py-8 flex items-center justify-center gap-2 text-sm font-bold text-black/55"><Loader2 className="w-4 h-4 animate-spin" /> 正在分析音量、節奏與音高…</div>}
@@ -470,6 +508,20 @@ export default function ShadowingLab() {
           </Card>
 
           <aside className="space-y-4">
+            <Card className="p-5 border border-black/10 shadow-none rounded-3xl bg-[#eef8f4]">
+              <div className="flex items-start justify-between gap-3"><div><div className="text-sm font-black flex items-center gap-2"><Gauge className="w-4 h-4 text-[#27845f]" /> 個人聲線校準</div><p className="text-xs text-black/50 mt-1">錄三次中性句，建立你的音高與音量基準。</p></div><span className={`text-[10px] font-black rounded-full px-2.5 py-1 ${calibration.baseline ? 'bg-[#27845f] text-white' : 'bg-white text-black/50'}`}>{calibration.baseline ? '已個人化' : `${calibration.samples.length}/3`}</span></div>
+              {!calibration.baseline ? <>
+                <div className="mt-4 rounded-2xl bg-white/75 p-3 text-sm font-semibold leading-relaxed">“{CALIBRATION_PROMPT}”</div>
+                <div className="grid grid-cols-3 gap-2 mt-3" aria-label="校準進度">{[0, 1, 2].map(index => <div key={index} className={`h-2 rounded-full ${index < calibration.samples.length ? 'bg-[#27845f]' : 'bg-black/10'}`} />)}</div>
+                <Button onClick={toggleCalibration} variant={calibrationRecording ? 'destructive' : 'outline'} className="w-full mt-4 bg-white">{calibrationRecording ? <><Square className="w-4 h-4 mr-2" />停止第 {calibration.samples.length + 1} 次</> : <><Mic className="w-4 h-4 mr-2" />錄製第 {calibration.samples.length + 1} 次</>}</Button>
+                {calibrationState === 'analyzing' && <div className="mt-3 text-xs font-bold text-black/50 flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" />正在建立本次聲線樣本…</div>}
+                {calibrationState === 'error' && <div className="mt-3 text-xs text-[#a83b31]">錄音太短或太安靜，這次不計入；請自然說完整句再停止。</div>}
+              </> : <>
+                <div className="grid grid-cols-2 gap-2 mt-4 text-center"><div className="rounded-xl bg-white/75 p-3"><div className="font-black">{Math.round(calibration.baseline.meanPitch)} Hz</div><div className="text-[10px] text-black/45">慣常音高</div></div><div className="rounded-xl bg-white/75 p-3"><div className="font-black">{Math.round(calibration.baseline.dynamicRange * 10) / 10}×</div><div className="text-[10px] text-black/45">音量動態</div></div></div>
+                <p className="text-[11px] leading-relaxed text-black/50 mt-3">之後的重音與語調分數會以你的三次中位數為基準。</p>
+                <Button variant="ghost" size="sm" className="w-full mt-2 text-black/55" onClick={resetCalibration}><RotateCcw className="w-3.5 h-3.5 mr-2" />重新校準</Button>
+              </>}
+            </Card>
             <Card className="p-5 border-0 shadow-none rounded-3xl bg-[#17201d] text-white">
               <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm font-black"><Flame className="w-4 h-4 text-[#ff8a58]" /> 每日任務</div><div className="text-xs text-white/55">{practicedToday ? '今日完成' : '待完成'}</div></div>
               <div className="grid grid-cols-2 gap-3 mt-4"><div className="rounded-2xl bg-white/10 p-3"><div className="text-2xl font-black">{streak}</div><div className="text-[11px] text-white/55">連續天數</div></div><div className="rounded-2xl bg-white/10 p-3"><div className="text-2xl font-black">{daily.totalSessions}</div><div className="text-[11px] text-white/55">完成輪數</div></div></div>
