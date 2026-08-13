@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Flag, Home, RotateCcw, Trophy, Video } from 'lucide-react';
+import { LanguageBadge, LanguageResult, type CampaignSummary } from './RaceLanguageHud';
 import { BIRDS } from '@/game/race/data/birds';
 import { formatTime } from '@/game/race/core/records';
 import type { RaceSnapshot, Track } from '@/game/race/core/types';
@@ -191,18 +192,24 @@ export function CountdownOverlay({ hud }: { hud: RaceSnapshot }) {
 export function ResultOverlay({
   hud,
   newRecord,
+  summary,
+  cardsAdded,
+  onAddCards,
   onRestart,
   onExit,
 }: {
   hud: RaceSnapshot;
   newRecord: boolean;
+  summary?: CampaignSummary;
+  cardsAdded: number;
+  onAddCards: () => void;
   onRestart: () => void;
   onExit: () => void;
 }) {
   if (!hud.player.finished) return null;
   return (
     <div className="absolute inset-0 grid place-items-center bg-slate-950/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-3xl border border-white/15 bg-slate-900/90 p-5 text-white shadow-2xl">
+      <div className="max-h-full w-full max-w-sm overflow-y-auto rounded-3xl border border-white/15 bg-slate-900/90 p-5 text-white shadow-2xl">
         <div className="flex items-center gap-2 text-amber-300">
           <Trophy className="h-5 w-5" />
           <span className="text-lg font-bold">{ordinal(hud.player.place)} · 第 {hud.player.place} 名</span>
@@ -222,6 +229,12 @@ export function ResultOverlay({
             🎉 新紀錄！
           </div>
         )}
+        <LanguageResult
+          language={hud.language}
+          summary={summary}
+          cardsAdded={cardsAdded}
+          onAddCards={onAddCards}
+        />
         <div className="mt-4 space-y-1.5 text-[11px]">
           {hud.standings.map((row) => (
             <div
@@ -286,6 +299,7 @@ export function RaceHud({
               <Flag className="h-3 w-3" /> {track.def.name}
             </div>
           </div>
+          {hud.language && <LanguageBadge language={hud.language} />}
           <Standings hud={hud} />
         </div>
         <div className="flex flex-col items-end gap-2">

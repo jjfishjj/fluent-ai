@@ -85,7 +85,9 @@ export function stepRacer(
   const turnScale = (0.45 + 0.55 * Math.min(1, racer.speed / 6)) * (1 - speedRatio * 0.32);
   const driftBonus = racer.drifting ? 1.55 : 1;
   const yawRate = bird.handling * turnScale * driftBonus * surf.grip;
-  racer.yaw = wrapAngle(racer.yaw + input.steer * yawRate * dt);
+  // Steering right means turning towards `right`, which is a *decreasing* yaw
+  // in three.js's coordinate system.
+  racer.yaw = wrapAngle(racer.yaw - input.steer * yawRate * dt);
 
   // ── longitudinal ────────────────────────────────────────────────────────
   let top = bird.topSpeed * surf.speed;

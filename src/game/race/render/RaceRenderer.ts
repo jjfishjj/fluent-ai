@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import type { RaceSim } from '../core/race';
 import { birdDef } from '../data/birds';
 import type { Racer } from '../core/types';
+import { questionFor } from '../core/gates';
 import { BirdRig, animateBird, buildBirdRig, disposeBirdRig } from './birdRig';
+import { GateArch, buildGateArch, setGateQuestion } from './gateProps';
 import { TrackScene, buildSky, buildTrackScene } from './trackScene';
 
 export type CameraMode = 'chase' | 'wide' | 'first';
@@ -48,6 +50,7 @@ export class RaceRenderer {
   /** Ring buffer of live dust puffs. */
   private puffs: { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number }[] = [];
   private nextPuff = 0;
+  private arches: GateArch[] = [];
   private cameraPos = new THREE.Vector3();
   private cameraLook = new THREE.Vector3();
   private booted = false;
@@ -84,6 +87,15 @@ export class RaceRenderer {
     this.scene.add(this.trackScene.root);
     this.sky = buildSky(palette);
     this.scene.add(this.sky);
+
+    // Language gates, if this race has them.
+    if (sim.gateSet) {
+      for (const gate of sim.gateSet.gates) {
+        const arch = buildGateArch(sim.track, gate, palette);
+        this.scene.add(arch.root);
+        this.arches.push(arch);
+      }
+    }
 
     sim.racers.forEach((racer, index) => {
       const rig = buildBirdRig(birdDef(racer.birdId), RIDER_COLORS[index % RIDER_COLORS.length]);
@@ -143,6 +155,7 @@ export class RaceRenderer {
       this.emitDust(racer, dt);
     }
 
+    this.updateGates();
     this.updateDust(dt);
     this.updateCamera(dt);
 
@@ -156,6 +169,21 @@ export class RaceRenderer {
     this.sky.position.set(this.camera.position.x, 0, this.camera.position.z);
 
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * Boards always show the question the human is on, so a lapped rival never
+   * changes what you are reading as you approach.
+   */
+  private updateGates(): void {
+    const set = this.sim.gateSet;
+    if (!set) return;
+    const lap = this.sim.player.lap;
+    for (const arch of this.arches) {
+      if (arch.lap === lap) continue;
+      const question = questionFor(set, lap, arch.gate.index);
+      if (question) setGateQuestion(arch, question, lap);
+    }
   }
 
   // ── camera ───────────────────────────────────────────────────────────────
@@ -259,6 +287,8 @@ export class RaceRenderer {
   }
 
   dispose(): void {
+    for (const arch of this.arches) arch.dispose();
+    this.arches = [];
     for (const rig of this.rigs.values()) disposeBirdRig(rig);
     this.rigs.clear();
     this.trackScene.dispose();

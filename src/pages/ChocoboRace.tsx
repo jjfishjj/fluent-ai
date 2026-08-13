@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react';
 import { Header } from '@/components/layout/Header';
-import { RaceSetup, type RaceOptions } from '@/components/game/race/RaceSetup';
+import { RaceLobby, type RaceOptions } from '@/components/game/race/RaceLobby';
 import { RaceView } from '@/components/game/race/RaceView';
 
 /**
- * 陸行鳥大賽 3D — a three.js kart-style racer. The page owns the lobby; once a
- * race starts, `RaceView` owns the canvas and the simulation.
+ * 陸行鳥外交巡迴賽 3D — a three.js racer wrapped around fluent-ai's learning
+ * loop: each course is a host nation and the gates on it are language and
+ * memory questions. The page owns the lobby; once a race starts, `RaceView`
+ * owns the canvas, the simulation and the campaign bookkeeping.
  */
 export default function ChocoboRace() {
   const [options, setOptions] = useState<RaceOptions | null>(null);
@@ -21,7 +23,7 @@ export default function ChocoboRace() {
         <RaceView options={options} onExit={exit} />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <RaceSetup onStart={setOptions} />
+          <RaceLobby onStart={setOptions} />
         </div>
       )}
     </div>

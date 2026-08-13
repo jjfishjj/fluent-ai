@@ -16,15 +16,18 @@
 - 有設定 Supabase 時會同步真人玩家，否則自動改用模擬玩家
 - 架構說明見 [`docs/xianjing-3d-mmorpg.md`](docs/xianjing-3d-mmorpg.md)
 
-## 🐤 陸行鳥大賽 3D — 線上試玩
+## 🐤 陸行鳥外交巡迴賽 3D — 線上試玩
 
-一個 three.js 的騎乘鳥賽車模式，賽道、座騎與場景同樣全部由程式產生。
+three.js 的騎乘鳥賽車，同時是 fluent-ai 的語言關卡：**賽道就是國家，對手就是各國代表，
+賽道上的閘門就是題目**。三條車道掛著三個候選答案，開過哪條就是你的答案——
+答對加速，答錯掉速，全程不暫停。
 
 **Demo：** https://jjfishjj.github.io/fluent-ai/race　（本機開發：`npm run dev` → http://localhost:8080/race）
 
-- 6 種座騎（極速／操控／耐力／甩尾各有取捨）、3 條賽道、3 種對手強度
-- 甩尾蓄力放電加速、衝刺體力管理、加速板與地形陷阱
-- 追尾／遠景／第一人稱三種視角，支援鍵盤與手機觸控
+- 8 個國家 8 位代表，角色從「見習通譯」一路升到「大使」
+- 題型隨關卡升級：認詞 → 聽力（語音合成）→ 當地數字 → 記憶序列回想 → 綜合
+- 答錯的詞可一鍵送進 Memory Lab 的間隔重複牌組
+- 6 種座騎、甩尾蓄力加速、體力管理、三種視角，支援鍵盤與手機觸控
 - 架構說明見 [`docs/chocobo-race-3d.md`](docs/chocobo-race-3d.md)
 
 > 兩個 Demo 都由 `.github/workflows/deploy-quizzes.yml` 在推上 `main` 後自動部署到 GitHub Pages

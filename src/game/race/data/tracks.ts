@@ -1,152 +1,17 @@
 import type { TrackDef } from '../core/types';
+import { NATIONS, nationTrack } from './nations';
 
 /**
- * Three hand-drawn circuits. Control points run clockwise-ish and the loop is
- * closed automatically, so the last point must not repeat the first. `w`
- * scales the road width locally — narrow it to make a corner scary.
+ * Courses are nations: every entry is one host country's circuit, built from a
+ * shared layout plus that nation's palette. Keeping this map means the racing
+ * core never has to know about languages or the campaign.
  */
-export const TRACKS: Record<string, TrackDef> = {
-  meadow: {
-    id: 'meadow',
-    name: '翠風草原',
-    subtitle: '入門 · 寬闊高速',
-    laps: 3,
-    difficulty: 1,
-    halfWidth: 8.5,
-    points: [
-      { x: 0, z: 128 },
-      { x: 62, z: 118, y: 1.5 },
-      { x: 104, z: 78, y: 3 },
-      { x: 116, z: 20, y: 2 },
-      { x: 96, z: -38 },
-      { x: 52, z: -66, y: -1.5 },
-      { x: 8, z: -58, y: -2, w: 0.78 },
-      { x: -34, z: -84, y: -1 },
-      { x: -88, z: -76 },
-      { x: -118, z: -22, y: 2.5 },
-      { x: -112, z: 38, y: 3 },
-      { x: -74, z: 92, y: 1 },
-      { x: -34, z: 122 },
-    ],
-    boosts: [0.12, 0.46, 0.78],
-    hazards: [
-      { at: 0.3, side: 1 },
-      { at: 0.62, side: -1 },
-    ],
-    palette: {
-      road: 0xc2a878,
-      roadEdge: 0xf2f4f7,
-      ground: 0x6faa54,
-      groundAlt: 0x8dc46b,
-      rock: 0x8d9188,
-      foliage: 0x3f8248,
-      foliageAlt: 0xf2a7c3,
-      skyTop: 0x3f96e8,
-      skyBottom: 0xdcefff,
-      fog: 0xcfe6f5,
-      light: 0xfff6e2,
-      ambient: 0x9fb9d6,
-    },
-    props: { trees: 120, rocks: 40, crowd: 60, kind: 'meadow' },
-  },
-
-  canyon: {
-    id: 'canyon',
-    name: '赤沙峽谷',
-    subtitle: '進階 · 窄彎與髮夾',
-    laps: 3,
-    difficulty: 2,
-    halfWidth: 7.2,
-    points: [
-      { x: 0, z: 110 },
-      { x: 54, z: 104, y: 2 },
-      { x: 92, z: 66, y: 5 },
-      { x: 86, z: 30, y: 4, w: 0.78 },
-      { x: 106, z: -14, y: 2 },
-      { x: 96, z: -62 },
-      { x: 44, z: -88, y: -2 },
-      { x: -4, z: -78, y: -3, w: 0.76 },
-      { x: -46, z: -96, y: -2 },
-      { x: -96, z: -70, y: 1 },
-      { x: -104, z: -14, y: 4 },
-      { x: -76, z: 20, y: 5, w: 0.74 },
-      { x: -96, z: 58, y: 3 },
-      { x: -62, z: 100, y: 1 },
-    ],
-    boosts: [0.08, 0.35, 0.55, 0.86],
-    hazards: [
-      { at: 0.2, side: -1 },
-      { at: 0.44, side: 1 },
-      { at: 0.72, side: 1 },
-      { at: 0.92, side: -1 },
-    ],
-    palette: {
-      road: 0xc2996a,
-      roadEdge: 0xffe9c4,
-      ground: 0xd8a86a,
-      groundAlt: 0xe8c48d,
-      rock: 0xb4703f,
-      foliage: 0x7a9a52,
-      foliageAlt: 0xe8d18a,
-      skyTop: 0x2f7fd0,
-      skyBottom: 0xffd9a0,
-      fog: 0xf2cf9d,
-      light: 0xfff0cf,
-      ambient: 0xd8b184,
-    },
-    props: { trees: 46, rocks: 130, crowd: 40, kind: 'desert' },
-  },
-
-  glacier: {
-    id: 'glacier',
-    name: '極夜冰河',
-    subtitle: '困難 · 低摩擦夜賽',
-    laps: 4,
-    difficulty: 3,
-    halfWidth: 7.8,
-    points: [
-      { x: 0, z: 122 },
-      { x: 58, z: 112, y: 3 },
-      { x: 108, z: 82, y: 7 },
-      { x: 122, z: 26, y: 9 },
-      { x: 96, z: -20, y: 5, w: 0.78 },
-      { x: 100, z: -66, y: 1 },
-      { x: 50, z: -102, y: -2 },
-      { x: -6, z: -92, y: -3 },
-      { x: -36, z: -60, y: -1, w: 0.74 },
-      { x: -74, z: -66, y: 1 },
-      { x: -116, z: -34, y: 4 },
-      { x: -122, z: 26, y: 7 },
-      { x: -92, z: 76, y: 4 },
-      { x: -44, z: 116, y: 1 },
-    ],
-    boosts: [0.05, 0.28, 0.5, 0.68, 0.88],
-    hazards: [
-      { at: 0.16, side: 1 },
-      { at: 0.36, side: -1 },
-      { at: 0.58, side: 0 },
-      { at: 0.79, side: 1 },
-    ],
-    palette: {
-      road: 0x8fa8c6,
-      roadEdge: 0xe8f6ff,
-      ground: 0xdce9f5,
-      groundAlt: 0xb9d2e8,
-      rock: 0x7f93ad,
-      foliage: 0x2f5d6e,
-      foliageAlt: 0xa9e6ff,
-      skyTop: 0x0b1740,
-      skyBottom: 0x4a6ba8,
-      fog: 0x2c3f6b,
-      light: 0xc9dcff,
-      ambient: 0x3d5580,
-    },
-    props: { trees: 90, rocks: 70, crowd: 46, kind: 'glacier' },
-  },
-};
+export const TRACKS: Record<string, TrackDef> = Object.fromEntries(
+  Object.values(NATIONS).map((def) => [def.id, nationTrack(def)]),
+);
 
 export const TRACK_IDS = Object.keys(TRACKS);
 
 export function trackDef(id: string): TrackDef {
-  return TRACKS[id] ?? TRACKS.meadow;
+  return TRACKS[id] ?? TRACKS.britain;
 }

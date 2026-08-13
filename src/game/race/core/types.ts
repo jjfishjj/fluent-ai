@@ -1,3 +1,5 @@
+import type { GateOutcome, GateQuestion } from './gates';
+
 /** Shared types for 陸行鳥大賽 — the 3D bird racing mode. */
 
 export interface Vec2 {
@@ -160,12 +162,14 @@ export interface Racer {
   /** AI only — per-racer noise offset so the pack does not drive as one. */
   phase: number;
   bumpCooldown: number;
+  /** Language-gate tally for this race. */
+  gates: { correct: number; wrong: number; missed: number };
 }
 
 export type RacePhase = 'countdown' | 'running' | 'finished';
 
 export interface RaceEvent {
-  kind: 'lap' | 'boost' | 'finish' | 'go' | 'count' | 'offtrack' | 'drift';
+  kind: 'lap' | 'boost' | 'finish' | 'go' | 'count' | 'offtrack' | 'drift' | 'gate';
   racerId: string;
   text?: string;
   value?: number;
@@ -202,6 +206,19 @@ export interface RaceSnapshot {
     bestLap: number;
     finished: boolean;
     finishTime: number;
+  };
+  /** Present only when the race carries language gates. */
+  language?: {
+    correct: number;
+    wrong: number;
+    missed: number;
+    total: number;
+    /** 0–1 over the gates answered so far. */
+    accuracy: number;
+    /** The gate being approached, once it is close enough to read. */
+    upcoming?: { gateIndex: number; distance: number; question: GateQuestion };
+    /** The most recent result, for the flash on the HUD. */
+    last?: { outcome: GateOutcome; question: GateQuestion; at: number };
   };
   standings: StandingRow[];
   /** Minimap dots in track space. */

@@ -89,16 +89,21 @@ export function buildTrack(def: TrackDef): Track {
     const len = Math.hypot(dx, dz) || 1;
     const sample = samples[i];
     sample.dir = { x: dx / len, z: dz / len };
-    sample.right = { x: sample.dir.z, z: -sample.dir.x };
+    // The driver's right, which is `forward × up` — with three.js's handedness
+    // a bird facing +Z has its right hand towards -X, so the sign matters and
+    // getting it backwards mirrors steering, lane labels and banking alike.
+    sample.right = { x: -sample.dir.z, z: sample.dir.x };
     sample.yaw = Math.atan2(sample.dir.x, sample.dir.z);
   }
 
   for (let i = 0; i < count; i += 1) {
     const a = samples[(i - 1 + count) % count].yaw;
     const b = samples[(i + 1) % count].yaw;
-    // Signed turn per unit length: positive when the track bends right.
+    // Signed turn per unit length, measured towards `right`: positive when the
+    // track bends to the driver's right. Increasing yaw steers left, hence the
+    // negation.
     const delta = wrapAngle(b - a);
-    samples[i].curvature = delta / (2 * spacing);
+    samples[i].curvature = -delta / (2 * spacing);
     samples[i].bank = Math.max(-0.16, Math.min(0.16, samples[i].curvature * 9));
   }
 

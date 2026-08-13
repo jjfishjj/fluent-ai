@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { RaceSim, type RaceConfig } from './race';
 import { driveRacer } from './ai';
+import { laneAt, laneCenter } from './gates';
+import { pointAt, sampleAt } from './track';
 import { driftReward, MAX_DRIFT_CHARGE, neutralInput, resolveContact, stepRacer } from './physics';
 import type { Racer } from './types';
 import { BIRDS } from '../data/birds';
 
 function makeSim(overrides: Partial<RaceConfig> = {}): RaceSim {
   return new RaceSim({
-    trackId: 'meadow',
+    trackId: 'britain',
     birdId: 'gold',
     riderName: '測試',
     rivals: 3,
@@ -166,6 +168,111 @@ describe('RaceSim race', () => {
   });
 });
 
+describe('RaceSim language gates', () => {
+  /** Holds a fixed lane so gate outcomes are decided by the lane, not by luck. */
+  function runInLane(sim: RaceSim, steer: number, seconds: number) {
+    for (let i = 0; i < seconds * 60; i += 1) {
+      sim.setPlayerInput({ throttle: 1, steer });
+      sim.tick(1 / 60);
+    }
+  }
+
+  it('adds gates only when a challenge is configured', () => {
+    expect(makeSim().gateSet).toBeUndefined();
+    const sim = makeSim({ challenge: 'word' });
+    expect(sim.gateSet?.gates.length).toBeGreaterThan(0);
+    expect(sim.snapshot().language).toBeDefined();
+    expect(makeSim().snapshot().language).toBeUndefined();
+  });
+
+  it('answers a gate with the lane the racer is in, and logs it', () => {
+    const sim = makeSim({ challenge: 'word', rivals: 0 });
+    runInLane(sim, 0, 40);
+
+    const player = sim.player;
+    const answered = player.gates.correct + player.gates.wrong + player.gates.missed;
+    expect(answered).toBeGreaterThan(0);
+    expect(sim.playerLog).toHaveLength(answered);
+    for (const record of sim.playerLog) {
+      expect(record.answer.native.length).toBeGreaterThan(0);
+      expect(record.answer.meaning.length).toBeGreaterThan(0);
+    }
+
+    const language = sim.snapshot().language!;
+    expect(language.total).toBe(answered);
+    expect(language.accuracy).toBeCloseTo(player.gates.correct / answered, 5);
+  });
+
+  it('rewards a right lane and punishes a wrong one', () => {
+    const sim = makeSim({ challenge: 'word', rivals: 0 });
+    // Park the player on the gate, then step through it from each lane.
+    const gate = sim.gateSet!.gates[0];
+    for (let i = 0; i < 240; i += 1) sim.tick(1 / 60);
+
+    const place = (lane: number) => {
+      const player = sim.player;
+      const question = sim.gateSet!.questions[player.lap][gate.index];
+      const correct = question.lanes.findIndex((l) => l.correct);
+      const target = lane === 0 ? correct : (correct + 1) % 3;
+      const point = pointAt(sim.track, gate.s - 3);
+      const sample = sampleAt(sim.track, gate.s - 3);
+      const offset = laneCenter(player.halfWidth, target);
+      player.pos.x = point.pos.x + sample.right.x * offset;
+      player.pos.z = point.pos.z + sample.right.z * offset;
+      player.yaw = point.yaw;
+      player.moveYaw = point.yaw;
+      player.speed = 20;
+      player.boost = 0;
+      sim.tick(1 / 60);
+      sim.setPlayerInput({ throttle: 1, steer: 0 });
+      for (let i = 0; i < 20; i += 1) sim.tick(1 / 60);
+    };
+
+    place(0);
+    expect(sim.player.gates.correct).toBe(1);
+    expect(sim.player.boost).toBeGreaterThan(0);
+
+    const speedBefore = sim.player.speed;
+    place(1);
+    expect(sim.player.gates.wrong).toBe(1);
+    expect(sim.player.speed).toBeLessThan(speedBefore * 1.1);
+  });
+
+  it('lets a strong field answer better than a weak one', () => {
+    const score = (difficulty: number) => {
+      const sim = makeSim({ challenge: 'word', rivals: 5, difficulty, seed: 5 });
+      for (let i = 0; i < 60 * 90; i += 1) {
+        sim.setPlayerInput({ throttle: 1 });
+        sim.tick(1 / 60);
+        if (sim.phase === 'finished') break;
+      }
+      const rivals = sim.racers.filter((r) => !r.isPlayer);
+      const correct = rivals.reduce((sum, r) => sum + r.gates.correct, 0);
+      const total = rivals.reduce((sum, r) => sum + r.gates.correct + r.gates.wrong + r.gates.missed, 0);
+      return total > 0 ? correct / total : 0;
+    };
+    expect(score(2)).toBeGreaterThan(score(0));
+  });
+
+  it('shows an upcoming gate only once it is close enough to read', () => {
+    const sim = makeSim({ challenge: 'listen', rivals: 0 });
+    for (let i = 0; i < 240; i += 1) sim.tick(1 / 60);
+    let sawUpcoming = false;
+    for (let i = 0; i < 60 * 30; i += 1) {
+      sim.setPlayerInput({ throttle: 1, steer: 0 });
+      sim.tick(1 / 60);
+      const upcoming = sim.snapshot().language?.upcoming;
+      if (upcoming) {
+        sawUpcoming = true;
+        expect(upcoming.distance).toBeGreaterThan(0);
+        expect(upcoming.distance).toBeLessThanOrEqual(62);
+        expect(upcoming.question.lanes).toHaveLength(3);
+      }
+    }
+    expect(sawUpcoming).toBe(true);
+  });
+});
+
 function testRacer(birdId = 'gold'): Racer {
   return {
     id: 'r',
@@ -200,6 +307,7 @@ function testRacer(birdId = 'gold'): Racer {
     skill: 1,
     phase: 0,
     bumpCooldown: 0,
+    gates: { correct: 0, wrong: 0, missed: 0 },
   };
 }
 
@@ -215,6 +323,38 @@ describe('physics', () => {
     for (let i = 0; i < 120; i += 1) stepRacer(racer, 1 / 60, 'road');
     expect(racer.stamina).toBeGreaterThan(drained);
     expect(racer.stamina).toBeLessThanOrEqual(BIRDS.gold.stamina);
+  });
+
+  it('steers right towards world -X when facing +Z', () => {
+    // three.js puts a +Z-facing model's right hand at -X. If this ever flips,
+    // the D key and the gate lane labels disagree with what the player sees.
+    const racer = testRacer();
+    racer.input = { ...neutralInput(), throttle: 1, steer: 1 };
+    for (let i = 0; i < 60; i += 1) stepRacer(racer, 1 / 60, 'road');
+    expect(racer.pos.x).toBeLessThan(0);
+    expect(racer.yaw).toBeLessThan(0);
+
+    const left = testRacer();
+    left.input = { ...neutralInput(), throttle: 1, steer: -1 };
+    for (let i = 0; i < 60; i += 1) stepRacer(left, 1 / 60, 'road');
+    expect(left.pos.x).toBeGreaterThan(0);
+  });
+
+  it('puts a right-steering racer on the right-hand side of the road', () => {
+    const sim = makeSim({ rivals: 0 });
+    for (let i = 0; i < 240; i += 1) sim.tick(1 / 60);
+    const startLateral = sim.player.lateral;
+    // Steer right until the right-hand lane is reached — holding full lock for
+    // a fixed time would just put the bird in the grass.
+    let lane = laneAt(sim.player.lateral, sim.player.halfWidth);
+    for (let i = 0; i < 120 && lane !== 2; i += 1) {
+      sim.setPlayerInput({ throttle: 1, steer: 1 });
+      sim.tick(1 / 60);
+      lane = laneAt(sim.player.lateral, sim.player.halfWidth);
+    }
+    // Positive lateral is the driver's right, and lane 2 is the right-hand gate.
+    expect(sim.player.lateral).toBeGreaterThan(startLateral);
+    expect(lane).toBe(2);
   });
 
   it('caps speed harder off the road than on it', () => {

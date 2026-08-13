@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildTrack, gridSlot, pointAt, project, wrapAngle, wrapDistance } from './track';
 import { TRACKS } from '../data/tracks';
 
-const track = buildTrack(TRACKS.meadow);
+const track = buildTrack(TRACKS.britain);
 
 describe('buildTrack', () => {
   it('resamples every course into an evenly spaced closed loop', () => {
@@ -19,6 +19,21 @@ describe('buildTrack', () => {
       const max = Math.max(...gaps);
       // Even spacing is what makes `s` a usable arc length everywhere.
       expect(max - min).toBeLessThan(built.spacing * 0.25);
+    }
+  });
+
+  it("points `right` at the driver's right hand, not their left", () => {
+    // right === forward × up, with up = +Y. Getting this backwards silently
+    // mirrors steering, banking and the language-gate lanes all at once.
+    for (const sample of track.samples) {
+      const forward = [sample.dir.x, 0, sample.dir.z];
+      const cross = [
+        forward[1] * 0 - forward[2] * 1,
+        forward[2] * 0 - forward[0] * 0,
+        forward[0] * 1 - forward[1] * 0,
+      ];
+      expect(sample.right.x).toBeCloseTo(cross[0], 6);
+      expect(sample.right.z).toBeCloseTo(cross[2], 6);
     }
   });
 

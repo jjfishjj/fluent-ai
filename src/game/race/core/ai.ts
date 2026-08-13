@@ -9,6 +9,11 @@ export interface DriveContext {
   difficulty: number;
   /** Leader progress, for gentle rubber-banding. Omit to disable it. */
   chase?: number;
+  /**
+   * Lateral offset of the lane this rival has committed to at the gate ahead.
+   * While set it overrides the racing line — answering beats cornering.
+   */
+  laneAim?: number;
 }
 
 /**
@@ -27,13 +32,16 @@ export function driveRacer(track: Track, racer: Racer, ctx: DriveContext): void 
   // Aim at the inside of the bend; a slow wobble keeps the pack from stacking
   // into a single line.
   const wobble = Math.sin(ctx.time * 0.7 + racer.phase) * (1 - racer.skill) * 6;
-  const line = -Math.sign(upcoming) * Math.min(target.halfWidth * 0.6, Math.abs(upcoming) * 240);
-  const aimX = target.pos.x + sample.right.x * (line + wobble);
-  const aimZ = target.pos.z + sample.right.z * (line + wobble);
+  // The inside of a right-hand bend (positive curvature) is the right side.
+  const racingLine = Math.sign(upcoming) * Math.min(target.halfWidth * 0.6, Math.abs(upcoming) * 240);
+  const offset = ctx.laneAim !== undefined ? ctx.laneAim : racingLine + wobble;
+  const aimX = target.pos.x + sample.right.x * offset;
+  const aimZ = target.pos.z + sample.right.z * offset;
 
   const desired = Math.atan2(aimX - racer.pos.x, aimZ - racer.pos.z);
   const error = wrapAngle(desired - racer.yaw);
-  racer.input.steer = Math.max(-1, Math.min(1, error * 2.2));
+  // Positive steer lowers yaw, so closing a positive heading error steers left.
+  racer.input.steer = Math.max(-1, Math.min(1, -error * 2.2));
 
   // Corner speed budget. The physical limit for curvature k is sqrt(a / k), so
   // use that shape rather than a linear penalty — a linear one makes rivals

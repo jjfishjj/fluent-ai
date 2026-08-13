@@ -1,7 +1,10 @@
 import { Rng } from '../../core/rng';
 import { BIRD_IDS, RIVAL_NAMES, birdDef } from '../data/birds';
+import { nation } from '../data/nations';
 import { trackDef } from '../data/tracks';
 import { driveRacer } from './ai';
+import { buildGateSet, gradeLane, laneAt, laneCenter, questionFor } from './gates';
+import type { GateOutcome, GateQuestion, GateSet } from './gates';
 import { neutralInput, resolveContact, stepRacer } from './physics';
 import { buildTrack, gridSlot, isHazardAt, project, wrapAngle, wrapDistance } from './track';
 import type {
@@ -13,6 +16,7 @@ import type {
   Surface,
   Track,
 } from './types';
+import type { ChallengeKind, Phrase } from '../data/nations';
 
 export interface RaceConfig {
   trackId: string;
@@ -23,12 +27,38 @@ export interface RaceConfig {
   /** 0 = casual, 1 = normal, 2 = pro. Scales AI skill. */
   difficulty: number;
   seed?: number;
+  /** Language gates to run. Omit for a plain race with no learning layer. */
+  challenge?: ChallengeKind;
+  /** Gates per lap. */
+  gateCount?: number;
+}
+
+/** One answered gate, in the order the player met them. */
+export interface GateRecord {
+  lap: number;
+  gateIndex: number;
+  outcome: GateOutcome;
+  prompt: string;
+  answer: Phrase;
+}
+
+/** Deterministic 0–1 roll from a racer's phase, a gate and a lap. */
+function hashUnit(phase: number, gateIndex: number, lap: number): number {
+  const n = Math.sin(phase * 12.9898 + gateIndex * 78.233 + lap * 37.719) * 43758.5453;
+  return n - Math.floor(n);
 }
 
 const COUNTDOWN = 3.6;
 /** Boost pads are worth this many seconds of boost. */
 const PAD_BOOST = 1.15;
 const PAD_STAMINA = 18;
+/** A right answer is worth slightly less than a boost pad, plus some stamina. */
+const GATE_BOOST = 1;
+const GATE_STAMINA = 12;
+/** How far ahead a gate becomes readable, in world units. */
+const GATE_READ_RANGE = 62;
+/** How far ahead a rival commits to a lane. */
+const GATE_AIM_RANGE = 46;
 
 export class RaceSim {
   readonly track: Track;
@@ -38,8 +68,14 @@ export class RaceSim {
   countdown = COUNTDOWN;
   time = 0;
 
+  /** Present only when the race was configured with a challenge. */
+  readonly gateSet?: GateSet;
+  /** Every gate the human answered, for the post-race review. */
+  readonly playerLog: GateRecord[] = [];
+
   private rng: Rng;
   private events: RaceEvent[] = [];
+  private lastGate?: { outcome: GateOutcome; question: GateQuestion; at: number };
   private difficulty: number;
   private lastCount = 4;
   /** Boost pads already consumed this lap, keyed `racerId:padIndex`. */
@@ -51,6 +87,16 @@ export class RaceSim {
     this.laps = def.laps;
     this.difficulty = config.difficulty;
     this.rng = new Rng(config.seed ?? 20260813);
+    if (config.challenge) {
+      this.gateSet = buildGateSet(
+        this.track,
+        nation(config.trackId),
+        config.challenge,
+        def.laps,
+        config.gateCount ?? 4,
+        config.seed ?? 20260813,
+      );
+    }
 
     const rivals = Math.max(0, Math.min(7, config.rivals));
     const pool = BIRD_IDS.filter((id) => id !== config.birdId);
@@ -106,6 +152,7 @@ export class RaceSim {
         skill: 0.62 + this.difficulty * 0.14 + this.rng.range(-0.03, 0.05),
         phase: this.rng.range(0, Math.PI * 2),
         bumpCooldown: 0,
+        gates: { correct: 0, wrong: 0, missed: 0 },
       });
     });
   }
@@ -217,7 +264,7 @@ export class RaceSim {
       racer.lateral = sign * limit;
       racer.speed *= 0.92;
       // Steer the nose back towards the road so a wall is not a dead end.
-      racer.yaw = wrapAngle(racer.yaw - sign * 1.6 * dt);
+      racer.yaw = wrapAngle(racer.yaw + sign * 1.6 * dt);
     }
 
     // Monotonic distance raced, so standings stay right even when a racer
@@ -227,6 +274,7 @@ export class RaceSim {
 
     if (!racer.finished) {
       this.checkPads(racer);
+      this.checkGates(racer, before, delta);
       if (isHazardAt(this.track, racer.s, racer.lateral)) racer.speed *= 1 - 0.55 * dt;
       this.checkLap(racer, before, delta);
     }
@@ -291,11 +339,88 @@ export class RaceSim {
     });
   }
 
+  // ── language gates ───────────────────────────────────────────────────────
+
+  /**
+   * A gate is answered by the lane you are in as you pass it — no pausing, and
+   * the same rule for rivals, so the pack visibly picks lanes too.
+   */
+  private checkGates(racer: Racer, before: number, delta: number): void {
+    const set = this.gateSet;
+    if (!set || delta <= 0) return;
+
+    for (const gate of set.gates) {
+      const toGate = wrapDistance(gate.s, before, this.track.length);
+      if (toGate <= 0 || toGate > delta) continue;
+
+      const question = questionFor(set, racer.lap, gate.index);
+      if (!question) continue;
+
+      const outcome = gradeLane(question, laneAt(racer.lateral, racer.halfWidth));
+      if (outcome === 'correct') {
+        racer.gates.correct += 1;
+        racer.boost = Math.max(racer.boost, GATE_BOOST);
+        racer.stamina = Math.min(birdDef(racer.birdId).stamina, racer.stamina + GATE_STAMINA);
+      } else if (outcome === 'wrong') {
+        racer.gates.wrong += 1;
+        racer.speed *= 0.82;
+      } else {
+        racer.gates.missed += 1;
+      }
+
+      if (racer.isPlayer) {
+        this.lastGate = { outcome, question, at: this.time };
+        this.playerLog.push({
+          lap: racer.lap,
+          gateIndex: gate.index,
+          outcome,
+          prompt: question.prompt,
+          answer: question.answer,
+        });
+      }
+      this.events.push({ kind: 'gate', racerId: racer.id, text: outcome, value: gate.index });
+    }
+  }
+
+  /** The gate a racer is approaching, if it is close enough to matter. */
+  private nextGate(racer: Racer, range: number) {
+    const set = this.gateSet;
+    if (!set || racer.finished) return undefined;
+    let best: { gateIndex: number; distance: number; question: GateQuestion } | undefined;
+    for (const gate of set.gates) {
+      const distance = wrapDistance(gate.s, racer.s, this.track.length);
+      if (distance <= 0 || distance > range) continue;
+      if (best && distance >= best.distance) continue;
+      const question = questionFor(set, racer.lap, gate.index);
+      if (question) best = { gateIndex: gate.index, distance, question };
+    }
+    return best;
+  }
+
   // ── AI ───────────────────────────────────────────────────────────────────
+
+  /**
+   * Rivals answer gates too. Which lane they take is decided deterministically
+   * from their skill, so a pro field really does get the words right and a
+   * casual field hands you places at every gate.
+   */
+  private laneAimFor(racer: Racer): number | undefined {
+    const upcoming = this.nextGate(racer, GATE_AIM_RANGE);
+    if (!upcoming) return undefined;
+    const roll = hashUnit(racer.phase, upcoming.gateIndex, racer.lap);
+    const correct = upcoming.question.lanes.findIndex((lane) => lane.correct);
+    const lane = roll < racer.skill ? correct : (correct + 1 + Math.floor(roll * 2)) % 3;
+    return laneCenter(racer.halfWidth, lane);
+  }
 
   private driveAi(racer: Racer): void {
     const leader = this.player.finished ? undefined : this.player.progress;
-    driveRacer(this.track, racer, { time: this.time, difficulty: this.difficulty, chase: leader });
+    driveRacer(this.track, racer, {
+      time: this.time,
+      difficulty: this.difficulty,
+      chase: leader,
+      laneAim: this.laneAimFor(racer),
+    });
   }
 
   // ── snapshot ─────────────────────────────────────────────────────────────
@@ -315,6 +440,20 @@ export class RaceSim {
         gap: Math.max(0, leader.progress - racer.progress),
         finishTime: racer.finishTime,
       }));
+  }
+
+  private languageSnapshot(player: Racer): NonNullable<RaceSnapshot['language']> {
+    const answered = player.gates.correct + player.gates.wrong + player.gates.missed;
+    return {
+      correct: player.gates.correct,
+      wrong: player.gates.wrong,
+      missed: player.gates.missed,
+      total: answered,
+      accuracy: answered > 0 ? player.gates.correct / answered : 0,
+      upcoming: this.nextGate(player, GATE_READ_RANGE),
+      // Keep the flash on screen briefly rather than for the rest of the race.
+      last: this.lastGate && this.time - this.lastGate.at < 2.2 ? this.lastGate : undefined,
+    };
   }
 
   snapshot(fps = 60): RaceSnapshot {
@@ -340,6 +479,7 @@ export class RaceSim {
         finished: player.finished,
         finishTime: player.finishTime,
       },
+      language: this.gateSet ? this.languageSnapshot(player) : undefined,
       standings: this.standings(),
       blips: this.racers.map((racer) => ({
         id: racer.id,
