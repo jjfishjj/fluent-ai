@@ -29,6 +29,8 @@ import ShadowingLab from "./pages/ShadowingLab";
 
 // The 3D world pulls in three.js, so it is split out of the main bundle.
 const XianjingWorld = lazy(() => import("./pages/XianjingWorld"));
+// The racer does too, and shares nothing with the MMORPG beyond three.js.
+const ChocoboRace = lazy(() => import("./pages/ChocoboRace"));
 
 const queryClient = new QueryClient();
 const basename = import.meta.env.BASE_URL === "/" ? undefined : import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -71,6 +73,20 @@ const App = () => (
                       }
                     >
                       <XianjingWorld />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/race"
+                  element={
+                    <Suspense
+                      fallback={
+                        <div className="grid min-h-screen place-items-center bg-slate-950 text-sm text-white/70">
+                          正在準備賽道…
+                        </div>
+                      }
+                    >
+                      <ChocoboRace />
                     </Suspense>
                   }
                 />

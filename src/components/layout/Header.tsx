@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag, Brain, Sparkles, Waves, Swords } from 'lucide-react';
+import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag, Brain, Sparkles, Waves, Swords, Flag } from 'lucide-react';
 import { WhatsNewButton } from '@/components/layout/WhatsNewButton';
 
 interface HeaderProps {
@@ -103,6 +103,12 @@ export function Header({
               <Button variant={isActive('/xianjing') ? 'secondary' : 'ghost'} size="sm">
                 <Swords className="w-4 h-4 mr-1" />
                 仙境 3D
+              </Button>
+            </Link>
+            <Link to="/race">
+              <Button variant={isActive('/race') ? 'secondary' : 'ghost'} size="sm">
+                <Flag className="w-4 h-4 mr-1" />
+                陸行鳥賽
               </Button>
             </Link>
             {isAdmin && (
@@ -216,6 +222,12 @@ export function Header({
                 <Button variant={isActive('/xianjing') ? 'secondary' : 'ghost'} className="w-full justify-start">
                   <Swords className="w-4 h-4 mr-2" />
                   仙境 3D
+                </Button>
+              </Link>
+              <Link to="/race" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button variant={isActive('/race') ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <Flag className="w-4 h-4 mr-2" />
+                  陸行鳥賽 3D
                 </Button>
               </Link>
               {isAdmin && (
