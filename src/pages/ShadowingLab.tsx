@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Brain, Check, ChevronRight, Ear, Eye, Gauge, Mic, Pause,
   Play, RotateCcw, Sparkles, Square, Volume2, Waves, X, Library,
-  Flame, Cloud, CloudOff, ScanText
+  Flame, Cloud, CloudOff, ScanText, AudioLines, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -17,6 +17,7 @@ import {
   loadCloudProgress, syncCloudProgress, todayKey,
   type DailyProgress, type ShadowingLevel,
 } from '@/lib/shadowing-lab';
+import { analyzeAudioBlob, type PronunciationScores } from '@/lib/pronunciation-analysis';
 
 type Stage = 'understand' | 'listen' | 'slow' | 'shadow' | 'recall';
 
@@ -121,6 +122,8 @@ export default function ShadowingLab() {
   const [recognizing, setRecognizing] = useState(false);
   const [daily, setDaily] = useState<DailyProgress>(EMPTY_DAILY);
   const [syncState, setSyncState] = useState<'local' | 'syncing' | 'synced' | 'error'>('local');
+  const [pronunciation, setPronunciation] = useState<PronunciationScores | null>(null);
+  const [analysisState, setAnalysisState] = useState<'idle' | 'analyzing' | 'ready' | 'error'>('idle');
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recognitionRef = useRef<any>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -180,6 +183,8 @@ export default function ShadowingLab() {
     setLevel(material.level);
     setText(material.text);
     setSpokenText('');
+    setPronunciation(null);
+    setAnalysisState('idle');
     setCompleted([]);
     setStage('understand');
     setShowText(true);
@@ -211,7 +216,7 @@ export default function ShadowingLab() {
     const nextDaily = addPracticeDay(daily, materialId);
     setDaily(nextDaily);
     localStorage.setItem(DAILY_KEY, JSON.stringify(nextDaily));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ completed: STAGES.map(s => s.id), score, transcriptScore: comparison?.score ?? null, lastPractice: new Date().toISOString(), type }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ completed: STAGES.map(s => s.id), score, transcriptScore: comparison?.score ?? null, pronunciation, lastPractice: new Date().toISOString(), type }));
     setShowScore(false);
     if (user) {
       setSyncState('syncing');
@@ -253,7 +258,12 @@ export default function ShadowingLab() {
       recorder.onstop = () => {
         stream.getTracks().forEach(track => track.stop());
         if (recordingUrl) URL.revokeObjectURL(recordingUrl);
-        setRecordingUrl(URL.createObjectURL(new Blob(chunksRef.current, { type: recorder.mimeType })));
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
+        setRecordingUrl(URL.createObjectURL(blob));
+        setAnalysisState('analyzing');
+        analyzeAudioBlob(blob, comparison?.score ?? null, text.trim().split(/\s+/).length)
+          .then(result => { setPronunciation(result); setAnalysisState('ready'); })
+          .catch(() => { setPronunciation(null); setAnalysisState('error'); });
       };
       recorder.start();
       setRecording(true);
@@ -377,6 +387,26 @@ export default function ShadowingLab() {
                 </div>
               </div>
               {recordingUrl && <audio className="w-full mt-4" controls src={recordingUrl} />}
+              {(analysisState !== 'idle' || pronunciation) && <div className="mt-4 rounded-3xl border border-black/10 p-5 md:p-6 bg-[#f4f0ff]" aria-live="polite">
+                <div className="flex items-start justify-between gap-4">
+                  <div><div className="text-sm font-black flex items-center gap-2"><AudioLines className="w-4 h-4 text-[#7357d9]" /> 發音教練評分</div><p className="text-xs text-black/45 mt-1">錄音只在你的裝置內分析；分數是聲學練習指標，不是臨床或母語者認證。</p></div>
+                  {pronunciation && <div className="text-right"><div className="text-3xl font-black text-[#5b43bc]">{pronunciation.overall}</div><div className="text-[10px] text-black/40">綜合分數</div></div>}
+                </div>
+                {analysisState === 'analyzing' && <div className="py-8 flex items-center justify-center gap-2 text-sm font-bold text-black/55"><Loader2 className="w-4 h-4 animate-spin" /> 正在分析音量、節奏與音高…</div>}
+                {analysisState === 'error' && <div className="mt-5 rounded-2xl bg-white/75 p-4 text-sm text-[#a83b31]"><div className="font-black">這次無法產生可靠分數</div><p className="text-xs mt-1 leading-relaxed">請靠近麥克風，連續說滿一秒後再停止錄音。過短或太安靜的錄音不會硬給分。</p></div>}
+                {pronunciation && <>
+                  <div className="grid grid-cols-3 gap-2 md:gap-3 mt-5">
+                    {[
+                      { key: 'phoneme', label: '音素清晰', value: pronunciation.phoneme },
+                      { key: 'stress', label: '重音節奏', value: pronunciation.stress },
+                      { key: 'intonation', label: '語調走向', value: pronunciation.intonation },
+                    ].map(item => <div key={item.key} className={`rounded-2xl p-3 md:p-4 ${pronunciation.weakest === item.key ? 'bg-[#fff0cf] ring-1 ring-[#e0a938]' : 'bg-white/75'}`}>
+                      <div className="text-xl md:text-2xl font-black">{item.value}</div><div className="text-[10px] md:text-xs text-black/50 mt-1">{item.label}</div>{pronunciation.weakest === item.key && <div className="text-[9px] font-black text-[#925f12] mt-2">本輪優先</div>}
+                    </div>)}
+                  </div>
+                  <div className="mt-4 rounded-2xl bg-white/75 p-4"><div className="text-xs font-black text-[#5b43bc]">下一輪預測與建議</div><p className="text-sm leading-relaxed mt-1.5">{pronunciation.advice}</p></div>
+                </>}
+              </div>}
 
               <div className="mt-6 rounded-3xl border border-black/10 p-5 md:p-6 bg-[#fbfbf8]">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -461,6 +491,7 @@ export default function ShadowingLab() {
           <p className="text-sm text-black/55 mt-2">你覺得這次能跟上多少？結果會用來安排下一次提取。</p>
           <div className="grid grid-cols-4 gap-2 mt-6">{[1,2,3,4].map(n => <button key={n} onClick={() => setScore(n)} className={`rounded-xl py-3 border font-black ${score === n ? 'bg-[#17201d] text-white border-[#17201d]' : 'border-black/10'}`}>{n}</button>)}</div>
           {comparison && <div className="mt-4 rounded-2xl bg-[#f1efe8] p-4 flex items-center justify-between"><span className="text-sm font-bold">本次逐字相似度</span><span className="text-xl font-black">{comparison.score}%</span></div>}
+          {pronunciation && <div className="mt-3 grid grid-cols-4 gap-2 rounded-2xl bg-[#f4f0ff] p-3 text-center"><div><div className="font-black">{pronunciation.overall}</div><div className="text-[9px] text-black/45">綜合</div></div><div><div className="font-black">{pronunciation.phoneme}</div><div className="text-[9px] text-black/45">音素</div></div><div><div className="font-black">{pronunciation.stress}</div><div className="text-[9px] text-black/45">重音</div></div><div><div className="font-black">{pronunciation.intonation}</div><div className="text-[9px] text-black/45">語調</div></div></div>}
           <div className="flex gap-3 mt-6"><Button variant="outline" className="flex-1" onClick={() => setShowScore(false)}>再練一次</Button><Button className="flex-1 bg-[#d55b38] hover:bg-[#bb4829]" onClick={saveCompletedSession}>儲存結果</Button></div>
         </Card>
       </div>}
