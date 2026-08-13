@@ -6,6 +6,8 @@ export interface AcousticFeatures {
   rhythmPeaks: number;
   pitchVariation: number;
   endingSlope: number;
+  energyContour: number[];
+  pitchContour: number[];
 }
 
 export interface PronunciationScores {
@@ -43,6 +45,7 @@ export function extractAcousticFeatures(samples: Float32Array, sampleRate: numbe
   const frameSize = Math.max(256, Math.floor(sampleRate * 0.04));
   const hop = Math.max(128, Math.floor(frameSize / 2));
   const energy: number[] = [];
+  const pitchFrames: number[] = [];
   const pitches: number[] = [];
   let totalSquare = 0;
   for (let i = 0; i < samples.length; i++) totalSquare += samples[i] * samples[i];
@@ -55,6 +58,9 @@ export function extractAcousticFeatures(samples: Float32Array, sampleRate: numbe
     if (frameRms > 0.012) {
       const pitch = estimatePitch(frame, sampleRate);
       if (pitch) pitches.push(pitch);
+      pitchFrames.push(pitch);
+    } else {
+      pitchFrames.push(0);
     }
   }
   const sortedEnergy = [...energy].sort((a, b) => a - b);
@@ -76,7 +82,29 @@ export function extractAcousticFeatures(samples: Float32Array, sampleRate: numbe
     rhythmPeaks,
     pitchVariation: pitchDeviation / Math.max(meanPitch, 1),
     endingSlope,
+    energyContour: energy.map(value => clamp(value / Math.max(percentile(0.95), 0.001), 0, 1)),
+    pitchContour: pitchFrames.map(value => value ? clamp((value - 75) / 275, 0, 1) : 0),
   };
+}
+
+export function buildReferenceContours(text: string, points: number) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const count = Math.max(points, 2);
+  const energy = Array.from({ length: count }, (_, index) => {
+    const progress = index / (count - 1);
+    const wordIndex = Math.min(words.length - 1, Math.floor(progress * words.length));
+    const word = words[wordIndex]?.replace(/[^a-z]/gi, '') ?? '';
+    const stressed = word.length >= 6 || /^(project|three|years|finally|ready|first|results|changed|flight|delayed|entire)$/i.test(word);
+    return clamp(0.25 + (stressed ? 0.52 : 0.25) * Math.sin(Math.PI * ((progress * words.length) % 1)), 0, 1);
+  });
+  const isQuestion = /\?\s*$/.test(text);
+  const pitch = Array.from({ length: count }, (_, index) => {
+    const progress = index / (count - 1);
+    const phraseMotion = 0.5 + 0.12 * Math.sin(progress * Math.PI * Math.max(2, words.length / 2));
+    const ending = progress > 0.72 ? (progress - 0.72) / 0.28 * (isQuestion ? 0.22 : -0.22) : 0;
+    return clamp(phraseMotion + ending, 0, 1);
+  });
+  return { energy, pitch };
 }
 
 export function scorePronunciation(features: AcousticFeatures, transcriptScore: number | null, expectedWords: number): PronunciationScores {

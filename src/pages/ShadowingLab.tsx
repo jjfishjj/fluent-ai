@@ -17,7 +17,8 @@ import {
   loadCloudProgress, syncCloudProgress, todayKey,
   type DailyProgress, type ShadowingLevel,
 } from '@/lib/shadowing-lab';
-import { analyzeAudioBlob, type PronunciationScores } from '@/lib/pronunciation-analysis';
+import { analyzeAudioBlob, buildReferenceContours, type PronunciationScores } from '@/lib/pronunciation-analysis';
+import { diagnoseWordPhonemes } from '@/lib/ipa-alignment';
 
 type Stage = 'understand' | 'listen' | 'slow' | 'shadow' | 'recall';
 
@@ -100,6 +101,31 @@ function markTranscript(text: string) {
   ));
 }
 
+function ContourOverlay({ values, reference, label }: { values: number[]; reference: number[]; label: string }) {
+  const width = 640; const height = 112;
+  const path = (series: number[]) => series.map((value, index) => `${index ? 'L' : 'M'} ${(index / Math.max(series.length - 1, 1) * width).toFixed(1)} ${(height - 10 - value * (height - 20)).toFixed(1)}`).join(' ');
+  return <div>
+    <div className="text-[11px] font-black text-black/55 mb-1.5">{label}</div>
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-24 rounded-xl bg-white/70" role="img" aria-label={`${label}：你的錄音與原音參考疊圖`}>
+      <path d={`M 0 ${height / 2} L ${width} ${height / 2}`} stroke="#17201d" strokeOpacity=".08" />
+      <path d={path(reference)} fill="none" stroke="#7357d9" strokeWidth="4" strokeDasharray="9 7" />
+      <path d={path(values)} fill="none" stroke="#d55b38" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  </div>;
+}
+
+function ProsodyOverlay({ pronunciation, text }: { pronunciation: PronunciationScores; text: string }) {
+  const reference = buildReferenceContours(text, pronunciation.features.energyContour.length);
+  return <div className="mt-4 rounded-2xl bg-white/75 p-4">
+    <div className="flex flex-wrap items-center justify-between gap-2"><div className="text-xs font-black text-[#5b43bc]">原音目標 × 我的錄音</div><div className="flex gap-3 text-[10px] text-black/45"><span><i className="inline-block w-4 border-t-2 border-dashed border-[#7357d9] mr-1" />原音目標</span><span><i className="inline-block w-4 border-t-2 border-[#d55b38] mr-1" />我的錄音</span></div></div>
+    <div className="grid md:grid-cols-2 gap-4 mt-4">
+      <ContourOverlay label="重音／能量波形" values={pronunciation.features.energyContour} reference={reference.energy} />
+      <ContourOverlay label="音高／語調曲線" values={pronunciation.features.pitchContour} reference={reference.pitch} />
+    </div>
+    <p className="text-[10px] leading-relaxed text-black/40 mt-3">原音目標依目前逐字稿的內容詞重音與句尾語調建立；橘線為裝置實測錄音。兩線越貼近，節奏與語調越一致。</p>
+  </div>;
+}
+
 export default function ShadowingLab() {
   const { user } = useAuth();
   const detected = useMemo(() => loadGeniusType(), []);
@@ -131,6 +157,7 @@ export default function ShadowingLab() {
   const guide = TYPE_GUIDES[type];
   const stageIndex = STAGES.findIndex(s => s.id === stage);
   const comparison = useMemo(() => spokenText.trim() ? compareTranscript(text, spokenText) : null, [text, spokenText]);
+  const phonemeDiagnostics = useMemo(() => comparison ? diagnoseWordPhonemes(comparison.compared) : [], [comparison]);
   const streak = calculateStreak(daily.practicedDates);
   const practicedToday = daily.practicedDates.includes(todayKey());
 
@@ -405,6 +432,7 @@ export default function ShadowingLab() {
                     </div>)}
                   </div>
                   <div className="mt-4 rounded-2xl bg-white/75 p-4"><div className="text-xs font-black text-[#5b43bc]">下一輪預測與建議</div><p className="text-sm leading-relaxed mt-1.5">{pronunciation.advice}</p></div>
+                  <ProsodyOverlay pronunciation={pronunciation} text={text} />
                 </>}
               </div>}
 
@@ -419,6 +447,18 @@ export default function ShadowingLab() {
                   <Progress value={comparison.score} className="h-2 mt-2" />
                   <div className="flex flex-wrap gap-2 mt-4">{comparison.compared.map((item, index) => <span key={`${item.word}-${index}`} title={item.status === 'replaced' ? `你說：${item.spoken}` : undefined} className={`rounded-lg px-2 py-1 text-sm font-bold ${item.status === 'correct' ? 'bg-[#dff4eb] text-[#236d52]' : item.status === 'missed' ? 'bg-[#fbe3df] text-[#a83b31] line-through' : 'bg-[#fff0cf] text-[#925f12]'}`}>{item.word}</span>)}</div>
                   <div className="flex flex-wrap gap-4 mt-3 text-[11px] text-black/45"><span>綠色＝正確</span><span>紅色＝遺漏</span><span>黃色＝替換（游標停留可看辨識詞）</span></div>
+                  <div className="mt-5 border-t border-black/10 pt-5">
+                    <div className="flex flex-wrap items-start justify-between gap-2"><div><div className="text-xs font-black text-[#5b43bc]">逐音素 IPA 定位</div><p className="text-[11px] text-black/45 mt-1">將辨識詞轉為 IPA 後逐音素對齊，紅色是遺漏音、黃色是疑似錯音。</p></div><div className="text-[10px] rounded-full bg-white border border-black/10 px-2.5 py-1">GA 美式 IPA</div></div>
+                    <div className="grid sm:grid-cols-2 gap-2 mt-4">
+                      {phonemeDiagnostics.map((word, index) => <div key={`${word.word}-${index}`} className={`rounded-xl border p-3 ${word.status === 'correct' ? 'border-black/5 bg-white/60' : word.status === 'unknown' ? 'border-black/10 bg-black/[0.025]' : 'border-[#e0a938]/40 bg-[#fffaf0]'}`}>
+                        <div className="flex items-center justify-between gap-2"><span className="text-xs font-black">{word.word}</span><span className="text-[10px] text-black/40">{word.spoken && word.spoken !== word.word ? `辨識：${word.spoken}` : word.status === 'missed' ? '未辨識' : ''}</span></div>
+                        <div className="flex flex-wrap gap-1 mt-2" aria-label={`${word.word} ${word.ipa}`}>
+                          {word.phonemes.length ? word.phonemes.map((phoneme, phonemeIndex) => <span key={`${phoneme.symbol}-${phonemeIndex}`} title={phoneme.status === 'replaced' ? `預期 ${phoneme.symbol}，辨識接近 ${phoneme.spoken}` : undefined} className={`min-w-7 rounded-md px-1.5 py-1 text-center font-mono text-sm font-black ${phoneme.status === 'correct' ? 'bg-[#dff4eb] text-[#236d52]' : phoneme.status === 'missed' ? 'bg-[#fbe3df] text-[#a83b31] line-through' : 'bg-[#fff0cf] text-[#925f12]'}`}>{phoneme.symbol}</span>) : <span className="text-xs text-black/35">{word.ipa}・自訂詞彙尚無可靠音標</span>}
+                        </div>
+                      </div>)}
+                    </div>
+                    <p className="text-[10px] leading-relaxed text-black/40 mt-3">定位依瀏覽器辨識詞推算，可指出具體音素差異；若要量測舌位或聲帶發音，仍需專業聲學模型或教師確認。</p>
+                  </div>
                 </div>}
               </div>
 
