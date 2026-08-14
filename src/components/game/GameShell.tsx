@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { classDef } from '@/game/data/classes';
-import { QUESTS } from '@/game/data/quests';
-import { ITEMS } from '@/game/data/items';
 import { World } from '@/game/core/world';
 import { saveProfile } from '@/game/core/save';
 import { distance } from '@/game/core/formulas';
+import { ContentPack, classOf } from '@/game/core/content';
+import type { EncounterQuestion, QuestionSource } from '@/game/core/encounter';
 import { GameRenderer } from '@/game/render/GameRenderer';
 import { CompanionDirector } from '@/game/net/companions';
 import type { ChatLine, HudSnapshot, NpcDef, PlayerProfile, Stats } from '@/game/core/types';
@@ -23,10 +22,26 @@ import { Minimap } from './Minimap';
 import { ChatPanel } from './ChatPanel';
 import { CharacterSheet } from './CharacterSheet';
 import { NpcDialog, ShopDialog } from './GameDialogs';
+import { EncounterPanel } from './EncounterPanel';
 
 const HUD_INTERVAL = 100;
 
-export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onExit: () => void }) {
+export interface GameShellProps {
+  pack: ContentPack;
+  profile: PlayerProfile;
+  onExit: () => void;
+  /** Turn-based packs only: supplies the questions for an exchange. */
+  questions?: QuestionSource;
+  /** Turn-based packs only: called after every answer. */
+  onAnswer?: (question: EncounterQuestion, correct: boolean) => void;
+}
+
+/**
+ * Hosts a running campaign: the 3D view, the HUD, and the input wiring.
+ * Everything campaign-specific arrives through `pack`, so the same shell runs
+ * both 仙境奇俠傳 and 通譯官.
+ */
+export function GameShell({ pack, profile, onExit, questions, onAnswer }: GameShellProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
@@ -43,7 +58,7 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
   const [talk, setTalk] = useState<{ npc: NpcDef } | null>(null);
   const [netMode, setNetMode] = useState('simulated');
 
-  const skillOrder = useMemo(() => classDef(profile.classId).skills, [profile.classId]);
+  const skillOrder = useMemo(() => classOf(pack, profile.classId).skills, [pack, profile.classId]);
 
   // Anything the UI calls that must reach the live world instance.
   const withWorld = useCallback(<T,>(fn: (w: World) => T): T | undefined => {
@@ -51,15 +66,22 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
     return w ? fn(w) : undefined;
   }, []);
 
-  const cast = useCallback(
-    (skillId: string) => {
-      const w = worldRef.current;
-      const r = rendererRef.current;
-      if (!w || !r) return;
-      w.castSkill(skillId, r.aim);
-    },
-    [],
-  );
+  const cast = useCallback((skillId: string) => {
+    const w = worldRef.current;
+    const r = rendererRef.current;
+    if (!w || !r) return;
+    // In a turn-based campaign the "skills" are memory techniques, and they
+    // only mean anything while a question is on screen.
+    if (w.pack.turnBased) {
+      if (!w.encounter) {
+        w.say('system', '系統', '記憶技法要在對話中才能施展。');
+        return;
+      }
+      w.useAid(skillId);
+      return;
+    }
+    w.castSkill(skillId, r.aim);
+  }, []);
 
   const interact = useCallback(() => {
     const w = worldRef.current;
@@ -79,14 +101,20 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
     const wrap = wrapRef.current;
     if (!canvas || !wrap) return;
 
-    const world = new World(profile);
+    const world = new World(profile, { pack, questions, onAnswer });
     const renderer = new GameRenderer(canvas, world);
     const companions = new CompanionDirector(world);
     companions.enterZone(world.zone.id);
     worldRef.current = world;
     rendererRef.current = renderer;
     companionsRef.current = companions;
-    world.say('system', '系統', '歡迎來到仙境。點擊地面移動，點擊怪物選取目標。');
+    world.say(
+      'system',
+      '系統',
+      pack.turnBased
+        ? '點擊地面移動。走近障礙就會開始對話。'
+        : '歡迎來到仙境。點擊地面移動，點擊怪物選取目標。',
+    );
 
     const resize = () => {
       renderer.resize(wrap.clientWidth, wrap.clientHeight);
@@ -142,20 +170,20 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
     };
     raf = requestAnimationFrame(loop);
 
-    const save = window.setInterval(() => saveProfile(world.profile), 8000);
+    const save = window.setInterval(() => saveProfile(world.profile, pack), 8000);
 
     return () => {
       cancelAnimationFrame(raf);
       window.clearInterval(save);
       ro.disconnect();
-      saveProfile(world.profile);
+      saveProfile(world.profile, pack);
       companions.dispose();
       renderer.dispose();
       worldRef.current = null;
       rendererRef.current = null;
       companionsRef.current = null;
     };
-  }, [profile]);
+  }, [pack, profile, questions, onAnswer]);
 
   // ── keyboard ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -201,7 +229,7 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
           break;
         case 'r':
         case 't': {
-          const potions = w.profile.inventory.filter((s) => ITEMS[s.itemId]?.kind === 'consumable');
+          const potions = w.profile.inventory.filter((s) => w.pack.items[s.itemId]?.kind === 'consumable');
           const slot = potions[key === 'r' ? 0 : 1];
           if (slot) w.useItem(slot.itemId);
           break;
@@ -362,7 +390,7 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
   const turnInQuest = (questId: string) => {
     const w = worldRef.current;
     if (!w) return;
-    const def = QUESTS[questId];
+    const def = w.pack.quests[questId];
     const giver = w.zone.npcs.find((n) => n.id === def?.giver);
     if (!giver || distance(w.player.pos.x, w.player.pos.z, giver.at.x, giver.at.z) > 4.5) {
       w.say('system', '系統', `請回到 ${def?.giver ? `${def.zone} 的委託人` : 'NPC'} 身邊覆命。`);
@@ -440,6 +468,18 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
         />
       </div>
 
+      {hud.encounter && (
+        <EncounterPanel
+          hud={hud}
+          encounter={hud.encounter}
+          onAnswer={(option) => withWorld((w) => w.answerEncounter(option))}
+          onNext={() => withWorld((w) => w.nextQuestion())}
+          onAid={(skillId) => withWorld((w) => w.useAid(skillId))}
+          onFlee={() => withWorld((w) => w.fleeEncounter())}
+          onClose={() => withWorld((w) => w.closeEncounter())}
+        />
+      )}
+
       <DeathOverlay hud={hud} onRespawn={() => withWorld((w) => w.respawn())} />
 
       <CharacterSheet
@@ -452,6 +492,7 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
       />
 
       <NpcDialog
+        pack={pack}
         talk={talk}
         hud={hud}
         onClose={() => setTalk(null)}
@@ -472,6 +513,7 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
       />
 
       <ShopDialog
+        pack={pack}
         open={shopOpen}
         onOpenChange={setShopOpen}
         hud={hud}

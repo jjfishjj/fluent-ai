@@ -4,6 +4,7 @@ import type { ClassDef, ClassId } from '../core/types';
 export const CLASSES: Record<ClassId, ClassDef> = {
   sword: {
     id: 'sword',
+    icon: '⚔️',
     name: '劍俠',
     title: '御劍破敵',
     description: '近身劍修，血厚攻高，靠連斬與旋風掃開怪群。新手最好上手的職業。',
@@ -18,6 +19,7 @@ export const CLASSES: Record<ClassId, ClassDef> = {
   },
   talisman: {
     id: 'talisman',
+    icon: '🔥',
     name: '符籙師',
     title: '引雷焚山',
     description: '遠程法系，符咒範圍爆發極高，但體質脆弱，需拉開距離放招。',
@@ -32,6 +34,7 @@ export const CLASSES: Record<ClassId, ClassDef> = {
   },
   archer: {
     id: 'archer',
+    icon: '🏹',
     name: '御風獵手',
     title: '百步穿楊',
     description: '遠程物理，攻速與爆擊見長，機動性最好，適合放風箏打法。',
@@ -46,6 +49,7 @@ export const CLASSES: Record<ClassId, ClassDef> = {
   },
   healer: {
     id: 'healer',
+    icon: '✨',
     name: '丹霞醫者',
     title: '懸壺濟世',
     description: '輔助職業，自帶治療與護體神咒，續戰力最強，單體輸出偏低。',

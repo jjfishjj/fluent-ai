@@ -29,6 +29,7 @@ import ShadowingLab from "./pages/ShadowingLab";
 
 // The 3D world pulls in three.js, so it is split out of the main bundle.
 const XianjingWorld = lazy(() => import("./pages/XianjingWorld"));
+const InterpreterWorld = lazy(() => import("./pages/InterpreterWorld"));
 
 const queryClient = new QueryClient();
 const basename = import.meta.env.BASE_URL === "/" ? undefined : import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -70,6 +71,20 @@ const App = () => (
                       }
                     >
                       <XianjingWorld />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/interpreter"
+                  element={
+                    <Suspense
+                      fallback={
+                        <div className="grid min-h-screen place-items-center bg-slate-950 text-sm text-white/70">
+                          正在前往任務地點…
+                        </div>
+                      }
+                    >
+                      <InterpreterWorld />
                     </Suspense>
                   }
                 />
