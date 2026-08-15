@@ -279,6 +279,7 @@ function testRacer(birdId = 'gold'): Racer {
     name: 'r',
     birdId,
     isPlayer: true,
+    control: 'player',
     pos: { x: 0, z: 0 },
     y: 0,
     yaw: 0,

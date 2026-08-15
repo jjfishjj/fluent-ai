@@ -19,13 +19,18 @@ import type { BirdDef } from '@/game/race/core/types';
 import { cn } from '@/lib/utils';
 
 export interface RaceOptions {
-  mode: 'campaign' | 'free';
+  mode: 'campaign' | 'free' | 'multiplayer';
   nationId: string;
   birdId: string;
   difficulty: number;
   rivals: number;
   challenge?: ChallengeKind;
   stageIndex?: number;
+  /** Multiplayer only: shared seed, so every client races the same course. */
+  seed?: number;
+  roomId?: string;
+  /** Multiplayer only: the other humans on the grid. */
+  remotes?: { id: string; name: string; birdId: string }[];
 }
 
 const DIFFICULTIES = ['輕鬆', '標準', '高手'];
@@ -220,7 +225,13 @@ function StageCard({
  * The circuit lobby: a diplomatic posting board on one tab, free practice on
  * the other. Both hand a `RaceOptions` back up to the page.
  */
-export function RaceLobby({ onStart }: { onStart: (options: RaceOptions) => void }) {
+export function RaceLobby({
+  onStart,
+  onBackToHub,
+}: {
+  onStart: (options: RaceOptions) => void;
+  onBackToHub?: () => void;
+}) {
   const [profile, setProfile] = useState<DiplomatProfile | null>(null);
   const [tab, setTab] = useState<'campaign' | 'free'>('campaign');
   const [birdId, setBirdId] = useState('gold');
@@ -271,6 +282,14 @@ export function RaceLobby({ onStart }: { onStart: (options: RaceOptions) => void
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 text-white">
+      {onBackToHub && (
+        <button
+          onClick={onBackToHub}
+          className="mb-3 rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-[12px] text-white/75 transition hover:bg-white/10"
+        >
+          ← 回使節廣場
+        </button>
+      )}
       <div className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">陸行鳥外交巡迴賽 3D</h1>
         <p className="mt-1 text-sm text-white/60">

@@ -8,6 +8,7 @@ import type { GateOutcome, GateQuestion, GateSet } from './gates';
 import { neutralInput, resolveContact, stepRacer } from './physics';
 import { buildTrack, gridSlot, isHazardAt, project, wrapAngle, wrapDistance } from './track';
 import type {
+  RemoteState,
   RaceEvent,
   RacePhase,
   RaceSnapshot,
@@ -16,6 +17,7 @@ import type {
   Surface,
   Track,
 } from './types';
+import type { RacerControl } from './types';
 import type { ChallengeKind, Phrase } from '../data/nations';
 
 export interface RaceConfig {
@@ -31,6 +33,8 @@ export interface RaceConfig {
   challenge?: ChallengeKind;
   /** Gates per lap. */
   gateCount?: number;
+  /** Human opponents driven over the network, filled in before the AI. */
+  remotes?: { id: string; name: string; birdId: string }[];
 }
 
 /** One answered gate, in the order the player met them. */
@@ -98,16 +102,21 @@ export class RaceSim {
       );
     }
 
-    const rivals = Math.max(0, Math.min(7, config.rivals));
+    // Humans first, then AI fills whatever is left of the grid.
+    const remotes = (config.remotes ?? []).slice(0, 7);
+    const rivals = Math.max(0, Math.min(7 - remotes.length, config.rivals));
     const pool = BIRD_IDS.filter((id) => id !== config.birdId);
-    const entries: { name: string; birdId: string; isPlayer: boolean }[] = [
-      { name: config.riderName || '你', birdId: config.birdId, isPlayer: true },
+    const entries: { id?: string; name: string; birdId: string; control: RacerControl }[] = [
+      { name: config.riderName || '你', birdId: config.birdId, control: 'player' },
     ];
+    for (const remote of remotes) {
+      entries.push({ id: remote.id, name: remote.name, birdId: remote.birdId, control: 'remote' });
+    }
     for (let i = 0; i < rivals; i += 1) {
       entries.push({
         name: RIVAL_NAMES[i % RIVAL_NAMES.length],
         birdId: pool[i % pool.length],
-        isPlayer: false,
+        control: 'ai',
       });
     }
 
@@ -118,10 +127,15 @@ export class RaceSim {
       const bird = birdDef(entry.birdId);
       const projection = project(this.track, slot.pos.x, slot.pos.z, -1);
       this.racers.push({
-        id: entry.isPlayer ? 'player' : `ai${index}`,
+        id: entry.control === 'player' ? 'player' : (entry.id ?? `ai${index}`),
         name: entry.name,
         birdId: entry.birdId,
-        isPlayer: entry.isPlayer,
+        isPlayer: entry.control === 'player',
+        control: entry.control,
+        remote:
+          entry.control === 'remote'
+            ? { x: slot.pos.x, z: slot.pos.z, yaw: slot.yaw, speed: 0, lap: 0, progress: 0, at: 0 }
+            : undefined,
         pos: { ...slot.pos },
         y: slot.y,
         yaw: slot.yaw,
@@ -209,7 +223,11 @@ export class RaceSim {
         this.updateTrackState(racer, dt);
         continue;
       }
-      if (!racer.isPlayer) this.driveAi(racer);
+      if (racer.control === 'remote') {
+        this.stepRemote(racer, dt);
+        continue;
+      }
+      if (racer.control === 'ai') this.driveAi(racer);
       const surface = this.surfaceFor(racer);
       stepRacer(racer, dt, surface, (seconds) => {
         this.events.push({ kind: 'drift', racerId: racer.id, value: seconds });
@@ -226,6 +244,56 @@ export class RaceSim {
     this.updateStandings();
 
     if (this.racers.every((r) => r.finished)) this.phase = 'finished';
+  }
+
+  // ── networked racers ─────────────────────────────────────────────────────
+
+  /**
+   * Applies a packet from another player's client. Their own client is the
+   * authority on their lap and progress; we only smooth their position.
+   */
+  applyRemote(id: string, state: Omit<RemoteState, 'at'>): void {
+    const racer = this.racers.find((r) => r.id === id && r.control === 'remote');
+    if (!racer || !racer.remote) return;
+    racer.remote = { ...state, at: this.time };
+    if (!racer.finished && state.lap >= this.laps) {
+      racer.finished = true;
+      racer.finishTime = this.time;
+      this.events.push({ kind: 'finish', racerId: racer.id });
+    }
+  }
+
+  /**
+   * Moves a networked racer between packets: dead-reckon their last known
+   * heading and speed, then ease the visible bird onto that estimate, so a
+   * 10 Hz feed still looks like a bird running rather than teleporting.
+   */
+  private stepRemote(racer: Racer, dt: number): void {
+    const remote = racer.remote;
+    if (!remote) return;
+
+    remote.x += Math.sin(remote.yaw) * remote.speed * dt;
+    remote.z += Math.cos(remote.yaw) * remote.speed * dt;
+    // Advance their progress too, so standings do not step at 10 Hz. The next
+    // packet overwrites it, so the estimate can never drift far.
+    remote.progress += remote.speed * dt;
+
+    const follow = 1 - Math.exp(-6 * dt);
+    racer.pos.x += (remote.x - racer.pos.x) * follow;
+    racer.pos.z += (remote.z - racer.pos.z) * follow;
+    racer.yaw = wrapAngle(racer.yaw + wrapAngle(remote.yaw - racer.yaw) * follow);
+    racer.moveYaw = racer.yaw;
+    racer.speed = remote.speed;
+    racer.lap = remote.lap;
+    racer.progress = remote.progress;
+
+    // Keep the projection fresh for the minimap and for contact resolution.
+    const projection = project(this.track, racer.pos.x, racer.pos.z, racer.sample);
+    racer.sample = projection.index;
+    racer.s = projection.s;
+    racer.lateral = projection.lateral;
+    racer.halfWidth = projection.halfWidth;
+    racer.y = projection.y;
   }
 
   // ── track interaction ────────────────────────────────────────────────────
@@ -271,6 +339,7 @@ export class RaceSim {
     // spins, reverses, or sits on the line.
     const delta = wrapDistance(racer.s, before, this.track.length);
     if (Math.abs(delta) < this.track.length * 0.25) racer.progress += delta;
+
 
     if (!racer.finished) {
       this.checkPads(racer);

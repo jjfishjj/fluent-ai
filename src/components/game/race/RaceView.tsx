@@ -11,6 +11,7 @@ import type { RaceSnapshot } from '@/game/race/core/types';
 import { CountdownOverlay, RaceHud, ResultOverlay } from './RaceHud';
 import { speakPhrase } from '@/game/race/core/speech';
 import { GateFlash, GatePrompt, MemoriseOverlay, type CampaignSummary } from './RaceLanguageHud';
+import type { CircuitNet } from '@/game/race/net/circuit';
 import type { RaceOptions } from './RaceLobby';
 import { cn } from '@/lib/utils';
 
@@ -73,7 +74,16 @@ function PadButton({
  * speech and memorisation phases, and the bridge from a finished race into the
  * diplomat profile and fluent-ai's memory cards.
  */
-export function RaceView({ options, onExit }: { options: RaceOptions; onExit: () => void }) {
+export function RaceView({
+  options,
+  net,
+  onExit,
+}: {
+  options: RaceOptions;
+  /** Present when the race came out of a hub room; drives the other humans. */
+  net?: CircuitNet;
+  onExit: () => void;
+}) {
   const { user } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -145,10 +155,14 @@ export function RaceView({ options, onExit }: { options: RaceOptions; onExit: ()
       riderName: '你',
       rivals: options.rivals,
       difficulty: options.difficulty,
-      seed: 20260813 + runId * 977,
+      // Multiplayer races share the room's seed so every client builds the
+      // same track, the same gates and the same AI field.
+      seed: (options.seed ?? 20260813) + runId * 977,
       challenge: options.challenge,
+      remotes: options.remotes,
     });
     const renderer = new RaceRenderer(canvas, sim);
+    net?.onRacerPacket((packet) => sim.applyRemote(packet.id, packet));
     simRef.current = sim;
     rendererRef.current = renderer;
     heldRef.current = emptyHeld();
@@ -211,6 +225,22 @@ export function RaceView({ options, onExit }: { options: RaceOptions; onExit: ()
 
       renderer.frame(dt);
 
+      // Publish our own bird so the other clients can draw it.
+      if (net && options.roomId) {
+        const me = sim.player;
+        net.publishRacer(
+          {
+            x: me.pos.x,
+            z: me.pos.z,
+            yaw: me.yaw,
+            speed: me.speed,
+            lap: me.lap,
+            progress: me.progress,
+          },
+          dt,
+        );
+      }
+
       fpsAccum += dt;
       fpsFrames += 1;
       if (fpsAccum >= 0.5) {
@@ -242,7 +272,7 @@ export function RaceView({ options, onExit }: { options: RaceOptions; onExit: ()
             bestLap: snapshot.player.bestLap,
           });
           setNewRecord(saved.newRaceRecord || saved.newLapRecord);
-          setSummary(buildSummary(sim, options));
+          if (options.mode !== 'multiplayer') setSummary(buildSummary(sim, options));
         }
       }
     };
@@ -256,7 +286,7 @@ export function RaceView({ options, onExit }: { options: RaceOptions; onExit: ()
       simRef.current = null;
       rendererRef.current = null;
     };
-  }, [options, runId, pushToast]);
+  }, [options, runId, pushToast, net]);
 
   // ── keyboard ────────────────────────────────────────────────────────────
   useEffect(() => {

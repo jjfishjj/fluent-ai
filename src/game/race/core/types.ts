@@ -117,11 +117,29 @@ export interface RacerInput {
   drift: boolean;
 }
 
+/** Who drives a racer: the human at this keyboard, the AI, or the network. */
+export type RacerControl = 'player' | 'ai' | 'remote';
+
+/** The last state a networked racer sent, dead-reckoned between packets. */
+export interface RemoteState {
+  x: number;
+  z: number;
+  yaw: number;
+  speed: number;
+  lap: number;
+  progress: number;
+  /** Local clock when this packet arrived, for staleness checks. */
+  at: number;
+}
+
 export interface Racer {
   id: string;
   name: string;
   birdId: string;
   isPlayer: boolean;
+  control: RacerControl;
+  /** Present only while `control === 'remote'`. */
+  remote?: RemoteState;
   pos: Vec2;
   y: number;
   /** Facing, radians, 0 = +Z. */
