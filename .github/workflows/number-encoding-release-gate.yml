@@ -1,0 +1,37 @@
+name: Number Encoding Release Gate
+
+on:
+  pull_request:
+    paths:
+      - 'src/components/practice/**'
+      - 'src/lib/number-**'
+      - 'public/models/number-morph/**'
+      - 'scripts/e2e-number-encoding.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/number-encoding-release-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/components/practice/**'
+      - 'src/lib/number-**'
+      - 'public/models/number-morph/**'
+      - 'scripts/e2e-number-encoding.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/number-encoding-release-gate.yml'
+  workflow_dispatch:
+
+jobs:
+  verify-number-encoding:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify unit, build, and complete browser flow
+        run: npm run verify:release

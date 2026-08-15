@@ -1,0 +1,29 @@
+import { useMemo, useState, type ReactNode } from 'react';
+import { AlertTriangle, CalendarDays, Clock3, GraduationCap, Target } from 'lucide-react';
+import { codeRiskRanking, readNumberAttempts } from '@/lib/number-training-analytics';
+
+const DEMO_ATTEMPTS = [
+  { id: 'demo-1', student: '王小明（示範）', completedAt: Date.now() - 3_600_000, correct: 7, total: 10, averageResponseMs: 4200, results: [{ code: '04', correct: false, responseMs: 7100 }, { code: '18', correct: true, responseMs: 2600 }, { code: '31', correct: false, responseMs: 6800 }, { code: '43', correct: true, responseMs: 3100 }, { code: '77', correct: false, responseMs: 6400 }] },
+  { id: 'demo-2', student: '陳怡君（示範）', completedAt: Date.now() - 86_400_000, correct: 9, total: 10, averageResponseMs: 3100, results: [{ code: '04', correct: true, responseMs: 2900 }, { code: '18', correct: true, responseMs: 2400 }, { code: '31', correct: false, responseMs: 5600 }, { code: '43', correct: true, responseMs: 2800 }, { code: '77', correct: true, responseMs: 3000 }] },
+];
+
+export function NumberTeacherDashboard() {
+  const [savedAttempts] = useState(readNumberAttempts);
+  const attempts = savedAttempts.length ? savedAttempts : DEMO_ATTEMPTS;
+  const students = useMemo(() => ['全部學生', ...new Set(attempts.map((item) => item.student))], [attempts]);
+  const [student, setStudent] = useState('全部學生');
+  const filtered = student === '全部學生' ? attempts : attempts.filter((item) => item.student === student);
+  const ranking = codeRiskRanking(filtered);
+  const accuracy = filtered.length ? filtered.reduce((sum, item) => sum + item.correct / item.total, 0) / filtered.length : 0;
+  const response = filtered.length ? filtered.reduce((sum, item) => sum + item.averageResponseMs, 0) / filtered.length : 0;
+
+  return <section className="mt-6 rounded-[28px] bg-[#081226] p-6 text-white shadow-xl md:p-8">
+    <div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-xs font-black tracking-[.2em] text-cyan-300"><GraduationCap className="h-5 w-5" />TEACHER ANALYTICS</div><h2 className="mt-2 text-3xl font-black">數字轉碼學習儀表板</h2><p className="mt-2 text-sm text-slate-400">依真實回想紀錄追蹤學生、日期、正確率、反應時間與高風險編碼。</p>{!savedAttempts.length && <span className="mt-3 inline-block rounded-full bg-amber-300/10 px-3 py-1 text-[11px] font-bold text-amber-200">目前顯示示範資料 · 完成測驗後自動切換</span>}</div><select aria-label="篩選學生" value={student} onChange={(event) => setStudent(event.target.value)} className="rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-sm font-bold">{students.map((name) => <option key={name}>{name}</option>)}</select></div>
+    {!filtered.length ? <div className="mt-8 rounded-2xl border border-dashed border-white/15 p-10 text-center"><Target className="mx-auto h-10 w-10 text-slate-600" /><h3 className="mt-3 font-black">尚無學生測驗紀錄</h3><p className="mt-2 text-sm text-slate-500">完成一次「3D 空間戰」後，資料會自動出現在這裡。</p></div> : <>
+      <div className="mt-7 grid gap-3 sm:grid-cols-3"><Metric icon={<Target />} label="平均正確率" value={`${Math.round(accuracy * 100)}%`} /><Metric icon={<Clock3 />} label="平均反應時間" value={`${(response / 1000).toFixed(1)} 秒`} /><Metric icon={<CalendarDays />} label="完成測驗" value={`${filtered.length} 次`} /></div>
+      <div className="mt-7 grid gap-5 lg:grid-cols-[1.15fr_.85fr]"><div className="rounded-2xl border border-white/10 bg-white/5 p-5"><h3 className="font-black">最近學習紀錄</h3><div className="mt-4 space-y-2">{filtered.slice(0, 8).map((item) => <div key={item.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-xl bg-black/20 p-3 text-sm"><div><div className="font-bold">{item.student}</div><div className="text-xs text-slate-500">{new Date(item.completedAt).toLocaleString('zh-TW')}</div></div><div className="font-mono font-black text-cyan-200">{item.correct}/{item.total}</div><div className="text-xs text-slate-400">{(item.averageResponseMs / 1000).toFixed(1)}s</div></div>)}</div></div><div className="rounded-2xl border border-rose-300/15 bg-rose-300/5 p-5"><h3 className="flex items-center gap-2 font-black"><AlertTriangle className="h-4 w-4 text-rose-300" />高風險編碼排行</h3><div className="mt-4 space-y-3">{ranking.slice(0, 6).map((item, index) => <div key={item.code}><div className="flex items-center justify-between text-sm"><span><b className="mr-2 text-rose-200">#{index + 1}</b><span className="font-mono font-black">{item.code}</span></span><span className="text-xs text-slate-400">錯誤 {Math.round(item.errorRate * 100)}% · {(item.averageResponseMs / 1000).toFixed(1)}s</span></div><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-rose-400" style={{ width: `${Math.max(5, item.riskScore * 100)}%` }} /></div></div>)}</div></div></div>
+    </>}
+  </section>;
+}
+
+function Metric({ icon, label, value }: { icon: ReactNode; label: string; value: string }) { return <div className="rounded-2xl border border-white/10 bg-white/5 p-5"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-300/10 text-cyan-300 [&>svg]:h-4 [&>svg]:w-4">{icon}</div><div className="mt-3 text-xs text-slate-500">{label}</div><div className="mt-1 text-2xl font-black">{value}</div></div>; }

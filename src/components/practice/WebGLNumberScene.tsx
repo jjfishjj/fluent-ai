@@ -1,8 +1,9 @@
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Float, OrbitControls, Sparkles, Stars, Text3D } from '@react-three/drei';
 import * as THREE from 'three';
 import helvetiker from 'three/examples/fonts/helvetiker_bold.typeface.json';
+import { GLBMorphModel, GLB_MORPH_ASSETS } from './GLBMorphModel';
 
 type SceneRound = {
   code: string;
@@ -16,6 +17,8 @@ type Props = {
   combo: number;
   quality: 'low' | 'high';
   recallMode?: boolean;
+  morphSpeed?: number;
+  animationEnabled?: boolean;
 };
 
 const MORPH_GEOMETRY_CACHE = new Map<string, THREE.BufferGeometry>();
@@ -41,7 +44,7 @@ function cachedMorphGeometry(code: string) {
   return geometry;
 }
 
-function CameraRig({ submitted, combo }: { submitted: boolean; combo: number }) {
+function CameraRig({ submitted, combo, speed }: { submitted: boolean; combo: number; speed: number }) {
   const { camera } = useThree();
   const impulse = useRef(0);
 
@@ -50,6 +53,7 @@ function CameraRig({ submitted, combo }: { submitted: boolean; combo: number }) 
   }, [submitted, combo]);
 
   useFrame((state, delta) => {
+    delta *= speed;
     const targetZ = submitted ? 7.1 : 8.4;
     camera.position.z = THREE.MathUtils.damp(camera.position.z, targetZ, 3.8, delta);
     if (impulse.current > .002) {
@@ -64,7 +68,7 @@ function CameraRig({ submitted, combo }: { submitted: boolean; combo: number }) 
   return null;
 }
 
-function NumberSculpture({ round, submitted }: { round: SceneRound; submitted: boolean }) {
+function NumberSculpture({ round, submitted, speed }: { round: SceneRound; submitted: boolean; speed: number }) {
   const group = useRef<THREE.Group>(null);
   const material = useMemo(() => new THREE.MeshPhysicalMaterial({
     color: round.palette,
@@ -81,6 +85,7 @@ function NumberSculpture({ round, submitted }: { round: SceneRound; submitted: b
   useEffect(() => () => material.dispose(), [material]);
 
   useFrame((state, delta) => {
+    delta *= speed;
     if (!group.current) return;
     const target = submitted ? .001 : 1;
     const next = THREE.MathUtils.damp(group.current.scale.x, target, submitted ? 8 : 5, delta);
@@ -153,10 +158,16 @@ function Teacher({ color }: { color: string }) {
   return <group><mesh position={[0,.75,0]}><sphereGeometry args={[.48,28,20]} /><meshStandardMaterial color={color} roughness={.55} /></mesh><mesh position={[0,-.25,0]}><capsuleGeometry args={[.58,1.25,8,20]} /><meshStandardMaterial color={color} roughness={.55} /></mesh><mesh position={[1.05,.1,0]} rotation={[0,0,-.72]}><cylinderGeometry args={[.035,.035,2.1,12]} /><meshStandardMaterial color="#fef3c7" /></mesh><mesh position={[-1.25,.15,-.35]} rotation={[0,.22,0]}><boxGeometry args={[1.1,1.45,.08]} /><meshStandardMaterial color="#163b36" roughness={.9} /></mesh></group>;
 }
 
-function MorphTargetCore({ round, active }: { round: SceneRound; active: boolean }) {
+function MorphTargetCore({ round, active, speed }: { round: SceneRound; active: boolean; speed: number }) {
   const mesh = useRef<THREE.Mesh>(null);
   const geometry = useMemo(() => cachedMorphGeometry(round.code), [round.code]);
+  useLayoutEffect(() => {
+    // R3F attaches a reused BufferGeometry after the mesh is constructed, so
+    // Three.js does not automatically create morphTargetInfluences for it.
+    mesh.current?.updateMorphTargets();
+  }, [geometry]);
   useFrame((state, delta) => {
+    delta *= speed;
     if (!mesh.current?.morphTargetInfluences) return;
     const target = active ? 1 : 0;
     mesh.current.morphTargetInfluences[0] = THREE.MathUtils.damp(mesh.current.morphTargetInfluences[0] || 0, target, 3.8, delta);
@@ -168,9 +179,10 @@ function MorphTargetCore({ round, active }: { round: SceneRound; active: boolean
   return <mesh ref={mesh} geometry={geometry} scale={1.55}><meshPhysicalMaterial color={round.palette} emissive={round.palette} emissiveIntensity={.75} wireframe transparent opacity={0} depthWrite={false} /></mesh>;
 }
 
-function MorphObject({ round, submitted }: { round: SceneRound; submitted: boolean }) {
+function ProceduralMorphObject({ round, submitted, speed }: { round: SceneRound; submitted: boolean; speed: number }) {
   const group = useRef<THREE.Group>(null);
   useFrame((state, delta) => {
+    delta *= speed;
     if (!group.current) return;
     const target = submitted ? 1 : .001;
     const scale = THREE.MathUtils.damp(group.current.scale.x, target, submitted ? 4.8 : 12, delta);
@@ -191,7 +203,12 @@ function MorphObject({ round, submitted }: { round: SceneRound; submitted: boole
   return <group ref={group} scale={.001}>{form}</group>;
 }
 
-function ParticleBurst({ color, active }: { color: string; active: boolean }) {
+function MorphObject({ round, submitted, speed, animationEnabled }: { round: SceneRound; submitted: boolean; speed: number; animationEnabled: boolean }) {
+  const glbPath = GLB_MORPH_ASSETS[round.code];
+  return glbPath ? <GLBMorphModel path={glbPath} active={submitted} speed={speed} animationEnabled={animationEnabled} /> : <ProceduralMorphObject round={round} submitted={submitted} speed={animationEnabled ? speed : 0} />;
+}
+
+function ParticleBurst({ color, active, speed }: { color: string; active: boolean; speed: number }) {
   const points = useRef<THREE.Points>(null);
   const data = useMemo(() => {
     const positions = new Float32Array(360 * 3);
@@ -205,6 +222,7 @@ function ParticleBurst({ color, active }: { color: string; active: boolean }) {
   const progress = useRef(0);
   useEffect(() => { if (active) progress.current = .001; }, [active]);
   useFrame((_, delta) => {
+    delta *= speed;
     if (!points.current || progress.current <= 0) return;
     progress.current = Math.min(1.5, progress.current + delta * 1.35);
     const positions = points.current.geometry.attributes.position.array as Float32Array;
@@ -230,7 +248,8 @@ function FrameLimiter({ quality }: { quality: 'low' | 'high' }) {
   return null;
 }
 
-function Scene({ round, submitted, combo, quality, recallMode }: Props) {
+function Scene({ round, submitted, combo, quality, recallMode, morphSpeed = 1, animationEnabled = true }: Props) {
+  const speed = morphSpeed;
   return <>
     <color attach="background" args={['#050a18']} />
     <fog attach="fog" args={['#050a18', 7, 19]} />
@@ -240,15 +259,15 @@ function Scene({ round, submitted, combo, quality, recallMode }: Props) {
     <pointLight position={[-4, -2, 3]} color="#a855f7" intensity={18} />
     <Stars radius={40} depth={18} count={quality === 'low' ? 450 : 1400} factor={2.2} saturation={.25} fade speed={.35} />
     <Sparkles count={quality === 'low' ? 28 : 90} scale={8} size={2} speed={.35} color={round.palette} opacity={.38} />
-    {!recallMode && <NumberSculpture round={round} submitted={submitted} />}
-    <MorphTargetCore round={round} active={submitted && !recallMode} />
-    <MorphObject round={round} submitted={submitted} />
-    <ParticleBurst color={round.palette} active={submitted && !recallMode} />
+    {!recallMode && <NumberSculpture round={round} submitted={submitted} speed={speed} />}
+    <MorphTargetCore round={round} active={submitted && !recallMode} speed={speed} />
+    <MorphObject round={round} submitted={submitted} speed={speed} animationEnabled={animationEnabled} />
+    <ParticleBurst color={round.palette} active={submitted && !recallMode} speed={speed} />
     <mesh position={[0, -2.25, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       <planeGeometry args={[18, 18, 24, 24]} />
       <meshStandardMaterial color="#071225" metalness={.65} roughness={.38} transparent opacity={.78} wireframe />
     </mesh>
-    <CameraRig submitted={submitted} combo={combo} />
+    <CameraRig submitted={submitted} combo={combo} speed={animationEnabled ? speed : 0} />
     <FrameLimiter quality={quality} />
     <OrbitControls enablePan={false} enableZoom={false} minPolarAngle={Math.PI * .28} maxPolarAngle={Math.PI * .7} rotateSpeed={.65} />
   </>;

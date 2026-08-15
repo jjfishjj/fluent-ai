@@ -13,6 +13,7 @@ import {
   Volume2,
   Zap,
   Orbit,
+  GraduationCap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,6 +26,7 @@ import {
 } from '@/lib/learning-gym';
 
 const SpatialNumberGame = lazy(() => import('./SpatialNumberGame').then((module) => ({ default: module.SpatialNumberGame })));
+const NumberTeacherDashboard = lazy(() => import('./NumberTeacherDashboard').then((module) => ({ default: module.NumberTeacherDashboard })));
 
 interface NumberEncodingTrainerProps {
   task: LearningGymTask;
@@ -161,7 +163,7 @@ export function NumberEncodingTrainer({
   onProgressChange,
   onBack,
 }: NumberEncodingTrainerProps) {
-  const [mode, setMode] = useState<'learn' | 'game' | 'spatial'>('learn');
+  const [mode, setMode] = useState<'learn' | 'game' | 'spatial' | 'teacher'>('learn');
   const [length, setLength] = useState(7);
   const [digits, setDigits] = useState('5201314');
   const [association, setAssociation] = useState('');
@@ -267,7 +269,7 @@ export function NumberEncodingTrainer({
           </div>
         </section>
 
-        <div className="mt-6 grid grid-cols-3 rounded-2xl border bg-white p-1.5 shadow-sm sm:w-[650px]">
+        <div className="mt-6 grid grid-cols-2 rounded-2xl border bg-white p-1.5 shadow-sm sm:w-[820px] sm:grid-cols-4">
           <button
             type="button"
             onClick={() => setMode('learn')}
@@ -288,6 +290,9 @@ export function NumberEncodingTrainer({
             className={`rounded-xl px-3 py-3 text-sm font-bold transition ${mode === 'spatial' ? 'bg-slate-900 text-white shadow' : 'text-slate-500'}`}
           >
             <Orbit className="mr-2 inline h-4 w-4" />03 3D 空間戰
+          </button>
+          <button type="button" onClick={() => setMode('teacher')} className={`rounded-xl px-3 py-3 text-sm font-bold transition ${mode === 'teacher' ? 'bg-slate-900 text-white shadow' : 'text-slate-500'}`}>
+            <GraduationCap className="mr-2 inline h-4 w-4" />04 教師儀表板
           </button>
         </div>
 
@@ -484,7 +489,7 @@ export function NumberEncodingTrainer({
               </div>
             </aside>
           </section>
-        ) : (
+        ) : mode === 'spatial' ? (
           <div className="mt-6">
             <Suspense fallback={<div className="flex min-h-[520px] items-center justify-center rounded-[28px] bg-[#07101f] text-xs font-black tracking-[.22em] text-cyan-300"><span className="animate-pulse">LOADING THREE.JS LAB…</span></div>}>
             <SpatialNumberGame onComplete={(lastAnswer) => {
@@ -499,7 +504,7 @@ export function NumberEncodingTrainer({
             }} />
             </Suspense>
           </div>
-        )}
+        ) : <Suspense fallback={<div className="mt-6 rounded-[28px] bg-slate-900 p-16 text-center text-cyan-300">LOADING ANALYTICS…</div>}><NumberTeacherDashboard /></Suspense>}
       </main>
     </div>
   );
