@@ -179,6 +179,8 @@ export interface ZoneDef {
   id: string;
   name: string;
   subtitle: string;
+  /** Language spoken here; drives which deck an encounter draws from. */
+  language?: string;
   /** Half-extent of the square playfield, in world units. */
   half: number;
   safe: boolean;

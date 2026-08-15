@@ -1,168 +1,95 @@
 import type { QuestDef, ZoneDef } from '../../core/types';
+import { MISSIONS, MISSION_QUESTS, MISSION_ZONES } from './missions';
 
 /**
- * Two zones for the English mission: the academy you are posted from, and the
- * London venue where the delegation is waiting.
+ * The academy is the hub: one gate per country, unlocked by level. Each
+ * mission supplies its own map, so this file only owns the place you come
+ * back to between postings.
  */
-export const INTERPRETER_ZONES: Record<string, ZoneDef> = {
-  academy: {
-    id: 'academy',
-    name: '通譯學院',
-    subtitle: '安全區 · 出發前的準備',
-    half: 50,
-    safe: true,
-    palette: {
-      ground: 0x7a9e6a,
-      groundAlt: 0x9ec283,
-      rock: 0x9a9a92,
-      foliage: 0x3f7a46,
-      foliageAlt: 0xd8e8a0,
-      skyTop: 0x4f9fe0,
-      skyBottom: 0xe4f2ff,
-      fog: 0xd8ecf8,
-      water: 0x4aa3c7,
-      light: 0xfff6e4,
-      ambient: 0xa8c0d8,
-    },
-    terrain: { amplitude: 1.8, frequency: 0.016, waterLevel: -1.4 },
-    props: { trees: 38, rocks: 14, grass: 220, lanterns: 10, treeKind: 'pine' },
-    spawns: [],
-    npcs: [
-      {
-        id: 'mentor',
-        name: '首席通譯 林教授',
-        role: 'quest',
-        at: { x: 0, z: 8 },
-        color: 0x2f4f7f,
-        lines: [
-          '歡迎加入通譯團，見習生。',
-          '你的記憶天才型態決定了你擅長的技法——別去學別人的路子。',
-          '先到倫敦會場去，把場子清乾淨再說。',
-        ],
-        questId: 'i1',
-      },
-      {
-        id: 'quartermaster',
-        name: '補給官 阿珍',
-        role: 'shop',
-        at: { x: -13, z: -3 },
-        color: 0xc08a4a,
-        lines: ['潤喉糖帶夠了嗎？', '口譯是體力活，別逞強。'],
-      },
-      {
-        id: 'medic',
-        name: '隨隊醫師',
-        role: 'healer',
-        at: { x: 13, z: -3 },
-        color: 0xd06a5a,
-        lines: ['坐下，讓嗓子和腦子都休息一下。'],
-      },
-    ],
-    portals: [{ at: { x: 0, z: -36 }, toZone: 'london', toPos: { x: 0, z: 40 }, label: '倫敦會場' }],
+const ACADEMY: ZoneDef = {
+  id: 'academy',
+  name: '通譯學院',
+  subtitle: '安全區 · 各國任務出發地',
+  half: 50,
+  safe: true,
+  palette: {
+    ground: 0x7a9e6a,
+    groundAlt: 0x9ec283,
+    rock: 0x9a9a92,
+    foliage: 0x3f7a46,
+    foliageAlt: 0xd8e8a0,
+    skyTop: 0x4f9fe0,
+    skyBottom: 0xe4f2ff,
+    fog: 0xd8ecf8,
+    water: 0x4aa3c7,
+    light: 0xfff6e4,
+    ambient: 0xa8c0d8,
   },
+  terrain: { amplitude: 1.8, frequency: 0.016, waterLevel: -1.4 },
+  props: { trees: 38, rocks: 14, grass: 220, lanterns: 10, treeKind: 'pine' },
+  spawns: [],
+  npcs: [
+    {
+      id: 'mentor',
+      name: '首席通譯 林教授',
+      role: 'quest',
+      at: { x: 0, z: 8 },
+      color: 0x2f4f7f,
+      lines: [
+        '歡迎加入通譯團，見習生。',
+        '你的記憶天才型態決定了你擅長的技法——別去學別人的路子。',
+        '南門通往倫敦，西門京都，東門巴黎。等級到了，門自然會開。',
+      ],
+      questId: 'i1',
+    },
+    {
+      id: 'quartermaster',
+      name: '補給官 阿珍',
+      role: 'shop',
+      at: { x: -13, z: -3 },
+      color: 0xc08a4a,
+      lines: ['潤喉糖帶夠了嗎？', '口譯是體力活，別逞強。'],
+    },
+    {
+      id: 'medic',
+      name: '隨隊醫師',
+      role: 'healer',
+      at: { x: 13, z: -3 },
+      color: 0xd06a5a,
+      lines: ['坐下，讓嗓子和腦子都休息一下。'],
+    },
+  ],
+  // One gate per mission, gated by the level that mission expects.
+  portals: MISSIONS.map((m) => ({
+    at: m.gate,
+    toZone: m.zone.id,
+    toPos: { x: 0, z: m.zone.half - 18 },
+    label: `${m.flag} ${m.zone.name}`,
+    reqLevel: m.reqLevel > 1 ? m.reqLevel : undefined,
+  })),
+};
 
-  london: {
-    id: 'london',
-    name: '倫敦會場',
-    subtitle: '英語任務 · Lv.1–20',
-    half: 62,
-    safe: false,
-    palette: {
-      ground: 0x5f6b70,
-      groundAlt: 0x7d8a8e,
-      rock: 0x50595e,
-      foliage: 0x4a5a4a,
-      foliageAlt: 0x8fa08a,
-      skyTop: 0x6b7e92,
-      skyBottom: 0xc8d4dc,
-      fog: 0xb4c2cc,
-      water: 0x4a6070,
-      light: 0xeef2f6,
-      ambient: 0x7a8894,
-    },
-    terrain: { amplitude: 2.6, frequency: 0.02, waterLevel: -1.8 },
-    props: { trees: 70, rocks: 34, grass: 120, lanterns: 26, treeKind: 'dead' },
-    spawns: [
-      { monsterId: 'murmur', count: 12, at: { x: 6, z: 16 }, spread: 20 },
-      { monsterId: 'falsefriend', count: 9, at: { x: -22, z: -4 }, spread: 18 },
-      { monsterId: 'accentfog', count: 9, at: { x: 24, z: -14 }, spread: 18 },
-      { monsterId: 'runon', count: 7, at: { x: -8, z: -30 }, spread: 16 },
-      { monsterId: 'registertrap', count: 6, at: { x: 26, z: -34 }, spread: 14 },
-      { monsterId: 'idiomthicket', count: 5, at: { x: -30, z: -34 }, spread: 14 },
-      { monsterId: 'envoy_uk', count: 1, at: { x: 0, z: -50 }, spread: 0 },
-    ],
-    npcs: [
-      {
-        id: 'attache',
-        name: '隨員 Mr. Hale',
-        role: 'quest',
-        at: { x: 4, z: 34 },
-        color: 0x3a5a8a,
-        lines: [
-          'Sir Whitmore 不喜歡等人。',
-          '會場裡的雜音太多了，先幫我把術語卡整理好。',
-        ],
-        questId: 'i2',
-      },
-    ],
-    portals: [{ at: { x: 0, z: 48 }, toZone: 'academy', toPos: { x: 0, z: -28 }, label: '通譯學院' }],
-  },
+export const INTERPRETER_ZONES: Record<string, ZoneDef> = {
+  academy: ACADEMY,
+  ...MISSION_ZONES,
+};
+
+/** The academy's opening assignment, then each country takes over. */
+const OPENING: QuestDef = {
+  id: 'i1',
+  name: '第一次上場',
+  giver: 'mentor',
+  zone: 'academy',
+  reqLevel: 1,
+  kind: 'kill',
+  target: 'murmur',
+  count: 6,
+  summary: '在倫敦會場化解 6 團含糊音',
+  reward: { exp: 220, silver: 260, items: [{ itemId: 'lozenge', qty: 5 }] },
+  next: 'uk1',
 };
 
 export const INTERPRETER_QUESTS: Record<string, QuestDef> = {
-  i1: {
-    id: 'i1',
-    name: '第一次上場',
-    giver: 'mentor',
-    zone: 'academy',
-    reqLevel: 1,
-    kind: 'kill',
-    target: 'murmur',
-    count: 6,
-    summary: '在倫敦會場化解 6 團含糊音',
-    reward: { exp: 220, silver: 260, items: [{ itemId: 'lozenge', qty: 5 }] },
-    next: 'i2',
-  },
-  i2: {
-    id: 'i2',
-    name: '會前準備',
-    giver: 'attache',
-    zone: 'london',
-    reqLevel: 3,
-    kind: 'collect',
-    target: 'glossary',
-    count: 10,
-    summary: '收集 10 張術語卡交給隨員',
-    reward: { exp: 620, silver: 520, items: [{ itemId: 'notebook', qty: 1 }, { itemId: 'coffee', qty: 5 }] },
-    next: 'i3',
-  },
-  i3: {
-    id: 'i3',
-    name: '驅散口音之霧',
-    giver: 'mentor',
-    zone: 'academy',
-    reqLevel: 7,
-    kind: 'kill',
-    target: 'accentfog',
-    count: 8,
-    summary: '在會場驅散 8 團口音之霧',
-    reward: { exp: 1800, silver: 1100, items: [{ itemId: 'blazer', qty: 1 }, { itemId: 'reset', qty: 2 }] },
-    next: 'i4',
-  },
-  i4: {
-    id: 'i4',
-    name: '面見英國代表',
-    giver: 'attache',
-    zone: 'london',
-    reqLevel: 14,
-    kind: 'kill',
-    target: 'envoy_uk',
-    count: 1,
-    summary: '完成與 Sir Whitmore 的正式會談',
-    reward: {
-      exp: 6000,
-      silver: 4000,
-      items: [{ itemId: 'earpiece', qty: 1 }, { itemId: 'reset', qty: 5 }],
-    },
-  },
+  i1: OPENING,
+  ...MISSION_QUESTS,
 };

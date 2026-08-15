@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { GENIUS_INFO, type GeniusType } from '@/lib/genius-type';
 import { INTERPRETER_CLASSES } from '@/game/data/interpreter/classes';
 import { INTERPRETER_SKILLS } from '@/game/data/interpreter/skills';
+import { INTERPRETER_MISSIONS } from '@/game/data/interpreter/pack';
 import { cn } from '@/lib/utils';
 
 /**
@@ -38,7 +39,7 @@ export function InterpreterBriefing({
           <div className="text-[11px] uppercase tracking-[0.3em] text-white/40">Fluent AI</div>
           <h1 className="mt-1 text-2xl font-bold tracking-wide text-white">通譯官</h1>
           <p className="mt-1 text-xs text-white/55">
-            走訪各國，化解溝通障礙，取得每一位代表的信任
+走訪 {INTERPRETER_MISSIONS.length} 個國家，化解溝通障礙，取得每一位代表的信任
           </p>
         </div>
 
@@ -104,6 +105,31 @@ export function InterpreterBriefing({
           )}
         </div>
 
+        {/* the postings, in order */}
+        <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <div className="text-xs font-semibold text-white/80">出使順序</div>
+          <div className="mt-2 space-y-1.5">
+            {INTERPRETER_MISSIONS.map((m) => (
+              <div key={m.id} className="flex items-center gap-2.5 rounded-lg border border-white/10 px-2.5 py-1.5">
+                <span className="text-lg">{m.flag}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium text-white">
+                    {m.country} · {m.zone.name}
+                  </div>
+                  <div className="truncate text-[10px] text-white/45">{m.zone.subtitle}</div>
+                </div>
+                <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-white/60">
+                  {m.reqLevel > 1 ? `Lv.${m.reqLevel} 開放` : '可出發'}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[10px] leading-relaxed text-white/40">
+            每一國有自己的語言題庫與障礙——英國考慣用語與片語動詞，日本考敬語與曖昧表現，
+            法國考陰陽性與連音。走進哪一國，題目就換成哪一國的語言。
+          </p>
+        </div>
+
         <div className="mt-5">
           <label className="mb-1.5 block text-xs font-medium text-white/70">通譯官姓名</label>
           <input
@@ -135,7 +161,7 @@ export function InterpreterBriefing({
             onClick={() => onStart(name.trim() || '見習通譯', effective)}
             className="flex-1 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-300"
           >
-            接受任務：英國代表團
+            接受任務：出發前往倫敦
           </button>
           {hasSave && (
             <button

@@ -27,6 +27,8 @@ export interface ContentPack {
   currency: string;
   /** Item ids the campaign's merchant sells. */
   shop: string[];
+  /** Fallback language when a zone does not name one. */
+  language?: string;
   /** True when enemies are resolved through question-driven encounters
    *  instead of realtime auto-attacks. */
   turnBased?: boolean;

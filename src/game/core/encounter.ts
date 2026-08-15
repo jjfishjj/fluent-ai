@@ -35,8 +35,19 @@ export interface EncounterQuestion {
   note?: string;
 }
 
+/** What the world knows about the player when it asks for a question. */
+export interface QuestionContext {
+  /** Language of the country the player is currently in. */
+  language: string;
+  /** Character level, so harder material can be held back. */
+  level: number;
+}
+
 /** Supplies questions to an encounter; the SRS bridge implements this. */
-export type QuestionSource = (index: number) => EncounterQuestion | undefined;
+export type QuestionSource = (
+  index: number,
+  context: QuestionContext,
+) => EncounterQuestion | undefined;
 
 export interface ActiveAid {
   skillId: string;

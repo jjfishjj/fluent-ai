@@ -20,6 +20,7 @@ import {
   AnswerOutcome,
   EncounterQuestion,
   EncounterState,
+  QuestionContext,
   QuestionSource,
   applyAid,
   resolveAnswer,
@@ -583,7 +584,7 @@ export class World {
     if (!this.pack.turnBased || this.encounter) return false;
     const enemy = this.entity(enemyId);
     if (!enemy || enemy.kind !== 'monster' || enemy.state === 'dead') return false;
-    const question = this.questions?.(0);
+    const question = this.questions?.(0, this.questionContext());
     if (!question) return false;
 
     const p = this.player;
@@ -609,6 +610,13 @@ export class World {
     };
     this.say('system', '遭遇', `${enemy.name} 擋住了去路。`);
     return true;
+  }
+
+  private questionContext(): QuestionContext {
+    return {
+      language: this.zone.language ?? this.pack.language ?? 'english',
+      level: this.profile.level,
+    };
   }
 
   /** Answers the current question and advances or ends the encounter. */
@@ -688,7 +696,7 @@ export class World {
   nextQuestion(): boolean {
     const enc = this.encounter;
     if (!enc || enc.outcome) return false;
-    const question = this.questions?.(enc.index + 1);
+    const question = this.questions?.(enc.index + 1, this.questionContext());
     if (!question) {
       // Out of material — let the player disengage rather than soft-lock.
       enc.outcome = 'flee';

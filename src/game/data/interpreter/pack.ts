@@ -1,5 +1,6 @@
 import type { ContentPack } from '../../core/content';
-import { BARRIERS, INTERPRETER_ITEMS, INTERPRETER_SHOP } from './barriers';
+import { INTERPRETER_ITEMS, INTERPRETER_SHOP } from './items';
+import { ALL_BARRIERS, MISSIONS } from './missions';
 import { INTERPRETER_CLASSES } from './classes';
 import { INTERPRETER_SKILLS } from './skills';
 import { INTERPRETER_QUESTS, INTERPRETER_ZONES } from './zones';
@@ -15,7 +16,7 @@ export const INTERPRETER_PACK: ContentPack = {
   name: '通譯官',
   classes: INTERPRETER_CLASSES,
   skills: INTERPRETER_SKILLS,
-  monsters: BARRIERS,
+  monsters: ALL_BARRIERS,
   items: INTERPRETER_ITEMS,
   zones: INTERPRETER_ZONES,
   quests: INTERPRETER_QUESTS,
@@ -27,9 +28,13 @@ export const INTERPRETER_PACK: ContentPack = {
   startingSilver: 250,
   defaultClass: 'architect',
   currency: '津貼',
+  language: 'english',
   shop: INTERPRETER_SHOP,
   turnBased: true,
 };
 
-/** The language this campaign's first mission teaches. */
-export const MISSION_LANGUAGE = 'english';
+/** Countries this campaign currently covers, in posting order. */
+export const INTERPRETER_MISSIONS = MISSIONS;
+
+/** The language of the first posting, used before a save exists. */
+export const MISSION_LANGUAGE = MISSIONS[0].language;

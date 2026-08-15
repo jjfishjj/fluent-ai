@@ -7,9 +7,8 @@ import { loadGeniusType, type GeniusType } from '@/lib/genius-type';
 import { loadCards } from '@/lib/memory-srs';
 import { hasSave, loadProfile, saveProfile } from '@/game/core/save';
 import { newProfile } from '@/game/core/world';
-import { INTERPRETER_PACK, MISSION_LANGUAGE } from '@/game/data/interpreter/pack';
-import { loadDeck, recordAnswer } from '@/game/bridge/review-bridge';
-import { makeCyclingSource } from '@/game/bridge/srs-deck';
+import { INTERPRETER_PACK } from '@/game/data/interpreter/pack';
+import { createMissionDeck, recordAnswer } from '@/game/bridge/review-bridge';
 import type { EncounterQuestion } from '@/game/core/encounter';
 import type { PlayerProfile } from '@/game/core/types';
 
@@ -39,14 +38,13 @@ export default function InterpreterWorld() {
     }
   }, [userId]);
 
-  // Built once per run so a fight never reopens with the same word.
-  const deckKey = profile ? `${profile.name}-${profile.level}` : 'idle';
-  const questions = useMemo(() => {
-    if (!profile) return undefined;
-    const deck = loadDeck({ userId, language: MISSION_LANGUAGE, level: profile.level });
-    return makeCyclingSource(deck);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, deckKey]);
+  // One source for the whole run; it builds a deck per country on demand and
+  // keeps a separate cursor for each, so travelling swaps the vocabulary.
+  const started = !!profile;
+  const questions = useMemo(
+    () => (started ? createMissionDeck(userId) : undefined),
+    [userId, started],
+  );
 
   // Kept in a ref so the callback identity stays stable across renders.
   const geniusRef = useRef(geniusType);

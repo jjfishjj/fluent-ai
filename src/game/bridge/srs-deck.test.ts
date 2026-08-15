@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { MemoryItem } from '@/lib/memory-srs';
 import { Rng } from '../core/rng';
 import { buildQuestions, makeCyclingSource, makeQuestionSource, prioritiseCards } from './srs-deck';
-import { STARTER_DECK_EN } from './starter-deck';
+import type { QuestionContext } from '../core/encounter';
+
+const ctx: QuestionContext = { language: 'english', level: 1 };
+import { STARTER_DECK_EN, STARTER_DECKS } from './starter-deck';
 
 function card(id: string, english: string, meaning: string, dueInDays = -1): MemoryItem {
   return {
@@ -66,7 +69,7 @@ describe('buildQuestions', () => {
   it('limits starter material to the allowed tier', () => {
     const r = new Rng(5);
     const easy = buildQuestions({ cards: [], starter: STARTER_DECK_EN, rng: r.next.bind(r), maxTier: 1, size: 50 });
-    const tier1 = new Set(STARTER_DECK_EN.filter((e) => e.tier === 1).flatMap((e) => [e.en, e.zh]));
+    const tier1 = new Set(STARTER_DECK_EN.filter((e) => e.tier === 1).flatMap((e) => [e.term, e.meaning]));
     for (const q of easy) expect(tier1.has(q.answer)).toBe(true);
   });
 
@@ -85,9 +88,9 @@ describe('makeQuestionSource', () => {
     const r = new Rng(7);
     const qs = buildQuestions({ cards: [], starter: STARTER_DECK_EN, rng: r.next.bind(r), size: 3 });
     const source = makeQuestionSource(qs);
-    expect(source(0)).toBe(qs[0]);
-    expect(source(2)).toBe(qs[2]);
-    expect(source(3)).toBeUndefined();
+    expect(source(0, ctx)).toBe(qs[0]);
+    expect(source(2, ctx)).toBe(qs[2]);
+    expect(source(3, ctx)).toBeUndefined();
   });
 });
 
@@ -117,22 +120,45 @@ describe('makeCyclingSource', () => {
     const r = new Rng(8);
     const qs = buildQuestions({ cards: [], starter: STARTER_DECK_EN, rng: r.next.bind(r), size: 3 });
     const source = makeCyclingSource(qs);
-    expect(source(0)).toBe(qs[0]);
+    expect(source(0, ctx)).toBe(qs[0]);
     // A fresh encounter also asks for index 0, but must not repeat the word.
-    expect(source(0)).toBe(qs[1]);
-    expect(source(1)).toBe(qs[2]);
+    expect(source(0, ctx)).toBe(qs[1]);
+    expect(source(1, ctx)).toBe(qs[2]);
   });
 
   it('wraps around instead of stranding the player mid-exchange', () => {
     const r = new Rng(9);
     const qs = buildQuestions({ cards: [], starter: STARTER_DECK_EN, rng: r.next.bind(r), size: 2 });
     const source = makeCyclingSource(qs);
-    source(0);
-    source(1);
-    expect(source(2)).toBe(qs[0]);
+    source(0, ctx);
+    source(1, ctx);
+    expect(source(2, ctx)).toBe(qs[0]);
   });
 
   it('returns nothing when the deck is empty', () => {
-    expect(makeCyclingSource([])(0)).toBeUndefined();
+    expect(makeCyclingSource([])(0, ctx)).toBeUndefined();
+  });
+});
+
+describe('self-answering material', () => {
+  it('drops cards whose term and meaning read the same', () => {
+    const r = new Rng(11);
+    const qs = buildQuestions({
+      cards: [card('same', '大使館', '大使館'), card('ok', 'treaty', '條約')],
+      starter: [],
+      rng: r.next.bind(r),
+    });
+    expect(qs).toHaveLength(1);
+    expect(qs[0].answer).toBe('treaty');
+  });
+
+  it('never builds a question that answers itself', () => {
+    for (const [language, deck] of Object.entries(STARTER_DECKS)) {
+      const r = new Rng(12);
+      const qs = buildQuestions({ cards: [], starter: deck, rng: r.next.bind(r), size: 100 });
+      for (const q of qs) {
+        expect(q.prompt.trim(), `${language}: ${q.prompt}`).not.toBe(q.answer.trim());
+      }
+    }
   });
 });

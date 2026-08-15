@@ -49,7 +49,7 @@ function fromCard(card: MemoryItem): Candidate {
 }
 
 function fromStarter(entry: StarterEntry): Candidate {
-  return { term: entry.en, meaning: entry.zh, hint: entry.hint, note: entry.note };
+  return { term: entry.term, meaning: entry.meaning, hint: entry.hint, note: entry.note };
 }
 
 function pickDistractors(
@@ -82,8 +82,13 @@ export function buildQuestions(source: DeckSource): EncounterQuestion[] {
   const maxTier = source.maxTier ?? 3;
   const size = source.size ?? 20;
 
-  const own = cards.map(fromCard);
-  const fallback = starter.filter((e) => e.tier <= maxTier).map(fromStarter);
+  // A card whose term and meaning read the same makes no question — common
+  // with Japanese kanji for a Chinese-speaking player, where 大使館 would ask
+  // itself. Drop those rather than serving a free point.
+  const usable = (c: Candidate) => c.term.trim() !== c.meaning.trim();
+
+  const own = cards.map(fromCard).filter(usable);
+  const fallback = starter.filter((e) => e.tier <= maxTier).map(fromStarter).filter(usable);
   const pool = [...own, ...fallback];
   if (!pool.length) return [];
 

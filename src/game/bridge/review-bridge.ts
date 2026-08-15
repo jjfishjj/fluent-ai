@@ -1,7 +1,7 @@
 import { loadCards, reviewCard } from '@/lib/memory-srs';
 import { planFor } from '@/lib/genius-plan';
 import type { GeniusType } from '@/lib/genius-type';
-import type { EncounterQuestion } from '../core/encounter';
+import type { EncounterQuestion, QuestionSource } from '../core/encounter';
 import { Rng } from '../core/rng';
 import { buildQuestions, prioritiseCards } from './srs-deck';
 import { starterDeck } from './starter-deck';
@@ -23,6 +23,11 @@ export interface DeckRequest {
   size?: number;
 }
 
+/** Harder built-in material unlocks as the interpreter gains rank. */
+function tierFor(level: number): 1 | 2 | 3 {
+  return level >= 12 ? 3 : level >= 6 ? 2 : 1;
+}
+
 export function loadDeck(req: DeckRequest): EncounterQuestion[] {
   const rng = new Rng(req.seed ?? Date.now() % 100000);
   const own = prioritiseCards(safeLoad(req.userId));
@@ -30,9 +35,37 @@ export function loadDeck(req: DeckRequest): EncounterQuestion[] {
     cards: own,
     starter: starterDeck(req.language),
     rng: rng.next.bind(rng),
-    maxTier: req.level >= 12 ? 3 : req.level >= 6 ? 2 : 1,
+    maxTier: tierFor(req.level),
     size: req.size ?? 24,
   });
+}
+
+/**
+ * A question source that follows the player between countries.
+ *
+ * Decks are built lazily per language and cached, each with its own cursor, so
+ * flying to Kyoto swaps the vocabulary without losing your place in London.
+ * A deck is rebuilt when the player's level unlocks a harder tier.
+ */
+export function createMissionDeck(userId: string, size = 24): QuestionSource {
+  const decks = new Map<string, { questions: EncounterQuestion[]; cursor: number; tier: number }>();
+
+  return (_index, context) => {
+    const tier = tierFor(context.level);
+    let deck = decks.get(context.language);
+    if (!deck || deck.tier !== tier) {
+      deck = {
+        questions: loadDeck({ userId, language: context.language, level: context.level, size }),
+        cursor: 0,
+        tier,
+      };
+      decks.set(context.language, deck);
+    }
+    if (!deck.questions.length) return undefined;
+    const question = deck.questions[deck.cursor % deck.questions.length];
+    deck.cursor += 1;
+    return question;
+  };
 }
 
 function safeLoad(userId: string) {
