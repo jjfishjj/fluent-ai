@@ -3,6 +3,7 @@ import { Brain, CalendarClock, CheckCircle2, Crosshair, Expand, Gauge, Lightbulb
 import { Button } from '@/components/ui/button';
 import { formatRecallDelay, getDueRecalls, gradeScheduledRecall, readRecallSchedule, scheduleWrongCodes, type ScheduledRecall } from '@/lib/number-recall-schedule';
 import { saveNumberAttempt } from '@/lib/number-training-analytics';
+import { readActiveStudent } from '@/lib/number-classroom';
 
 const WebGLNumberScene = lazy(() => import('./WebGLNumberScene').then((module) => ({ default: module.WebGLNumberScene })));
 
@@ -140,7 +141,8 @@ export function SpatialNumberGame({ onComplete, scene }: Props) {
   const [morphReplayKey, setMorphReplayKey] = useState(0);
   const [morphProgress, setMorphProgress] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [animationEnabled, setAnimationEnabled] = useState(true);
+  const [activeStudent] = useState(readActiveStudent);
+  const [animationEnabled, setAnimationEnabled] = useState(() => readActiveStudent()?.testGroup !== 'static');
   const [lowPower] = useState(detectLowPowerDevice);
   const [webglAvailable] = useState(detectWebGLSupport);
   const recallStartedAt = useRef(Date.now());
@@ -156,6 +158,12 @@ export function SpatialNumberGame({ onComplete, scene }: Props) {
   const averageSeconds = recallResults.length ? recallResults.reduce((sum, item) => sum + item.responseMs, 0) / recallResults.length / 1000 : 0;
 
   useEffect(() => { if (phase === 'recall' || phase === 'scheduledRecall') recallStartedAt.current = Date.now(); }, [phase, recallIndex]);
+  useEffect(() => {
+    if (phase !== 'encode' || !activeStudent) return;
+    if (activeStudent.testGroup === 'dynamic') setAnimationEnabled(true);
+    if (activeStudent.testGroup === 'static') setAnimationEnabled(false);
+    if (activeStudent.testGroup === 'alternating') setAnimationEnabled(roundIndex % 2 === 0);
+  }, [activeStudent, phase, roundIndex]);
   useEffect(() => {
     if (!submitted || phase !== 'encode') { setMorphProgress(0); return; }
     const startedAt = performance.now();
@@ -176,8 +184,8 @@ export function SpatialNumberGame({ onComplete, scene }: Props) {
   useEffect(() => {
     if (phase !== 'result' || !recallResults.length) return;
     setSchedule(scheduleWrongCodes(recallResults.filter((item) => !item.correct).map((item) => item.code), attemptId.current));
-    saveNumberAttempt({ id: attemptId.current, student: '學生 A', completedAt: Date.now(), correct: recallResults.filter((item) => item.correct).length, total: recallResults.length, averageResponseMs: recallResults.reduce((sum, item) => sum + item.responseMs, 0) / recallResults.length, results: recallResults.map(({ code, correct, responseMs, animationEnabled }) => ({ code, correct, responseMs, animationEnabled })) });
-  }, [phase, recallResults]);
+    saveNumberAttempt({ id: attemptId.current, student: activeStudent ? `${activeStudent.name}（${activeStudent.studentCode}）` : '學生 A', completedAt: Date.now(), correct: recallResults.filter((item) => item.correct).length, total: recallResults.length, averageResponseMs: recallResults.reduce((sum, item) => sum + item.responseMs, 0) / recallResults.length, results: recallResults.map(({ code, correct, responseMs, animationEnabled }) => ({ code, correct, responseMs, animationEnabled })) });
+  }, [activeStudent, phase, recallResults]);
 
   const submitEncoding = (event: FormEvent) => {
     event.preventDefault();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { codeRiskRanking, motionModeComparison, saveNumberAttempt } from './number-training-analytics';
+import { codeRiskRanking, motionDifferenceInsight, motionModeComparison, motionTrendByAttempt, saveNumberAttempt } from './number-training-analytics';
 
 function memoryStorage() { let value: string | null = null; return { getItem: () => value, setItem: (_key: string, next: string) => { value = next; } }; }
 
@@ -17,5 +17,14 @@ describe('number training analytics', () => {
     const [dynamicMode, staticMode] = motionModeComparison([attempt]);
     expect(dynamicMode).toMatchObject({ mode: 'dynamic', answers: 2, correctRate: 1, averageResponseMs: 2500 });
     expect(staticMode).toMatchObject({ mode: 'static', answers: 1, correctRate: 0, averageResponseMs: 5000 });
+  });
+
+  it('builds chronological A/B trends and marks small samples as tentative', () => {
+    const attempts = [
+      { id: 'new', student: 'A', completedAt: 20, correct: 1, total: 2, averageResponseMs: 1000, results: [{ code: '04', correct: true, responseMs: 900, animationEnabled: true }, { code: '18', correct: false, responseMs: 1100, animationEnabled: false }] },
+      { id: 'old', student: 'A', completedAt: 10, correct: 2, total: 2, averageResponseMs: 1000, results: [{ code: '31', correct: true, responseMs: 900, animationEnabled: true }, { code: '43', correct: true, responseMs: 1100, animationEnabled: false }] },
+    ];
+    expect(motionTrendByAttempt(attempts).map((item) => item.id)).toEqual(['old', 'new']);
+    expect(motionDifferenceInsight(attempts)).toMatchObject({ enoughData: false, leader: 'dynamic', totalAnswers: 4 });
   });
 });

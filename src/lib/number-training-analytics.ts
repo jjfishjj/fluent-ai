@@ -9,6 +9,7 @@ export type NumberTrainingAttempt = {
 };
 
 export type MotionModeSummary = { mode: 'dynamic' | 'static'; answers: number; correctRate: number; averageResponseMs: number };
+export type MotionTrendPoint = { id: string; completedAt: number; dynamicRate: number | null; staticRate: number | null };
 
 const KEY = 'mnemo-verse:number-training-attempts:v1';
 
@@ -44,4 +45,22 @@ export function motionModeComparison(attempts: NumberTrainingAttempt[]): MotionM
     };
   };
   return [summarize(true), summarize(false)];
+}
+
+export function motionTrendByAttempt(attempts: NumberTrainingAttempt[]): MotionTrendPoint[] {
+  return [...attempts].sort((a, b) => a.completedAt - b.completedAt).map((attempt) => {
+    const rate = (enabled: boolean) => {
+      const results = attempt.results.filter((result) => (result.animationEnabled ?? true) === enabled);
+      return results.length ? results.filter((result) => result.correct).length / results.length : null;
+    };
+    return { id: attempt.id, completedAt: attempt.completedAt, dynamicRate: rate(true), staticRate: rate(false) };
+  });
+}
+
+export function motionDifferenceInsight(attempts: NumberTrainingAttempt[]) {
+  const [dynamicMode, staticMode] = motionModeComparison(attempts);
+  const difference = dynamicMode.correctRate - staticMode.correctRate;
+  const enoughData = dynamicMode.answers >= 10 && staticMode.answers >= 10;
+  const leader = Math.abs(difference) < .05 ? 'tie' : difference > 0 ? 'dynamic' : 'static';
+  return { difference, enoughData, leader, totalAnswers: dynamicMode.answers + staticMode.answers } as const;
 }

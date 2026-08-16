@@ -51,6 +51,8 @@ try {
   await context.addInitScript(() => {
     localStorage.removeItem('mnemo-verse:number-recall-schedule:v1');
     localStorage.removeItem('mnemo-verse:number-training-attempts:v1');
+    localStorage.removeItem('mnemo-verse:number-classroom:v1');
+    localStorage.removeItem('mnemo-verse:number-active-student:v1');
     Object.defineProperty(navigator, 'vibrate', { value: () => true, configurable: true });
   });
   const page = await context.newPage();
@@ -59,6 +61,17 @@ try {
   page.on('pageerror', (error) => consoleErrors.push(error.message));
 
   await page.goto(`${baseURL}/practice/number-encoding-demo`, { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: '04 教師儀表板' }).click();
+  await page.getByText('同一學生 A/B 趨勢').waitFor();
+  await page.getByText('統計差異提示').waitFor();
+  await page.getByLabel('班級名稱').fill('記憶 A 班');
+  await page.getByLabel('學生姓名').fill('測試學生');
+  await page.getByLabel('學生代碼').fill('T001');
+  await page.getByLabel('指定測驗組別').selectOption('alternating');
+  await page.getByRole('button', { name: '建立' }).click();
+  await page.getByText('學生已建立，可直接指定開始測驗。').waitFor();
+  await page.getByRole('button', { name: '指定測驗' }).click();
+  await page.getByText('已指定 測試學生 進入交錯 A/B 組').waitFor();
   await page.getByRole('button', { name: '03 3D 空間戰' }).click();
   await page.getByText('10 組專屬 3D 模型').click();
   assert(await page.getByText('GLB MORPH').count() === 10, '圖鑑應標示完整 10 組 GLB 模型');
