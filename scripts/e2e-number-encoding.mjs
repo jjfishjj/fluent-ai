@@ -6,13 +6,27 @@ const port = Number(process.env.E2E_PORT || 4179);
 const baseURL = `http://127.0.0.1:${port}`;
 const defaultMacChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const chromePath = process.env.CHROME_PATH || (process.platform === 'darwin' && existsSync(defaultMacChrome) ? defaultMacChrome : undefined);
-const server = spawn('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(port)], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, BROWSER: 'none' } });
+const server = spawn('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(port)], {
+  stdio: ['ignore', 'pipe', 'pipe'],
+  env: { ...process.env, BROWSER: 'none' },
+  detached: process.platform !== 'win32',
+});
 let serverOutput = '';
 server.stdout.on('data', (chunk) => { serverOutput += chunk; });
 server.stderr.on('data', (chunk) => { serverOutput += chunk; });
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+async function stopServer() {
+  if (!server.pid || server.exitCode !== null) return;
+  if (process.platform === 'win32') server.kill('SIGTERM');
+  else process.kill(-server.pid, 'SIGTERM');
+  await Promise.race([
+    new Promise((resolve) => server.once('exit', resolve)),
+    new Promise((resolve) => setTimeout(resolve, 3_000)),
+  ]);
 }
 
 async function waitForServer() {
@@ -97,5 +111,5 @@ try {
   console.log('✓ 10 組編碼 → 干擾關 → 10 組延遲回想 → 7/10 結算 → 動態錯題重試');
 } finally {
   await browser?.close();
-  server.kill('SIGTERM');
+  await stopServer();
 }
