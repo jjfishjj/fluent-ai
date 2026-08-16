@@ -20,6 +20,10 @@ export interface StarterEntry {
   /** Shown after answering — the teaching beat. */
   note?: string;
   tier: 1 | 2 | 3;
+  /** What this entry drills. Obstacles and boss stages ask for topics by
+   *  name, so 佐藤大使 can spend a stage on keigo alone. Filled in from the
+   *  entry's tier when not stated. */
+  topics?: string[];
 }
 
 export const STARTER_DECK_EN: StarterEntry[] = [
@@ -170,13 +174,59 @@ export const STARTER_DECK_FR: StarterEntry[] = [
   { term: 'langue de bois', meaning: '官話、空話', hint: '字面是「木頭語言」', note: '批評政治人物講空話的固定說法。', tier: 3 },
 ];
 
-/** All starter decks, keyed by the language they teach. */
+/**
+ * Each tier maps to a default topic, so most entries need no tagging: tier 1
+ * is the vocabulary of being in the room, tier 2 is the working language of a
+ * meeting, tier 3 is where literal and actual meaning diverge.
+ */
+const TIER_TOPIC: Record<string, Record<1 | 2 | 3, string>> = {
+  english: { 1: 'basics', 2: 'meeting', 3: 'idiom' },
+  japanese: { 1: 'basics', 2: 'negotiation', 3: 'vagueness' },
+  french: { 1: 'basics', 2: 'meeting', 3: 'formal' },
+};
+
+/** Entries whose topic is not the one their tier implies. */
+const TOPIC_OVERRIDES: Record<string, string[]> = {
+  // Japanese: the polite formulas are keigo wherever they sit.
+  失礼します: ['keigo'],
+  よろしくお願いします: ['keigo'],
+  お世話になります: ['keigo'],
+  恐れ入ります: ['keigo'],
+  承知しました: ['keigo'],
+  お手数をおかけします: ['keigo'],
+  大変申し訳ございません: ['keigo'],
+  一存では決めかねます: ['keigo', 'vagueness'],
+  // …and the ones where what is said is not what is meant.
+  建前: ['vagueness'],
+  本音: ['vagueness'],
+  根回し: ['vagueness'],
+  忖度: ['vagueness'],
+  検討: ['vagueness', 'negotiation'],
+  // French: gendered nouns are their own trap.
+  ambassade: ['gender', 'basics'],
+  réunion: ['gender', 'basics'],
+  horaire: ['gender', 'basics'],
+  salle: ['gender', 'basics'],
+  entretien: ['gender', 'basics'],
+  interprète: ['gender', 'basics'],
+  traduction: ['gender', 'basics'],
+};
+
+function withTopics(language: string, deck: StarterEntry[]): StarterEntry[] {
+  const byTier = TIER_TOPIC[language] ?? TIER_TOPIC.english;
+  return deck.map((entry) => ({
+    ...entry,
+    topics: entry.topics ?? TOPIC_OVERRIDES[entry.term] ?? [byTier[entry.tier]],
+  }));
+}
+
+/** All starter decks, keyed by the language they teach, topics filled in. */
 export const STARTER_DECKS: Record<string, StarterEntry[]> = {
-  english: STARTER_DECK_EN,
-  japanese: STARTER_DECK_JA,
-  french: STARTER_DECK_FR,
+  english: withTopics('english', STARTER_DECK_EN),
+  japanese: withTopics('japanese', STARTER_DECK_JA),
+  french: withTopics('french', STARTER_DECK_FR),
 };
 
 export function starterDeck(language: string): StarterEntry[] {
-  return STARTER_DECKS[language] ?? STARTER_DECK_EN;
+  return STARTER_DECKS[language] ?? STARTER_DECKS.english;
 }

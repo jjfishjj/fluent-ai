@@ -98,6 +98,29 @@ export interface SkillDef {
   technique?: string;
 }
 
+/**
+ * A stage of a representative's interview. Turn-based packs only.
+ *
+ * Phases turn a long boss into a shape: the pressure ramps, the clock
+ * tightens, and the last stage seals your memory techniques — which changes
+ * how you play the whole fight, because aids have to be banked early.
+ */
+export interface BossPhase {
+  /** Entered once the boss falls to this fraction of its health. */
+  at: number;
+  name: string;
+  /** What the representative says on entering this stage. */
+  line: string;
+  /** Multiplier on the backlash a wrong answer deals. */
+  pressure?: number;
+  /** Seconds allowed for the speed bonus; shorter is harsher. */
+  swiftWindow?: number;
+  /** Memory techniques cannot be used during this stage. */
+  sealAids?: boolean;
+  /** Question topic this stage drills. */
+  topic?: string;
+}
+
 export interface MonsterDef {
   id: string;
   name: string;
@@ -120,6 +143,10 @@ export interface MonsterDef {
   accent: number;
   boss?: boolean;
   drops: DropEntry[];
+  /** Topics this obstacle prefers to test, in turn-based packs. */
+  topics?: string[];
+  /** Interview stages, highest `at` first. Bosses only. */
+  phases?: BossPhase[];
 }
 
 export interface DropEntry {
@@ -468,6 +495,22 @@ export interface EncounterHud {
   outcome?: 'win' | 'lose' | 'flee';
   /** Techniques queued for the next answer. */
   aids: { skillId: string; label: string; effect: string }[];
+  /** Present when the obstacle runs staged interviews. */
+  stage?: {
+    name: string;
+    line: string;
+    /** 1-based, for display. */
+    index: number;
+    total: number;
+    /** Techniques are unavailable this stage. */
+    sealed: boolean;
+    /** Seconds allowed for the speed bonus. */
+    swiftWindow: number;
+    /** Backlash multiplier. */
+    pressure: number;
+  };
+  /** Set on the frame a stage change happened, for the banner. */
+  stageAdvanced?: string;
 }
 
 export interface Derived {

@@ -1,4 +1,4 @@
-import { Flame, ShieldCheck, Sparkles, Timer, X, Zap } from 'lucide-react';
+import { Flame, Lock, ShieldCheck, Sparkles, Timer, TrendingUp, X, Zap } from 'lucide-react';
 import type { EncounterHud, HudSnapshot } from '@/game/core/types';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +23,7 @@ export function EncounterPanel({
   onFlee: () => void;
   onClose: () => void;
 }) {
-  const { result, outcome } = encounter;
+  const { result, outcome, stage } = encounter;
   const enemyPct = encounter.enemyMaxHp > 0 ? (encounter.enemyHp / encounter.enemyMaxHp) * 100 : 0;
   const aids = hud.skills.filter((s) => s.level > 0);
 
@@ -59,9 +59,15 @@ export function EncounterPanel({
         {/* obstacle header */}
         <div className="flex items-center gap-3 border-b border-white/10 px-4 py-2.5">
           <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-2">
+            <div className="flex flex-wrap items-baseline gap-2">
               <span className="truncate text-sm font-semibold text-white">{encounter.enemyName}</span>
               <span className="shrink-0 text-[10px] text-white/50">Lv.{encounter.enemyLevel}</span>
+              {stage && (
+                <span className="flex shrink-0 items-center gap-1 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] text-amber-200">
+                  第 {stage.index}/{stage.total} 幕 · {stage.name}
+                  {stage.sealed && <Lock className="h-2.5 w-2.5" />}
+                </span>
+              )}
             </div>
             <div className="mt-1 h-2 overflow-hidden rounded-full bg-black/55">
               <div
@@ -88,8 +94,32 @@ export function EncounterPanel({
           </button>
         </div>
 
+        {/* the representative's line for this stage of the interview */}
+        {stage && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-white/10 bg-amber-400/[0.06] px-4 py-1.5 text-[10px]">
+            <span className="italic text-amber-100/80">「{stage.line}」</span>
+            <span className="ml-auto flex items-center gap-2 text-white/45">
+              {stage.pressure > 1 && (
+                <span className="flex items-center gap-0.5 text-rose-300">
+                  <TrendingUp className="h-3 w-3" />
+                  反噬 ×{stage.pressure}
+                </span>
+              )}
+              <span className="flex items-center gap-0.5">
+                <Timer className="h-3 w-3" />
+                {stage.swiftWindow}s
+              </span>
+            </span>
+          </div>
+        )}
+
         {/* question */}
         <div className="px-4 py-3">
+          {encounter.stageAdvanced && (
+            <div className="mb-2 rounded-lg border border-amber-300/40 bg-amber-400/15 px-3 py-1.5 text-center text-[11px] font-semibold text-amber-100">
+              進入「{encounter.stageAdvanced}」
+            </div>
+          )}
           <div className="text-[10px] uppercase tracking-wider text-white/40">請翻譯</div>
           <div className="mt-0.5 text-xl font-semibold text-white">{encounter.prompt}</div>
           {encounter.hintRevealed && encounter.hint && (
@@ -167,9 +197,15 @@ export function EncounterPanel({
         {/* memory techniques */}
         <div className="flex flex-wrap items-center gap-1.5 border-t border-white/10 px-4 py-2">
           <span className="mr-1 text-[10px] text-white/40">記憶技法</span>
+          {stage?.sealed && (
+            <span className="flex items-center gap-1 rounded-md border border-rose-400/30 bg-rose-400/10 px-2 py-1 text-[10px] text-rose-200">
+              <Lock className="h-3 w-3" />
+              這一幕封印
+            </span>
+          )}
           {aids.map((s) => {
             const queued = encounter.aids.some((a) => a.skillId === s.id);
-            const usable = s.ready && !result && !queued;
+            const usable = s.ready && !result && !queued && !stage?.sealed;
             return (
               <button
                 key={s.id}

@@ -263,3 +263,120 @@ describe('the realtime campaign is unaffected', () => {
     expect(mob.hp).toBeLessThan(hp);
   });
 });
+
+describe('representative interviews', () => {
+  /** Puts the boss in front of the player and opens the exchange. */
+  function meetEnvoy(world: World) {
+    const boss = world.monsters().find((m) => m.monsterId === 'envoy_jp')!;
+    boss.pos = { x: world.player.pos.x + 0.5, z: world.player.pos.z };
+    world.tick(0.05);
+    return boss;
+  }
+
+  function makeBossWorld() {
+    const profile = newProfile('見習生', 'architect', INTERPRETER_PACK);
+    profile.level = 40;
+    profile.learned = { palace: 3, blueprint: 3, index: 3, archive: 3 };
+    const world = new World(profile, {
+      seed: 7,
+      pack: INTERPRETER_PACK,
+      questions: (i) => deck(400)[i % 400],
+    });
+    world.loadZone('kyoto', { x: 0, z: 0 });
+    world.recalcPlayer();
+    // Enough health to survive the whole interview.
+    world.player.maxHp = 100000;
+    world.player.hp = 100000;
+    world.player.maxSp = 100000;
+    world.player.sp = 100000;
+    return world;
+  }
+
+  it('opens on the first stage and announces it', () => {
+    const world = makeBossWorld();
+    meetEnvoy(world);
+    const enc = world.encounter!;
+    expect(enc.phase).toBe(0);
+    expect(enc.stage?.name).toBe('名刺交換');
+    expect(world.chat.some((l) => l.text.includes('名刺交換'))).toBe(true);
+  });
+
+  it('moves through every stage as the representative gives ground', () => {
+    const world = makeBossWorld();
+    const boss = meetEnvoy(world);
+    const seen: string[] = [world.encounter!.stage!.name];
+
+    for (let i = 0; i < 400 && !world.encounter?.outcome; i++) {
+      const out = world.answerEncounter(world.encounter!.question.answer);
+      if (out?.phaseAdvanced) seen.push(out.phaseAdvanced.name);
+      if (!world.encounter?.outcome) world.nextQuestion();
+    }
+
+    expect(world.encounter?.outcome).toBe('win');
+    expect(boss.state).toBe('dead');
+    expect(seen).toEqual(['名刺交換', '敬語の壁', '本音']);
+  });
+
+  it('seals memory techniques in the final stage', () => {
+    const world = makeBossWorld();
+    const boss = meetEnvoy(world);
+    // Techniques work while the interview is still cordial.
+    expect(world.useAid('palace')).toBe(true);
+
+    // Drive it down to the last stage.
+    boss.hp = boss.maxHp * 0.2;
+    world.answerEncounter(world.encounter!.question.answer);
+    expect(world.encounter!.stage?.sealAids).toBe(true);
+    // Queued aids do not survive the change, and no new one can be started.
+    expect(world.encounter!.aids).toHaveLength(0);
+    expect(world.useAid('index')).toBe(false);
+    expect(world.chat.some((l) => l.text.includes('用不了記憶技法'))).toBe(true);
+  });
+
+  it('hits harder once the pressure rises', () => {
+    const world = makeBossWorld();
+    const boss = meetEnvoy(world);
+    const before = world.player.hp;
+    world.answerEncounter('definitely wrong');
+    const calm = before - world.player.hp;
+
+    boss.hp = boss.maxHp * 0.2;
+    world.nextQuestion();
+    world.answerEncounter(world.encounter!.question.answer);
+    world.nextQuestion();
+    const midHp = world.player.hp;
+    world.answerEncounter('definitely wrong');
+    const pressed = midHp - world.player.hp;
+
+    expect(world.encounter!.stage?.pressure).toBeGreaterThan(1);
+    expect(pressed).toBeGreaterThan(calm);
+  });
+
+  it('asks the topic the current stage drills', () => {
+    const world = makeBossWorld();
+    const boss = meetEnvoy(world);
+    const asked: (string[] | undefined)[] = [];
+    // Re-wire the source so we can observe the context it receives.
+    (world as unknown as { questions: (i: number, c: { topics?: string[] }) => unknown }).questions =
+      (i: number, c: { topics?: string[] }) => {
+        asked.push(c.topics);
+        return deck(400)[i % 400];
+      };
+
+    world.nextQuestion();
+    expect(asked.at(-1)).toEqual(['basics']);
+
+    boss.hp = boss.maxHp * 0.5;
+    world.answerEncounter(world.encounter!.question.answer);
+    world.nextQuestion();
+    expect(asked.at(-1)).toEqual(['keigo']);
+  });
+
+  it('leaves ordinary obstacles without stages', () => {
+    const world = makeWorld();
+    barrierAt(world, 'murmur');
+    world.tick(0.05);
+    expect(world.encounter!.stage).toBeUndefined();
+    expect(world.snapshot().encounter?.stage).toBeUndefined();
+  });
+});

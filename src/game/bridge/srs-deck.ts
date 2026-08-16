@@ -25,6 +25,9 @@ export interface DeckSource {
   maxTier?: 1 | 2 | 3;
   /** Total questions to prepare. */
   size?: number;
+  /** Topics the obstacle wants drilled. Matching material is served first;
+   *  the rest still fills in, so a narrow topic can never run the deck dry. */
+  topics?: string[];
 }
 
 const DISTRACTOR_COUNT = 3;
@@ -36,6 +39,7 @@ interface Candidate {
   meaning: string;
   hint?: string;
   note?: string;
+  topics?: string[];
 }
 
 function fromCard(card: MemoryItem): Candidate {
@@ -49,7 +53,13 @@ function fromCard(card: MemoryItem): Candidate {
 }
 
 function fromStarter(entry: StarterEntry): Candidate {
-  return { term: entry.term, meaning: entry.meaning, hint: entry.hint, note: entry.note };
+  return {
+    term: entry.term,
+    meaning: entry.meaning,
+    hint: entry.hint,
+    note: entry.note,
+    topics: entry.topics,
+  };
 }
 
 function pickDistractors(
@@ -92,9 +102,15 @@ export function buildQuestions(source: DeckSource): EncounterQuestion[] {
   const pool = [...own, ...fallback];
   if (!pool.length) return [];
 
-  // Own cards first, then starter material to fill the rest.
+  // Own cards first — they are the point. Then starter material, with
+  // anything matching the requested topics ahead of the rest.
+  const wanted = new Set(source.topics ?? []);
+  const matches = (c: Candidate) => !!c.topics?.some((t) => wanted.has(t));
+  const preferred = wanted.size ? fallback.filter(matches) : fallback;
+  const remainder = wanted.size ? fallback.filter((c) => !matches(c)) : [];
+
   const ordered: Candidate[] = [...own];
-  for (const entry of fallback) {
+  for (const entry of [...preferred, ...remainder]) {
     if (ordered.length >= size) break;
     ordered.push(entry);
   }

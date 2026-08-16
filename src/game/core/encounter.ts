@@ -1,5 +1,5 @@
 import { clamp } from './formulas';
-import type { AidEffect, Element } from './types';
+import type { AidEffect, BossPhase, Element } from './types';
 
 /**
  * Turn-based encounters — the 通譯官 campaign's answer to "how does a
@@ -41,6 +41,10 @@ export interface QuestionContext {
   language: string;
   /** Character level, so harder material can be held back. */
   level: number;
+  /** Topics the obstacle in front of the player prefers to test. A
+   *  representative drilling keigo asks keigo; a generic barrier asks
+   *  whatever is due. */
+  topics?: string[];
 }
 
 /** Supplies questions to an encounter; the SRS bridge implements this. */
@@ -77,6 +81,10 @@ export interface EncounterState {
   askedAt: number;
   lastResult?: AnswerOutcome;
   outcome?: 'win' | 'lose' | 'flee';
+  /** Index into the obstacle's phases; 0 for anything without them. */
+  phase: number;
+  /** The stage currently in force, when the obstacle has phases. */
+  stage?: BossPhase;
 }
 
 export interface AnswerOutcome {
@@ -95,6 +103,8 @@ export interface AnswerOutcome {
   shielded: boolean;
   streak: number;
   note?: string;
+  /** Set when this answer pushed the boss into a new stage. */
+  phaseAdvanced?: BossPhase;
 }
 
 /** Seconds within which an answer counts as swift. */
@@ -113,6 +123,10 @@ export interface ResolveInput {
   /** Seconds the player took to answer. */
   elapsed: number;
   aids: ActiveAid[];
+  /** Seconds allowed for the speed bonus; boss stages shorten it. */
+  swiftWindow?: number;
+  /** Backlash multiplier from the current boss stage. */
+  pressure?: number;
 }
 
 /**
@@ -122,8 +136,10 @@ export interface ResolveInput {
  */
 export function resolveAnswer(input: ResolveInput): AnswerOutcome {
   const { chosen, question, power, enemyAtk, defense, streak, elapsed, aids } = input;
+  const window = input.swiftWindow ?? SWIFT_WINDOW;
+  const pressure = input.pressure ?? 1;
   const correct = chosen === question.answer;
-  const swift = correct && elapsed <= SWIFT_WINDOW;
+  const swift = correct && elapsed <= window;
   const amplify = aids.find((a) => a.effect === 'amplify');
   const shield = aids.find((a) => a.effect === 'shield');
 
@@ -147,7 +163,7 @@ export function resolveAnswer(input: ResolveInput): AnswerOutcome {
 
   // A wrong answer lets the misunderstanding through. Defence softens it the
   // same way armour does elsewhere, and a shield aid stops it outright.
-  const raw = enemyAtk * (1 - defense / (defense + 120));
+  const raw = enemyAtk * pressure * (1 - defense / (defense + 120));
   return {
     correct: false,
     chosen,
@@ -183,6 +199,19 @@ export function applyAid(
     return { options: state.options, hintRevealed: true };
   }
   return { options: state.options, hintRevealed: state.hintRevealed };
+}
+
+/**
+ * Which stage a boss is in at a given health ratio. Phases are listed from
+ * full health downwards, so the last one whose threshold has been passed wins.
+ */
+export function phaseAt(phases: BossPhase[] | undefined, hpRatio: number): number {
+  if (!phases?.length) return 0;
+  let index = 0;
+  for (let i = 0; i < phases.length; i++) {
+    if (hpRatio <= phases[i].at) index = i;
+  }
+  return index;
 }
 
 /** Shuffles the options so the answer is not always in the same slot. */

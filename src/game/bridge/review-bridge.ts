@@ -19,6 +19,8 @@ export interface DeckRequest {
   language: string;
   /** Character level, used to unlock harder starter material. */
   level: number;
+  /** Topics the obstacle in front of the player wants drilled. */
+  topics?: string[];
   seed?: number;
   size?: number;
 }
@@ -36,6 +38,7 @@ export function loadDeck(req: DeckRequest): EncounterQuestion[] {
     starter: starterDeck(req.language),
     rng: rng.next.bind(rng),
     maxTier: tierFor(req.level),
+    topics: req.topics,
     size: req.size ?? 24,
   });
 }
@@ -48,18 +51,30 @@ export function loadDeck(req: DeckRequest): EncounterQuestion[] {
  * A deck is rebuilt when the player's level unlocks a harder tier.
  */
 export function createMissionDeck(userId: string, size = 24): QuestionSource {
-  const decks = new Map<string, { questions: EncounterQuestion[]; cursor: number; tier: number }>();
+  const decks = new Map<string, { questions: EncounterQuestion[]; cursor: number; key: string }>();
 
   return (_index, context) => {
-    const tier = tierFor(context.level);
-    let deck = decks.get(context.language);
-    if (!deck || deck.tier !== tier) {
+    // A deck is identified by language, tier and the topic being drilled, so a
+    // boss stage that switches to keigo gets its own list — and its own place
+    // in that list, which survives going back to the general pool.
+    const topics = context.topics?.length ? [...context.topics].sort() : [];
+    const slot = `${context.language}|${topics.join(',')}`;
+    const key = `${slot}|${tierFor(context.level)}`;
+
+    let deck = decks.get(slot);
+    if (!deck || deck.key !== key) {
       deck = {
-        questions: loadDeck({ userId, language: context.language, level: context.level, size }),
+        questions: loadDeck({
+          userId,
+          language: context.language,
+          level: context.level,
+          topics: context.topics,
+          size,
+        }),
         cursor: 0,
-        tier,
+        key,
       };
-      decks.set(context.language, deck);
+      decks.set(slot, deck);
     }
     if (!deck.questions.length) return undefined;
     const question = deck.questions[deck.cursor % deck.questions.length];

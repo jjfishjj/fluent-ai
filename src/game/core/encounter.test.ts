@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SWIFT_WINDOW, applyAid, resolveAnswer, shuffleOptions } from './encounter';
+import { SWIFT_WINDOW, applyAid, phaseAt, resolveAnswer, shuffleOptions } from './encounter';
 import type { EncounterQuestion } from './encounter';
 
 const question: EncounterQuestion = {
@@ -122,5 +122,40 @@ describe('shuffleOptions', () => {
   it('keeps every option exactly once', () => {
     const shuffled = shuffleOptions(question.options, () => 0.42);
     expect([...shuffled].sort()).toEqual([...question.options].sort());
+  });
+});
+
+describe('boss stages', () => {
+  const phases = [
+    { at: 1, name: '寒暄', line: 'a' },
+    { at: 0.66, name: '正題', line: 'b', pressure: 1.2, swiftWindow: 5 },
+    { at: 0.3, name: '最後通牒', line: 'c', pressure: 1.5, swiftWindow: 4, sealAids: true },
+  ];
+
+  it('advances only once the health threshold is crossed', () => {
+    expect(phaseAt(phases, 1)).toBe(0);
+    expect(phaseAt(phases, 0.7)).toBe(0);
+    expect(phaseAt(phases, 0.66)).toBe(1);
+    expect(phaseAt(phases, 0.4)).toBe(1);
+    expect(phaseAt(phases, 0.3)).toBe(2);
+    expect(phaseAt(phases, 0.01)).toBe(2);
+  });
+
+  it('stays at stage zero for anything without phases', () => {
+    expect(phaseAt(undefined, 0.1)).toBe(0);
+    expect(phaseAt([], 0.1)).toBe(0);
+  });
+
+  it('multiplies the backlash by the stage pressure', () => {
+    const calm = resolveAnswer({ ...base, chosen: 'thin cow' }).backlash;
+    const pressed = resolveAnswer({ ...base, chosen: 'thin cow', pressure: 1.5 }).backlash;
+    expect(pressed).toBeGreaterThan(calm);
+    expect(pressed).toBeCloseTo(calm * 1.5, 0);
+  });
+
+  it('tightens the speed bonus window', () => {
+    // Five seconds is swift by default, but not once the window shrinks to four.
+    expect(resolveAnswer({ ...base, elapsed: 5 }).swift).toBe(true);
+    expect(resolveAnswer({ ...base, elapsed: 5, swiftWindow: 4 }).swift).toBe(false);
   });
 });

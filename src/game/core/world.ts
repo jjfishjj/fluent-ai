@@ -22,7 +22,9 @@ import {
   EncounterState,
   QuestionContext,
   QuestionSource,
+  SWIFT_WINDOW,
   applyAid,
+  phaseAt,
   resolveAnswer,
   shuffleOptions,
 } from './encounter';
@@ -607,15 +609,24 @@ export class World {
       wrong: 0,
       aids: [],
       askedAt: this.time,
+      phase: 0,
+      stage: monsterOf(this.pack, enemy.monsterId)?.phases?.[0],
     };
+    const opening = this.encounter.stage;
     this.say('system', '遭遇', `${enemy.name} 擋住了去路。`);
+    if (opening) this.say('system', enemy.name, `【${opening.name}】${opening.line}`);
     return true;
   }
 
   private questionContext(): QuestionContext {
+    const enc = this.encounter;
+    const def = enc ? monsterOf(this.pack, this.entity(enc.enemyId)?.monsterId) : undefined;
+    // A boss stage narrows the topic further than the obstacle's own bias.
+    const stageTopic = enc?.stage?.topic;
     return {
       language: this.zone.language ?? this.pack.language ?? 'english',
       level: this.profile.level,
+      topics: stageTopic ? [stageTopic] : def?.topics,
     };
   }
 
@@ -640,6 +651,8 @@ export class World {
       streak: enc.streak,
       elapsed: this.time - enc.askedAt,
       aids: enc.aids,
+      swiftWindow: enc.stage?.swiftWindow,
+      pressure: enc.stage?.pressure,
     });
 
     this.onAnswer?.(enc.question, outcome.correct);
@@ -677,6 +690,19 @@ export class World {
       }
     }
     this.lastCombatAt = this.time;
+
+    // A boss moves through its interview stages as its resolve drops.
+    if (def?.phases?.length && enemy.hp > 0) {
+      const next = phaseAt(def.phases, enemy.hp / enemy.maxHp);
+      if (next > enc.phase) {
+        enc.phase = next;
+        enc.stage = def.phases[next];
+        outcome.phaseAdvanced = enc.stage;
+        // Techniques queued for the next answer do not survive a stage change.
+        if (enc.stage.sealAids) enc.aids = [];
+        this.say('system', enemy.name, `【${enc.stage.name}】${enc.stage.line}`);
+      }
+    }
 
     if (enemy.hp <= 0) {
       this.killMonster(enemy);
@@ -717,6 +743,10 @@ export class World {
     const enc = this.encounter;
     const skill = this.skillAt(skillId);
     if (!enc || enc.outcome || !skill || skill.kind !== 'aid' || !skill.aidEffect) return false;
+    if (enc.stage?.sealAids) {
+      this.say('system', '系統', '對方步步進逼，這個階段用不了記憶技法。');
+      return false;
+    }
     if ((this.cooldowns[skillId] ?? 0) > this.time) return false;
     if (this.player.sp < skill.spCost) {
       this.say('system', '系統', '專注力不足');
@@ -1529,6 +1559,18 @@ export class World {
         : undefined,
       outcome: enc.outcome,
       aids: enc.aids.map((a) => ({ skillId: a.skillId, label: a.label, effect: a.effect })),
+      stage: enc.stage
+        ? {
+            name: enc.stage.name,
+            line: enc.stage.line,
+            index: enc.phase + 1,
+            total: monsterOf(this.pack, enemy?.monsterId)?.phases?.length ?? 1,
+            sealed: !!enc.stage.sealAids,
+            swiftWindow: enc.stage.swiftWindow ?? SWIFT_WINDOW,
+            pressure: enc.stage.pressure ?? 1,
+          }
+        : undefined,
+      stageAdvanced: r?.phaseAdvanced?.name,
     };
   }
 

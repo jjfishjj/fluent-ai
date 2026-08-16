@@ -1,4 +1,4 @@
-import type { MonsterDef, QuestDef, ZoneDef } from '../../core/types';
+import type { BossPhase, MonsterDef, QuestDef, ZoneDef } from '../../core/types';
 
 /**
  * The countries the interpreter is posted to.
@@ -30,6 +30,8 @@ function barrier(spec: {
   speed?: number;
   aggroRange?: number;
   boss?: boolean;
+  topics?: string[];
+  phases?: BossPhase[];
 }): MonsterDef {
   const { level, bulk = 1, threat = 1 } = spec;
   return {
@@ -51,6 +53,8 @@ function barrier(spec: {
     accent: spec.accent,
     boss: spec.boss,
     drops: spec.drops,
+    topics: spec.topics,
+    phases: spec.phases,
   };
 }
 
@@ -65,26 +69,26 @@ const UK_BARRIERS: MonsterDef[] = [
   barrier({ id: 'falsefriend', name: '假朋友', level: 5, shape: 'humanoid', color: 0x8f7fc0, accent: 0xffd0f0, element: 'shadow', speed: 3.4, drops: COMMON_DROPS }),
   barrier({ id: 'accentfog', name: '口音之霧', level: 8, shape: 'spirit', color: 0x7fa8c8, accent: 0xcfe8ff, element: 'water', size: 1.1, drops: [...COMMON_DROPS, { itemId: 'notebook', chance: 0.06 }] }),
   barrier({ id: 'runon', name: '長句奔流', level: 11, shape: 'beast', color: 0x6fb3a0, accent: 0xd8fff0, element: 'wind', speed: 4.2, drops: COMMON_DROPS }),
-  barrier({ id: 'phrasal', name: '片語動詞纏繞', level: 14, shape: 'beast', color: 0x8a7a4a, accent: 0xffe8a8, element: 'earth', size: 1.15, drops: [...COMMON_DROPS, { itemId: 'shorthand', chance: 0.05 }] }),
-  barrier({ id: 'idiomthicket', name: '慣用語荊棘', level: 17, shape: 'beast', color: 0x5f8a4a, accent: 0xc8ff9a, element: 'earth', size: 1.3, bulk: 1.2, drops: [...COMMON_DROPS, { itemId: 'blazer', chance: 0.08 }] }),
+  barrier({ id: 'phrasal', name: '片語動詞纏繞', level: 14, shape: 'beast', color: 0x8a7a4a, accent: 0xffe8a8, element: 'earth', size: 1.15, topics: ['idiom'], drops: [...COMMON_DROPS, { itemId: 'shorthand', chance: 0.05 }] }),
+  barrier({ id: 'idiomthicket', name: '慣用語荊棘', level: 17, shape: 'beast', color: 0x5f8a4a, accent: 0xc8ff9a, element: 'earth', size: 1.3, bulk: 1.2, topics: ['idiom'], drops: [...COMMON_DROPS, { itemId: 'blazer', chance: 0.08 }] }),
 ];
 
 // ── 日本 ────────────────────────────────────────────────────────────────
 const JP_BARRIERS: MonsterDef[] = [
-  barrier({ id: 'keigo_maze', name: '敬語迷宮', level: 18, shape: 'humanoid', color: 0xb08a5c, accent: 0xffe0a8, element: 'earth', size: 1.2, drops: COMMON_DROPS }),
-  barrier({ id: 'vagueness', name: '曖昧之壁', level: 21, shape: 'spirit', color: 0xc8b8d8, accent: 0xf0e8ff, element: 'shadow', size: 1.15, drops: COMMON_DROPS }),
+  barrier({ id: 'keigo_maze', name: '敬語迷宮', level: 18, shape: 'humanoid', color: 0xb08a5c, accent: 0xffe0a8, element: 'earth', size: 1.2, topics: ['keigo'], drops: COMMON_DROPS }),
+  barrier({ id: 'vagueness', name: '曖昧之壁', level: 21, shape: 'spirit', color: 0xc8b8d8, accent: 0xf0e8ff, element: 'shadow', size: 1.15, topics: ['vagueness'], drops: COMMON_DROPS }),
   barrier({ id: 'kanji_mirage', name: '漢字幻影', level: 24, shape: 'humanoid', color: 0x9a5a4a, accent: 0xffd0b0, element: 'fire', drops: [...COMMON_DROPS, { itemId: 'shorthand', chance: 0.08 }] }),
-  barrier({ id: 'humble_storm', name: '謙讓語風暴', level: 27, shape: 'spirit', color: 0x7a90b8, accent: 0xdfeaff, element: 'wind', speed: 3.6, size: 1.2, drops: COMMON_DROPS }),
-  barrier({ id: 'silence_gap', name: '沉默之間', level: 30, shape: 'slime', color: 0x50607a, accent: 0xb8c8e0, element: 'shadow', aggroRange: 0, size: 1.3, bulk: 1.25, drops: [...COMMON_DROPS, { itemId: 'earpiece', chance: 0.06 }] }),
+  barrier({ id: 'humble_storm', name: '謙讓語風暴', level: 27, shape: 'spirit', color: 0x7a90b8, accent: 0xdfeaff, element: 'wind', speed: 3.6, size: 1.2, topics: ['keigo'], drops: COMMON_DROPS }),
+  barrier({ id: 'silence_gap', name: '沉默之間', level: 30, shape: 'slime', color: 0x50607a, accent: 0xb8c8e0, element: 'shadow', aggroRange: 0, size: 1.3, bulk: 1.25, topics: ['vagueness'], drops: [...COMMON_DROPS, { itemId: 'earpiece', chance: 0.06 }] }),
 ];
 
 // ── 法國 ────────────────────────────────────────────────────────────────
 const FR_BARRIERS: MonsterDef[] = [
-  barrier({ id: 'gender_fork', name: '陰陽性歧路', level: 30, shape: 'humanoid', color: 0x5a6fc0, accent: 0xffd8e8, element: 'neutral', size: 1.2, drops: COMMON_DROPS }),
+  barrier({ id: 'gender_fork', name: '陰陽性歧路', level: 30, shape: 'humanoid', color: 0x5a6fc0, accent: 0xffd8e8, element: 'neutral', size: 1.2, topics: ['gender'], drops: COMMON_DROPS }),
   barrier({ id: 'liaison_fog', name: '連音之霧', level: 33, shape: 'spirit', color: 0x8fa8d8, accent: 0xe8f0ff, element: 'water', size: 1.2, drops: COMMON_DROPS }),
   barrier({ id: 'subjunctive', name: '虛擬式漩渦', level: 36, shape: 'beast', color: 0x7a5a9a, accent: 0xe0c8ff, element: 'shadow', speed: 3.8, size: 1.25, drops: [...COMMON_DROPS, { itemId: 'earpiece', chance: 0.08 }] }),
   barrier({ id: 'fauxami_fr', name: '假朋友（法）', level: 39, shape: 'humanoid', color: 0xc06a8a, accent: 0xffe0f0, element: 'shadow', size: 1.2, drops: COMMON_DROPS }),
-  barrier({ id: 'langue_de_bois', name: '官話迷宮', level: 42, shape: 'beast', color: 0x6a6a58, accent: 0xd8d8b0, element: 'earth', size: 1.35, bulk: 1.25, drops: [...COMMON_DROPS, { itemId: 'blazer', chance: 0.12 }] }),
+  barrier({ id: 'langue_de_bois', name: '官話迷宮', level: 42, shape: 'beast', color: 0x6a6a58, accent: 0xd8d8b0, element: 'earth', size: 1.35, bulk: 1.25, topics: ['formal'], drops: [...COMMON_DROPS, { itemId: 'blazer', chance: 0.12 }] }),
 ];
 
 const ENVOYS: MonsterDef[] = [
@@ -101,6 +105,32 @@ const ENVOYS: MonsterDef[] = [
     threat: 1.35,
     aggroRange: 18,
     boss: true,
+    topics: ['meeting'],
+    phases: [
+      {
+        at: 1,
+        name: '寒暄',
+        line: 'Do sit down. I trust the journey was tolerable?',
+        topic: 'basics',
+      },
+      {
+        at: 0.66,
+        name: '進入正題',
+        line: 'Now — shall we address the substance?',
+        topic: 'meeting',
+        pressure: 1.2,
+        swiftWindow: 5,
+      },
+      {
+        at: 0.3,
+        name: '最後通牒',
+        line: 'With all due respect, I shall need a straight answer.',
+        topic: 'idiom',
+        pressure: 1.5,
+        swiftWindow: 4,
+        sealAids: true,
+      },
+    ],
     drops: [
       { itemId: 'credential_uk', chance: 1 },
       { itemId: 'earpiece', chance: 1 },
@@ -121,6 +151,32 @@ const ENVOYS: MonsterDef[] = [
     threat: 1.35,
     aggroRange: 18,
     boss: true,
+    topics: ['keigo'],
+    phases: [
+      {
+        at: 1,
+        name: '名刺交換',
+        line: 'はじめまして。佐藤と申します。',
+        topic: 'basics',
+      },
+      {
+        at: 0.66,
+        name: '敬語の壁',
+        line: 'では、少し崩さずにお話しできますか。',
+        topic: 'keigo',
+        pressure: 1.25,
+        swiftWindow: 5,
+      },
+      {
+        at: 0.3,
+        name: '本音',
+        line: '……前向きに検討します、と申し上げておきましょう。',
+        topic: 'vagueness',
+        pressure: 1.5,
+        swiftWindow: 4,
+        sealAids: true,
+      },
+    ],
     drops: [
       { itemId: 'credential_jp', chance: 1 },
       { itemId: 'shorthand', chance: 1 },
@@ -140,6 +196,32 @@ const ENVOYS: MonsterDef[] = [
     threat: 1.35,
     aggroRange: 18,
     boss: true,
+    topics: ['formal'],
+    phases: [
+      {
+        at: 1,
+        name: 'L’accueil',
+        line: 'Soyez le bienvenu. Nous avons peu de temps.',
+        topic: 'basics',
+      },
+      {
+        at: 0.66,
+        name: 'La négociation',
+        line: 'Venons-en au fond du dossier.',
+        topic: 'meeting',
+        pressure: 1.25,
+        swiftWindow: 5,
+      },
+      {
+        at: 0.3,
+        name: 'La formule',
+        line: 'Sous réserve, bien entendu, de ce qui précède.',
+        topic: 'formal',
+        pressure: 1.6,
+        swiftWindow: 4,
+        sealAids: true,
+      },
+    ],
     drops: [
       { itemId: 'credential_fr', chance: 1 },
       { itemId: 'earpiece', chance: 1 },

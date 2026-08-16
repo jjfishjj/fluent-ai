@@ -162,3 +162,58 @@ describe('self-answering material', () => {
     }
   });
 });
+
+describe('topic bias', () => {
+  const keigo = new Set(
+    STARTER_DECKS.japanese.filter((e) => e.topics?.includes('keigo')).flatMap((e) => [e.term, e.meaning]),
+  );
+
+  it('serves the requested topic first', () => {
+    const r = new Rng(21);
+    const qs = buildQuestions({
+      cards: [],
+      starter: STARTER_DECKS.japanese,
+      rng: r.next.bind(r),
+      topics: ['keigo'],
+      size: 6,
+    });
+    for (const q of qs) expect(keigo.has(q.answer), q.answer).toBe(true);
+  });
+
+  it('falls back to the rest rather than running dry on a narrow topic', () => {
+    const r = new Rng(22);
+    const qs = buildQuestions({
+      cards: [],
+      starter: STARTER_DECKS.japanese,
+      rng: r.next.bind(r),
+      topics: ['keigo'],
+      size: 40,
+    });
+    expect(qs.length).toBeGreaterThan(keigo.size / 2);
+    expect(qs.some((q) => !keigo.has(q.answer))).toBe(true);
+  });
+
+  it('ignores an unknown topic instead of returning nothing', () => {
+    const r = new Rng(23);
+    const qs = buildQuestions({
+      cards: [],
+      starter: STARTER_DECKS.japanese,
+      rng: r.next.bind(r),
+      topics: ['no-such-topic'],
+      size: 8,
+    });
+    expect(qs).toHaveLength(8);
+  });
+
+  it('keeps the player’s own cards first regardless of topic', () => {
+    const r = new Rng(24);
+    const qs = buildQuestions({
+      cards: [card('mine', 'treaty', '條約')],
+      starter: STARTER_DECKS.japanese,
+      rng: r.next.bind(r),
+      topics: ['keigo'],
+      size: 5,
+    });
+    expect(qs[0].cardId).toBe('mine');
+  });
+});
