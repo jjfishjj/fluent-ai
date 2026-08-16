@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Flag, Globe2, Home, Loader2, LogIn, Plus, Users, Wifi, WifiOff } from 'lucide-react';
+import { Bird, Flag, Globe2, Home, Loader2, LogIn, MessageSquare, Plus, Send, Users, Wifi, WifiOff } from 'lucide-react';
+import { BIRDS } from '@/game/race/data/birds';
 import { HubWorld } from '@/game/race/hub/hubWorld';
 import { HubRenderer } from '@/game/race/hub/HubRenderer';
-import type { CircuitNet, RaceRoom } from '@/game/race/net/circuit';
+import type { ChatLine, CircuitNet, RaceRoom } from '@/game/race/net/circuit';
 import { CHALLENGE_LABEL, nation } from '@/game/race/data/nations';
 import {
   STAGES,
@@ -68,20 +69,31 @@ function PadButton({
 export function EmbassyHub({
   net,
   birdId,
+  onPickBird,
   onStartRace,
   onOpenLobby,
 }: {
   net: CircuitNet;
   birdId: string;
+  /** Persists the chosen mount on the page, so a race uses it too. */
+  onPickBird: (birdId: string) => void;
   onStartRace: (options: RaceOptions) => void;
   onOpenLobby: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const hubRef = useRef<HubWorld | null>(null);
+  const rendererRef = useRef<HubRenderer | null>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
   const heldRef = useRef<Held>(emptyHeld());
   const startRef = useRef(onStartRace);
   startRef.current = onStartRace;
+  /**
+   * The mount lives in a ref as well as in props: swapping it in the stable
+   * must repaint the bird, not tear down the plaza and reconnect.
+   */
+  const birdRef = useRef(birdId);
+  birdRef.current = birdId;
 
   const [profile, setProfile] = useState<DiplomatProfile>(() => loadProfile());
   const [nearby, setNearby] = useState<string | undefined>();
@@ -90,6 +102,10 @@ export function EmbassyHub({
   const [rooms, setRooms] = useState<RaceRoom[]>([]);
   const [room, setRoom] = useState<RaceRoom | undefined>();
   const [status, setStatus] = useState(net.status);
+  const [chat, setChat] = useState<ChatLine[]>([]);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [stableOpen, setStableOpen] = useState(false);
 
   const rank = useMemo(() => rankFor(profile.credits), [profile.credits]);
 
@@ -101,18 +117,19 @@ export function EmbassyHub({
 
     const saved = loadProfile();
     setProfile(saved);
-    const hub = new HubWorld({ name: '你', birdId, rank: rankFor(saved.credits).name });
+    const hub = new HubWorld({ name: '你', birdId: birdRef.current, rank: rankFor(saved.credits).name });
     const renderer = new HubRenderer(canvas, hub);
     hubRef.current = hub;
+    rendererRef.current = renderer;
 
-    net.setProfile({ name: '你', birdId, rank: rankFor(saved.credits).name });
+    net.setProfile({ name: '你', birdId: birdRef.current, rank: rankFor(saved.credits).name });
     void net.connect(hub);
     net.onRaceStart((started) => {
       // The host pressed start: everyone in the room drops onto the grid.
       startRef.current({
         mode: 'multiplayer',
         nationId: started.nationId,
-        birdId,
+        birdId: birdRef.current,
         difficulty: 1,
         rivals: started.rivals,
         challenge: started.challenge,
@@ -157,6 +174,7 @@ export function EmbassyHub({
         setRooms(net.rooms());
         setRoom(net.room);
         setStatus(net.status);
+        setChat(net.chat());
       }
     };
     raf = requestAnimationFrame(loop);
@@ -166,8 +184,9 @@ export function EmbassyHub({
       ro.disconnect();
       renderer.dispose();
       hubRef.current = null;
+      rendererRef.current = null;
     };
-  }, [birdId, net]);
+  }, [net]);
 
   // ── keyboard ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -181,8 +200,21 @@ export function EmbassyHub({
       d: 'right',
       arrowright: 'right',
     };
+    const typing = () => document.activeElement instanceof HTMLInputElement;
+
     const down = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
+      if (typing()) {
+        if (key === 'escape') (document.activeElement as HTMLInputElement).blur();
+        return;
+      }
+      if (key === 'enter') {
+        e.preventDefault();
+        setChatOpen(true);
+        // Focus lands after the panel renders.
+        window.setTimeout(() => chatInputRef.current?.focus(), 0);
+        return;
+      }
       const control = map[key];
       if (control) {
         e.preventDefault();
@@ -197,6 +229,7 @@ export function EmbassyHub({
       } else if (key === 'escape') {
         setTalkTo(undefined);
         setBoardOpen(false);
+        setStableOpen(false);
       }
     };
     const up = (e: KeyboardEvent) => {
@@ -230,14 +263,14 @@ export function EmbassyHub({
       onStartRace({
         mode: 'campaign',
         nationId,
-        birdId,
+        birdId: birdRef.current,
         difficulty: stage.difficulty,
         rivals: stage.rivals,
         challenge: stage.challenge,
         stageIndex: stage.index,
       });
     },
-    [birdId, onStartRace],
+    [onStartRace],
   );
 
   const openRoom = useCallback(
@@ -248,6 +281,25 @@ export function EmbassyHub({
       setBoardOpen(true);
     },
     [net],
+  );
+
+  const sendChat = useCallback(() => {
+    const text = draft.trim();
+    if (!text) return;
+    net.say(text);
+    setChat(net.chat());
+    setDraft('');
+  }, [draft, net]);
+
+  const pickBird = useCallback(
+    (next: string) => {
+      onPickBird(next);
+      rendererRef.current?.setPlayerBird(next);
+      const saved = loadProfile();
+      net.setProfile({ name: '你', birdId: next, rank: rankFor(saved.credits).name });
+      setStableOpen(false);
+    },
+    [net, onPickBird],
   );
 
   const nearbyNation = nearby ? nation(nearby) : undefined;
@@ -277,6 +329,13 @@ export function EmbassyHub({
             >
               <Users className="mr-1 inline h-3 w-3" />
               賽事大廳
+            </button>
+            <button
+              onClick={() => setStableOpen(true)}
+              className="rounded-xl border border-white/15 bg-slate-950/70 px-2.5 py-1.5 text-[11px] text-white/85 backdrop-blur-md transition hover:bg-slate-800/80"
+            >
+              <Bird className="mr-1 inline h-3 w-3" />
+              馬廄
             </button>
             <button
               onClick={onOpenLobby}
@@ -491,6 +550,116 @@ export function EmbassyHub({
         </div>
       )}
 
+      {/* Plaza chat. Collapsed to a button until you open it. */}
+      <div className="pointer-events-none absolute bottom-24 left-2.5 w-64 sm:bottom-16 sm:left-3 sm:w-72">
+        {chatOpen ? (
+          <div className="pointer-events-auto rounded-2xl border border-white/15 bg-slate-950/75 p-2 backdrop-blur-md">
+            <div className="mb-1 flex items-center justify-between text-[10px] text-white/45">
+              <span className="flex items-center gap-1">
+                <MessageSquare className="h-3 w-3" /> 廣場頻道
+              </span>
+              <button onClick={() => setChatOpen(false)} className="hover:text-white">
+                收起
+              </button>
+            </div>
+            <div className="max-h-32 space-y-0.5 overflow-y-auto text-[11px]">
+              {chat.length === 0 && <p className="text-white/40">還沒有人說話。</p>}
+              {chat.map((line, index) => (
+                <div key={`${line.id}-${index}`} className="leading-snug">
+                  <span className={cn('font-semibold', line.self ? 'text-amber-300' : 'text-sky-300')}>
+                    {line.name}
+                  </span>
+                  <span className="text-white/45">：</span>
+                  <span className="text-white/85">{line.text}</span>
+                </div>
+              ))}
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                sendChat();
+              }}
+              className="mt-1.5 flex gap-1"
+            >
+              <input
+                ref={chatInputRef}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                maxLength={120}
+                placeholder="說點什麼…"
+                className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/40 px-2 py-1 text-[12px] text-white outline-none placeholder:text-white/30 focus:border-white/40"
+              />
+              <button
+                type="submit"
+                className="rounded-lg bg-white/10 px-2 text-white/80 transition hover:bg-white/20"
+                aria-label="送出"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            </form>
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              setChatOpen(true);
+              window.setTimeout(() => chatInputRef.current?.focus(), 0);
+            }}
+            className="pointer-events-auto flex max-w-full items-center gap-1.5 rounded-full border border-white/15 bg-slate-950/70 px-3 py-1.5 text-[11px] text-white/70 backdrop-blur-md transition hover:bg-slate-800/80"
+          >
+            <MessageSquare className="h-3 w-3 shrink-0" />
+            <span className="truncate">
+              {chat.length > 0 ? `${chat.at(-1)!.name}：${chat.at(-1)!.text}` : '廣場頻道'}
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Stable: swap the mount you ride, in the hub and on the grid. */}
+      {stableOpen && (
+        <div className="absolute inset-0 grid place-items-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <div className="max-h-full w-full max-w-md overflow-y-auto rounded-3xl border border-white/15 bg-slate-900/92 p-5 text-white shadow-2xl">
+            <div className="flex items-center gap-1.5 text-base font-bold">
+              <Bird className="h-4 w-4" /> 馬廄
+            </div>
+            <p className="mt-1 text-[11px] text-white/55">選好的座騎會跟著你進入下一場比賽。</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {Object.values(BIRDS).map((bird) => (
+                <button
+                  key={bird.id}
+                  onClick={() => pickBird(bird.id)}
+                  className={cn(
+                    'rounded-2xl border p-2.5 text-left transition',
+                    bird.id === birdId
+                      ? 'border-amber-300/80 bg-amber-300/10'
+                      : 'border-white/10 bg-white/5 hover:border-white/30',
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-base"
+                      style={{ background: `#${bird.body.toString(16).padStart(6, '0')}` }}
+                    >
+                      🐤
+                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold">{bird.name}</div>
+                      <div className="text-[10px] text-white/50">{bird.title}</div>
+                    </div>
+                  </div>
+                  <p className="mt-1.5 text-[10px] leading-snug text-white/55">{bird.blurb}</p>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setStableOpen(false)}
+              className="mt-4 w-full rounded-xl px-4 py-2 text-sm text-white/55 transition hover:text-white"
+            >
+              關閉
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Touch movement pad. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between p-3 [@media(hover:hover)]:hidden">
         <div className="grid grid-cols-3 gap-1.5">
@@ -507,6 +676,7 @@ export function EmbassyHub({
         <span>WASD 移動</span>
         <span>F 對話</span>
         <span>B 賽事大廳</span>
+        <span>Enter 聊天</span>
         <Home className="h-3 w-3 self-center opacity-50" />
       </div>
     </div>

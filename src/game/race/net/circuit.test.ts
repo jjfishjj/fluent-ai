@@ -54,6 +54,45 @@ describe('CircuitNet offline fallback', () => {
   });
 });
 
+describe('CircuitNet chat', () => {
+  it('echoes your own line even with nobody to send it to', async () => {
+    const { hub, net } = setup();
+    await net.connect(hub);
+    net.say('大家好');
+
+    const log = net.chat();
+    expect(log).toHaveLength(1);
+    expect(log[0].text).toBe('大家好');
+    expect(log[0].self).toBe(true);
+    net.dispose();
+  });
+
+  it('ignores blank lines and trims very long ones', async () => {
+    const { hub, net } = setup();
+    await net.connect(hub);
+    net.say('   ');
+    net.say('\n');
+    expect(net.chat()).toHaveLength(0);
+
+    net.say('字'.repeat(400));
+    expect(net.chat()[0].text.length).toBeLessThanOrEqual(120);
+    net.dispose();
+  });
+
+  it('lets the simulated diplomats chatter, and bounds the log', async () => {
+    const { hub, net } = setup();
+    await net.connect(hub);
+    for (let i = 0; i < 60 * 60 * 30; i += 1) net.update(1 / 60, hub);
+
+    const log = net.chat();
+    expect(log.length).toBeGreaterThan(1);
+    // Bounded, and none of it attributed to us.
+    expect(log.length).toBeLessThanOrEqual(40);
+    expect(log.some((line) => line.self)).toBe(false);
+    net.dispose();
+  });
+});
+
 describe('CircuitNet rooms', () => {
   it('creates a room hosted by this client, with itself on the grid', async () => {
     const { hub, net } = setup();
@@ -124,6 +163,15 @@ describe('CircuitNet rooms', () => {
 });
 
 describe('networked racers in the sim', () => {
+  /** Runs the countdown out, then `seconds` of racing. */
+  function race(sim: RaceSim, seconds: number) {
+    for (let i = 0; i < 240; i += 1) sim.tick(1 / 60);
+    for (let i = 0; i < seconds * 60; i += 1) {
+      sim.setPlayerInput({ throttle: 1 });
+      sim.tick(1 / 60);
+    }
+  }
+
   function multiplayerSim() {
     return new RaceSim({
       trackId: 'japan',
@@ -159,42 +207,64 @@ describe('networked racers in the sim', () => {
 
   it('moves a networked racer towards the packets it receives', () => {
     const sim = multiplayerSim();
-    for (let i = 0; i < 240; i += 1) sim.tick(1 / 60);
+    race(sim, 6);
 
     const peer = sim.racers.find((r) => r.id === 'peer1')!;
     const before = { ...peer.pos };
-    sim.applyRemote('peer1', {
-      x: before.x + 30,
-      z: before.z,
-      yaw: Math.PI / 2,
-      speed: 24,
-      lap: 0,
-      progress: 260,
-    });
-    for (let i = 0; i < 60; i += 1) {
-      sim.setPlayerInput({ throttle: 1 });
-      sim.tick(1 / 60);
-    }
+    const reported = peer.remote!.progress + 40;
+    expect(
+      sim.applyRemote('peer1', {
+        x: before.x + 30,
+        z: before.z,
+        yaw: Math.PI / 2,
+        speed: 24,
+        lap: 0,
+        progress: reported,
+      }),
+    ).toBe(true);
+    race(sim, 1);
 
     expect(peer.pos.x).toBeGreaterThan(before.x + 10);
     expect(peer.speed).toBeCloseTo(24, 5);
-    expect(peer.progress).toBeGreaterThan(260);
+    expect(peer.progress).toBeGreaterThan(reported);
     // Their own client owns their answers, so we never grade them here.
     expect(peer.gates.correct + peer.gates.wrong + peer.gates.missed).toBe(0);
   });
 
   it('ranks networked racers from the progress they report', () => {
     const sim = multiplayerSim();
-    for (let i = 0; i < 240; i += 1) sim.tick(1 / 60);
-    sim.applyRemote('peer1', { x: 0, z: 0, yaw: 0, speed: 0, lap: 2, progress: 5000 });
+    race(sim, 40);
+    const peer = sim.racers.find((r) => r.id === 'peer1')!;
+    const leader = Math.max(...sim.racers.map((r) => r.progress));
+
+    expect(
+      sim.applyRemote('peer1', {
+        x: peer.pos.x,
+        z: peer.pos.z,
+        yaw: peer.yaw,
+        speed: 26,
+        lap: peer.lap + 1,
+        progress: leader + 120,
+      }),
+    ).toBe(true);
     sim.tick(1 / 60);
-    expect(sim.racers.find((r) => r.id === 'peer1')!.place).toBe(1);
+    expect(peer.place).toBe(1);
   });
 
   it('finishes a networked racer when their client says they crossed the line', () => {
     const sim = multiplayerSim();
-    for (let i = 0; i < 240; i += 1) sim.tick(1 / 60);
-    sim.applyRemote('peer2', { x: 0, z: 0, yaw: 0, speed: 0, lap: sim.laps, progress: 9999 });
+    race(sim, 60);
+    const peer2 = sim.racers.find((r) => r.id === 'peer2')!;
+    expect(
+      sim.applyRemote('peer2', {
+        x: peer2.pos.x,
+        z: peer2.pos.z,
+        yaw: peer2.yaw,
+        speed: 0,
+        lap: sim.laps,
+        progress: peer2.remote!.progress + 200,
+      }),
+    ).toBe(true);
     sim.tick(1 / 60);
 
     const peer = sim.racers.find((r) => r.id === 'peer2')!;
@@ -203,11 +273,55 @@ describe('networked racers in the sim', () => {
     expect(sim.snapshot().standings.find((r) => r.id === 'peer2')?.finished).toBe(true);
   });
 
+  it('rejects packets that could not be real', () => {
+    const sim = multiplayerSim();
+    race(sim, 6);
+    const peer = sim.racers.find((r) => r.id === 'peer1')!;
+    const plausible = peer.remote!.progress + 30;
+
+    // A plausible packet is accepted, and becomes the baseline.
+    expect(sim.applyRemote('peer1', { x: 5, z: 5, yaw: 0, speed: 20, lap: 0, progress: plausible })).toBe(true);
+
+    // Teleporting up the order, running backwards, impossible speed, NaN and
+    // positions off the map are all dropped.
+    const bad = (over: Record<string, number>) =>
+      sim.applyRemote('peer1', { x: 5, z: 5, yaw: 0, speed: 20, lap: 0, progress: plausible, ...over });
+
+    expect(bad({ progress: 9000 })).toBe(false);
+    expect(bad({ progress: plausible - 400 })).toBe(false);
+    expect(bad({ speed: 400 })).toBe(false);
+    expect(bad({ speed: -5 })).toBe(false);
+    expect(bad({ x: NaN })).toBe(false);
+    expect(bad({ x: 1e9 })).toBe(false);
+    expect(bad({ lap: 99 })).toBe(false);
+
+    // The rejected packets left the last good state in place.
+    expect(peer.remote?.lap).toBe(0);
+    expect(peer.remote!.progress).toBeLessThan(plausible + 60);
+  });
+
+  it('accepts the first packet from a grid slot behind the start line', () => {
+    const sim = multiplayerSim();
+    const peer = sim.racers.find((r) => r.id === 'peer1')!;
+    expect(peer.remote!.progress).toBeLessThan(0);
+    // Their client reports the same negative progress before the lights go out.
+    expect(
+      sim.applyRemote('peer1', {
+        x: peer.pos.x,
+        z: peer.pos.z,
+        yaw: peer.yaw,
+        speed: 0,
+        lap: 0,
+        progress: peer.remote!.progress,
+      }),
+    ).toBe(true);
+  });
+
   it('ignores packets for racers that are not networked', () => {
     const sim = multiplayerSim();
     const player = sim.player;
     const before = { ...player.pos };
-    sim.applyRemote('player', { x: 999, z: 999, yaw: 0, speed: 50, lap: 3, progress: 9999 });
+    expect(sim.applyRemote('player', { x: 99, z: 99, yaw: 0, speed: 20, lap: 1, progress: 999 })).toBe(false);
     expect(player.pos).toEqual(before);
   });
 });

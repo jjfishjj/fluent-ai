@@ -46,6 +46,12 @@ export interface GateRecord {
   answer: Phrase;
 }
 
+/**
+ * No bird can exceed the fastest mount on a full boost; anything beyond this
+ * in a packet is a bug or a cheat, and gets dropped.
+ */
+const MAX_PLAUSIBLE_SPEED = 60;
+
 /** Deterministic 0–1 roll from a racer's phase, a gate and a lap. */
 function hashUnit(phase: number, gateIndex: number, lap: number): number {
   const n = Math.sin(phase * 12.9898 + gateIndex * 78.233 + lap * 37.719) * 43758.5453;
@@ -134,7 +140,18 @@ export class RaceSim {
         control: entry.control,
         remote:
           entry.control === 'remote'
-            ? { x: slot.pos.x, z: slot.pos.z, yaw: slot.yaw, speed: 0, lap: 0, progress: 0, at: 0 }
+            ? {
+                x: slot.pos.x,
+                z: slot.pos.z,
+                yaw: slot.yaw,
+                speed: 0,
+                lap: 0,
+                // Seed with the grid slot's own progress, which is negative
+                // behind the line — otherwise the first honest packet looks
+                // like it ran backwards and gets rejected.
+                progress: projection.s - this.track.length,
+                at: 0,
+              }
             : undefined,
         pos: { ...slot.pos },
         y: slot.y,
@@ -250,17 +267,36 @@ export class RaceSim {
 
   /**
    * Applies a packet from another player's client. Their own client is the
-   * authority on their lap and progress; we only smooth their position.
+   * authority on their lap and progress, but not blindly: a packet has to be
+   * finite, on the map, and no further along than a bird could plausibly have
+   * travelled since the last one. That will not stop a determined cheat — only
+   * a real server can — but it does stop a broken or hostile client from
+   * teleporting to first place.
    */
-  applyRemote(id: string, state: Omit<RemoteState, 'at'>): void {
+  applyRemote(id: string, state: Omit<RemoteState, 'at'>): boolean {
     const racer = this.racers.find((r) => r.id === id && r.control === 'remote');
-    if (!racer || !racer.remote) return;
+    if (!racer || !racer.remote) return false;
+    if (!isFinite(state.x) || !isFinite(state.z) || !isFinite(state.yaw)) return false;
+    if (!isFinite(state.speed) || !isFinite(state.progress) || !Number.isFinite(state.lap)) return false;
+
+    const bound = this.track.length;
+    if (Math.abs(state.x) > bound || Math.abs(state.z) > bound) return false;
+    if (state.speed < 0 || state.speed > MAX_PLAUSIBLE_SPEED) return false;
+    if (state.lap < racer.remote.lap || state.lap > this.laps) return false;
+
+    // Progress may never run backwards, nor jump further than the fastest bird
+    // could cover in the time since we last heard from them.
+    const elapsed = Math.max(0.05, this.time - racer.remote.at);
+    const ceiling = racer.remote.progress + MAX_PLAUSIBLE_SPEED * elapsed;
+    if (state.progress < racer.remote.progress - 1 || state.progress > ceiling) return false;
+
     racer.remote = { ...state, at: this.time };
     if (!racer.finished && state.lap >= this.laps) {
       racer.finished = true;
       racer.finishTime = this.time;
       this.events.push({ kind: 'finish', racerId: racer.id });
     }
+    return true;
   }
 
   /**

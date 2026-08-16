@@ -59,6 +59,7 @@ export default function ChocoboRace() {
       <EmbassyHub
         net={net}
         birdId={birdId}
+        onPickBird={setBirdId}
         onStartRace={startRace}
         onOpenLobby={() => setScreen('lobby')}
       />

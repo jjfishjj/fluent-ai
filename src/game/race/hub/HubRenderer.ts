@@ -68,7 +68,7 @@ function fixPlateSize(
   camera: THREE.Camera,
 ): void {
   const distance = camera.position.distanceTo(plate.position);
-  const k = Math.max(0.6, Math.min(2.4, distance / 14));
+  const k = Math.max(0.6, Math.min(1.9, distance / 15));
   plate.scale.set(base.x * k, base.y * k, 1);
 }
 
@@ -264,7 +264,7 @@ export class HubRenderer {
     this.scene.add(rig.root);
     this.repRigs.set(pavilion.nationId, rig);
 
-    const plate = makeTextSprite(`${def.flag} ${def.rep.displayName}`, '#ffe9a8', 1.15, true);
+    const plate = makeTextSprite(`${def.flag} ${def.rep.displayName}`, '#ffe9a8', 0.95, true);
     // Below the banner, so the two never overlap from the plaza.
     plate.position.set(pavilion.repPos.x, 2.8, pavilion.repPos.z);
     this.scene.add(plate);
@@ -272,6 +272,13 @@ export class HubRenderer {
   }
 
   // ── frame ────────────────────────────────────────────────────────────────
+
+  /** Swaps the mount the player is riding around the plaza. */
+  setPlayerBird(birdId: string): void {
+    disposeBirdRig(this.playerRig);
+    this.playerRig = buildBirdRig(birdDef(birdId), 0x2f3a56);
+    this.scene.add(this.playerRig.root);
+  }
 
   resize(width: number, height: number): void {
     if (width === 0 || height === 0) return;

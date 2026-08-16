@@ -28,6 +28,18 @@ const ROOM_TTL = 8;
 
 const BOT_NAMES = ['林亦', '柏森', 'Mira', '晴子', 'Anton', '雨柔', 'Diego', '沙里', 'Nadia', '子謙'];
 const BOT_RANKS = ['見習通譯', '通譯官', '隨行外交官', '首席外交官', '特使'];
+const BOT_CHATTER = [
+  '德國那站的數字關真的難，七跟八老是搞混',
+  '有人要跑冰河嗎？我開房',
+  '記憶序列那關我都先默念三遍再起跑',
+  '聽力關建議把音量開大…',
+  '剛剛甩尾接加速板，超爽',
+  '西班牙的長彎我每次都出界',
+  '通譯官升上來了！',
+  '閘門選錯就掉速，好嚴格',
+];
+/** Longest chat line accepted from anywhere, including ourselves. */
+const CHAT_LIMIT = 120;
 
 export type NetMode = 'offline' | 'simulated' | 'online';
 
@@ -51,6 +63,16 @@ export interface RaceRoom {
   /** True for the stand-in rooms shown when there is no realtime connection. */
   simulated?: boolean;
   updatedAt: number;
+}
+
+export interface ChatLine {
+  id: string;
+  name: string;
+  text: string;
+  /** Local clock when it arrived, for ordering and fading. */
+  at: number;
+  /** True for our own lines, so the UI can highlight them. */
+  self?: boolean;
 }
 
 export interface SelfProfile {
@@ -100,6 +122,8 @@ export class CircuitNet {
   private profile: SelfProfile;
   private onStart?: (room: RaceRoom) => void;
   private onPacket?: (packet: RacerPacket) => void;
+  private chatLog: ChatLine[] = [];
+  private chatAt = 0;
 
   constructor(
     profile: SelfProfile,
@@ -142,6 +166,30 @@ export class CircuitNet {
 
   onRacerPacket(handler: (packet: RacerPacket) => void): void {
     this.onPacket = handler;
+  }
+
+  /** The plaza's recent chat, oldest first. */
+  chat(): ChatLine[] {
+    return this.chatLog;
+  }
+
+  /** Says something in the plaza. Offline it is still echoed locally. */
+  say(text: string): void {
+    const trimmed = text.trim().slice(0, CHAT_LIMIT);
+    if (!trimmed) return;
+    this.pushChat({ id: this.selfId, name: this.profile.name, text: trimmed, at: this.time, self: true });
+    if (this.online && this.channel) {
+      void this.channel.send({
+        type: 'broadcast',
+        event: 'chat',
+        payload: { id: this.selfId, name: this.profile.name, text: trimmed },
+      });
+    }
+  }
+
+  private pushChat(line: ChatLine): void {
+    // Bounded: the plaza keeps the last few dozen lines, nothing more.
+    this.chatLog = [...this.chatLog, line].slice(-40);
   }
 
   // ── lifecycle ────────────────────────────────────────────────────────────
@@ -196,6 +244,17 @@ export class CircuitNet {
         this.room.members = [...this.room.members, { id: join.id, name: join.name, birdId: join.birdId }];
       });
 
+      channel.on('broadcast', { event: 'chat' }, ({ payload }) => {
+        const line = payload as { id: string; name: string; text: string };
+        if (!line?.id || line.id === this.selfId) return;
+        this.pushChat({
+          id: line.id,
+          name: String(line.name ?? '外交官').slice(0, 24),
+          text: String(line.text ?? '').slice(0, CHAT_LIMIT),
+          at: this.time,
+        });
+      });
+
       channel.on('broadcast', { event: 'racer' }, ({ payload }) => {
         const packet = payload as RacerPacket;
         if (!packet?.id || packet.id === this.selfId) return;
@@ -242,6 +301,13 @@ export class CircuitNet {
     this.time += dt;
     this.stepBots(dt, hub);
     hub.expireOthers();
+
+    // The stand-ins chat too, so an offline plaza still has a pulse.
+    if (!this.online && this.bots.length > 0 && this.time > this.chatAt) {
+      this.chatAt = this.time + this.rng.range(14, 40);
+      const bot = this.rng.pick(this.bots);
+      this.pushChat({ id: bot.id, name: bot.name, text: this.rng.pick(BOT_CHATTER), at: this.time });
+    }
 
     if (this.online && this.channel && this.time - this.hubAt > HUB_INTERVAL) {
       this.hubAt = this.time;

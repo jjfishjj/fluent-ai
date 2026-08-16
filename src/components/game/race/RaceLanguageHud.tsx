@@ -154,6 +154,8 @@ export function MemoriseOverlay({
 
 export interface CampaignSummary {
   nationName: string;
+  /** Set for a hub room race, which does not touch the campaign. */
+  multiplayer?: boolean;
   mission?: string;
   cleared: boolean;
   isCampaign: boolean;
@@ -217,6 +219,12 @@ export function LanguageResult({
             <span>外交積分</span>
             <span className="font-mono tabular-nums text-amber-300">+{summary.credits.total}</span>
           </div>
+        </div>
+      )}
+
+      {summary?.multiplayer && (
+        <div className="rounded-xl bg-sky-400/15 px-3 py-2 text-center text-[12px] text-sky-100">
+          多人賽事 · 名次以各自回報的進度排序，不計入巡迴賽進度
         </div>
       )}
 

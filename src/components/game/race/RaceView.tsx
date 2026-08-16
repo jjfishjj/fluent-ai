@@ -272,7 +272,19 @@ export function RaceView({
             bestLap: snapshot.player.bestLap,
           });
           setNewRecord(saved.newRaceRecord || saved.newLapRecord);
-          if (options.mode !== 'multiplayer') setSummary(buildSummary(sim, options));
+          setSummary(
+            options.mode === 'multiplayer'
+              ? {
+                  // A room race is for bragging rights: no stamps, no credits.
+                  nationName: nation(options.nationId).name,
+                  multiplayer: true,
+                  isCampaign: false,
+                  cleared: false,
+                  credits: { placement: 0, language: 0, clearBonus: 0, total: 0 },
+                  missed: sim.playerLog.filter((r) => r.outcome !== 'correct').map((r) => r.answer),
+                }
+              : buildSummary(sim, options),
+          );
         }
       }
     };
