@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -24,9 +25,12 @@ import Interests from "./pages/Interests";
 import TalentCardGame from "./pages/TalentCardGame";
 import TalentCardGameGuide from "./pages/TalentCardGameGuide";
 import NotFound from "./pages/NotFound";
-import TrainingDemo from "./pages/TrainingDemo";
 import ShadowingLab from "./pages/ShadowingLab";
+import TrainingDemo from "./pages/TrainingDemo";
 import MnemoVerse from "./pages/MnemoVerse";
+
+// The 3D world pulls in three.js, so it is split out of the main bundle.
+const XianjingWorld = lazy(() => import("./pages/XianjingWorld"));
 
 const queryClient = new QueryClient();
 const basename = import.meta.env.BASE_URL === "/" ? undefined : import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -55,9 +59,24 @@ const App = () => (
                 <Route path="/interests" element={<Interests />} />
                 <Route path="/brain-lab" element={<BrainLab />} />
                 <Route path="/memory" element={<MemoryLab />} />
+                <Route path="/subjects/:subjectId" element={<SubjectLab />} />
                 <Route path="/subjects" element={<SubjectLab />} />
                 <Route path="/learning-gym-plan" element={<LearningGymPlan />} />
                 <Route path="/shadowing" element={<ShadowingLab />} />
+                <Route
+                  path="/xianjing"
+                  element={
+                    <Suspense
+                      fallback={
+                        <div className="grid min-h-screen place-items-center bg-slate-950 text-sm text-white/70">
+                          正在載入仙境…
+                        </div>
+                      }
+                    >
+                      <XianjingWorld />
+                    </Suspense>
+                  }
+                />
                 <Route path="/talent-card-game" element={<TalentCardGame />} />
                 <Route path="/talent-card-game-guide" element={<TalentCardGameGuide />} />
                 <Route path="/mnemoverse" element={<MnemoVerse />} />

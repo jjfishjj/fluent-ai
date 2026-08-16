@@ -196,6 +196,15 @@ const Practice = () => {
     }
   }, [user?.id, searchParams]);
 
+  // Last session helpers
+  const sessionKey = `fluent_last_session_${user?.id || 'guest'}`;
+  const saveLastSession = (lang: Language, scenarioId: string, diff: string) => {
+    try { localStorage.setItem(sessionKey, JSON.stringify({ lang, scenarioId, diff, ts: Date.now() })); } catch { /* ignore */ }
+  };
+  const lastSession = (() => {
+    try { return JSON.parse(localStorage.getItem(sessionKey) || 'null'); } catch { return null; }
+  })();
+
   const currentLanguage = LANGUAGES.find(l => l.id === selectedLanguage);
 
   const getCurrentSettings = (): ConversationSettings => ({
@@ -315,6 +324,7 @@ const Practice = () => {
 
   const handleStartConversation = async () => {
     if (!selectedLanguage || !selectedScenario) return;
+    saveLastSession(selectedLanguage, selectedScenario.id, difficulty);
     const settings = getCurrentSettings();
     const langName = currentLanguage?.name || selectedLanguage;
     const greetingPrompt = materialPrompt
@@ -943,6 +953,35 @@ const Practice = () => {
 
         {practiceView === 'chat' && (!selectedLanguage ? (
           <div className="max-w-4xl mx-auto">
+            {/* Continue last session */}
+            {lastSession && (() => {
+              const lastLang = LANGUAGES.find(l => l.id === lastSession.lang);
+              const lastScenario = SCENARIOS.find(s => s.id === lastSession.scenarioId);
+              if (!lastLang || !lastScenario) return null;
+              const ago = Math.round((Date.now() - lastSession.ts) / 60000);
+              const agoLabel = ago < 60 ? `${ago} 分鐘前` : ago < 1440 ? `${Math.round(ago/60)} 小時前` : `${Math.round(ago/1440)} 天前`;
+              return (
+                <button
+                  onClick={() => {
+                    setSelectedLanguage(lastSession.lang);
+                    const sc = SCENARIOS.find(s => s.id === lastSession.scenarioId);
+                    if (sc) setSelectedScenario(sc);
+                    setDifficulty(lastSession.diff || 'intermediate');
+                  }}
+                  className="w-full mb-6 flex items-center gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors text-left"
+                >
+                  <span className="text-2xl">{lastLang.flag}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm">繼續上次練習</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {lastLang.name} · {lastScenario.title} · {lastSession.diff} · {agoLabel}
+                    </div>
+                  </div>
+                  <span className="text-primary text-sm shrink-0">繼續 →</span>
+                </button>
+              );
+            })()}
+
             <div className="text-center mb-8">
               <h1 className="text-3xl font-display font-bold mb-2">
                 Select Your Language
@@ -1037,17 +1076,21 @@ const Practice = () => {
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {GENIUS_TASKS[geniusType].map((task, i) => (
-                    <button
-                      key={i}
-                      onClick={() => startTypeTask(task.prompt)}
-                      className="text-left rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 p-4 hover:shadow-md transition-shadow"
-                    >
-                      <div className="font-semibold text-sm">{task.title}</div>
-                      <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{task.desc}</div>
-                      <div className="text-xs text-indigo-600 font-medium mt-2">用 AI 練習 →</div>
-                    </button>
-                  ))}
+                  {GENIUS_TASKS[geniusType].map((task, i) => {
+                    const langName = currentLanguage?.name || selectedLanguage || 'English';
+                    const enrichedPrompt = `[Language: ${langName}, Level: ${difficulty}] ${task.prompt}`;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => startTypeTask(enrichedPrompt)}
+                        className="text-left rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 p-4 hover:shadow-md transition-shadow"
+                      >
+                        <div className="font-semibold text-sm">{task.title}</div>
+                        <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{task.desc}</div>
+                        <div className="text-xs text-indigo-600 font-medium mt-2">{langName} · {difficulty} →</div>
+                      </button>
+                    );
+                  })}
                 </div>
               </section>
             )}

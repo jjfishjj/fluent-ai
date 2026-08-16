@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag, Brain, Sparkles } from 'lucide-react';
+import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag, Brain, Sparkles, Waves, Swords } from 'lucide-react';
 import { WhatsNewButton } from '@/components/layout/WhatsNewButton';
 
 interface HeaderProps {
@@ -61,6 +61,11 @@ export function Header({
                 Practice
               </Button>
             </Link>
+            <Link to="/shadowing">
+              <Button variant={isActive('/shadowing') ? 'secondary' : 'ghost'} size="sm">
+                <Waves className="w-4 h-4 mr-1" /> Shadowing
+              </Button>
+            </Link>
             <Link to="/friends">
               <Button 
                 variant={isActive('/friends') ? 'secondary' : 'ghost'} 
@@ -92,6 +97,12 @@ export function Header({
               <Button variant={isActive('/talent-card-game') ? 'secondary' : 'ghost'} size="sm">
                 <Sparkles className="w-4 h-4 mr-1" />
                 天賦卡牌
+              </Button>
+            </Link>
+            <Link to="/xianjing">
+              <Button variant={isActive('/xianjing') ? 'secondary' : 'ghost'} size="sm">
+                <Swords className="w-4 h-4 mr-1" />
+                仙境 3D
               </Button>
             </Link>
             {isAdmin && (
@@ -199,6 +210,12 @@ export function Header({
                 <Button variant={isActive('/talent-card-game') ? 'secondary' : 'ghost'} className="w-full justify-start">
                   <Sparkles className="w-4 h-4 mr-2" />
                   天賦卡牌
+                </Button>
+              </Link>
+              <Link to="/xianjing" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button variant={isActive('/xianjing') ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <Swords className="w-4 h-4 mr-2" />
+                  仙境 3D
                 </Button>
               </Link>
               {isAdmin && (

@@ -8,7 +8,7 @@ import { LANGUAGES } from '@/lib/constants';
 import { LanguageConfig } from '@/lib/types';
 import { 
   MessageSquare, Mic, Brain, BarChart3, Target, Globe,
-  ChevronRight, Sparkles, Users, Dumbbell, GraduationCap
+  ChevronRight, Sparkles, Users, Dumbbell, GraduationCap, Waves
 } from 'lucide-react';
 
 const Index = () => {
@@ -111,6 +111,7 @@ const Index = () => {
           <FeatureCard icon={Sparkles} title="Personalized Learning" description="AI-generated recommendations based on your strengths and areas for improvement." onClick={() => navigate('/quiz')} />
           <FeatureCard icon={Dumbbell} title="記憶型態訓練" description="測出你的記憶天才型態，用專屬的編碼、間隔複習與 8 種型態訓練課題練英文。" gradient onClick={() => navigate('/memory')} />
           <FeatureCard icon={GraduationCap} title="學科訓練" description="數學、物理、多益、英文檢定——每科都有你型態專屬的學習策略與 AI 家教課題。" gradient onClick={() => navigate('/subjects')} />
+          <FeatureCard icon={Waves} title="Shadowing 影子跟讀" description="依 VARK 與八大記憶天賦，從聽懂、跟準、同步到遮稿提取，建立可長期保留的聲音記憶。" gradient onClick={() => navigate('/shadowing')} />
         </div>
       </section>
 
