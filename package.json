@@ -9,6 +9,7 @@
     "generate:morph-d2": "node scripts/generate-d2-morphs.mjs",
     "generate:morph-d3": "node scripts/generate-d3-morphs.mjs",
     "generate:morph-d4": "node scripts/generate-d4-morphs.mjs",
+    "generate:morph-d5": "node scripts/generate-d5-morphs.mjs",
     "build:pages": "GITHUB_PAGES=true vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",

@@ -10,6 +10,8 @@ export const GLB_MORPH_ASSETS: Partial<Record<string, string>> = {
   '04': morphAsset('04.glb'),
   '18': morphAsset('18.glb'),
   '23': morphAsset('23.glb'),
+  '31': morphAsset('31.glb'),
+  '43': morphAsset('43.glb'),
   '51': morphAsset('51.glb'),
   '64': morphAsset('64.glb'),
   '77': morphAsset('77.glb'),

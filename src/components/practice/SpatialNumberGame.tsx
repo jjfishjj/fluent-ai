@@ -44,7 +44,7 @@ export type NumberSceneComponent = ComponentType<{
 type Props = { onComplete: (evidence: string) => void; scene?: NumberSceneComponent };
 type Phase = 'encode' | 'interference' | 'recall' | 'scheduledRecall' | 'result';
 type Quality = 'auto' | 'low' | 'high';
-type RecallResult = { code: string; answer: string; correct: boolean; responseMs: number; retryAfterSeconds?: number };
+type RecallResult = { code: string; answer: string; correct: boolean; responseMs: number; animationEnabled?: boolean; retryAfterSeconds?: number };
 
 const RECALL_ORDER = [3, 0, 7, 4, 1, 9, 5, 2, 8, 6];
 
@@ -146,6 +146,7 @@ export function SpatialNumberGame({ onComplete, scene }: Props) {
   const recallStartedAt = useRef(Date.now());
   const completionSent = useRef(false);
   const attemptId = useRef(`attempt-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const animationModeByCode = useRef<Record<string, boolean>>({});
   const effectiveQuality = quality === 'auto' ? (lowPower ? 'low' : 'high') : quality;
   const isScheduledRecall = phase === 'scheduledRecall';
   const round = phase === 'recall' ? SPATIAL_NUMBER_ROUNDS[RECALL_ORDER[recallIndex]] : isScheduledRecall ? SPATIAL_NUMBER_ROUNDS.find((item) => item.code === scheduledQueue[recallIndex]?.code) ?? SPATIAL_NUMBER_ROUNDS[0] : SPATIAL_NUMBER_ROUNDS[roundIndex];
@@ -175,12 +176,13 @@ export function SpatialNumberGame({ onComplete, scene }: Props) {
   useEffect(() => {
     if (phase !== 'result' || !recallResults.length) return;
     setSchedule(scheduleWrongCodes(recallResults.filter((item) => !item.correct).map((item) => item.code), attemptId.current));
-    saveNumberAttempt({ id: attemptId.current, student: '學生 A', completedAt: Date.now(), correct: recallResults.filter((item) => item.correct).length, total: recallResults.length, averageResponseMs: recallResults.reduce((sum, item) => sum + item.responseMs, 0) / recallResults.length, results: recallResults.map(({ code, correct, responseMs }) => ({ code, correct, responseMs })) });
+    saveNumberAttempt({ id: attemptId.current, student: '學生 A', completedAt: Date.now(), correct: recallResults.filter((item) => item.correct).length, total: recallResults.length, averageResponseMs: recallResults.reduce((sum, item) => sum + item.responseMs, 0) / recallResults.length, results: recallResults.map(({ code, correct, responseMs, animationEnabled }) => ({ code, correct, responseMs, animationEnabled })) });
   }, [phase, recallResults]);
 
   const submitEncoding = (event: FormEvent) => {
     event.preventDefault();
     if (!answer.trim() || isCodeOnly) return;
+    animationModeByCode.current[round.code] = animationEnabled;
     setSubmitted(true);
     setMorphReplayKey((value) => value + 1);
     if (soundEnabled) playFeedbackSound('morph');
@@ -203,7 +205,7 @@ export function SpatialNumberGame({ onComplete, scene }: Props) {
     event.preventDefault();
     if (!/^\d{2}$/.test(recallAnswer)) return;
     const now = Date.now();
-    const item: RecallResult = { code: round.code, answer: recallAnswer, correct: recallAnswer === round.code, responseMs: now - recallStartedAt.current };
+    const item: RecallResult = { code: round.code, answer: recallAnswer, correct: recallAnswer === round.code, responseMs: now - recallStartedAt.current, animationEnabled: animationModeByCode.current[round.code] };
     if (isScheduledRecall) {
       const scheduled = scheduledQueue[recallIndex];
       const graded = gradeScheduledRecall({ id: scheduled.id, correct: item.correct, responseMs: item.responseMs }, now);
@@ -243,6 +245,7 @@ export function SpatialNumberGame({ onComplete, scene }: Props) {
   const restart = () => {
     setPhase('encode'); setRoundIndex(0); setAnswer(''); setSubmitted(false); setCombo(0); setBestCombo(0); setShowGuide(false);
     setInterferenceSolved(false); setRecallIndex(0); setRecallAnswer(''); setRecallFeedback(null); setRecallResults([]); completionSent.current = false;
+    animationModeByCode.current = {};
   };
 
   const replayMorph = () => {
@@ -322,7 +325,7 @@ export function SpatialNumberGame({ onComplete, scene }: Props) {
         </div>
       </div>
 
-      <details className="relative border-t border-white/10 bg-black/15 px-5 py-4 md:px-7"><summary className="cursor-pointer list-none text-xs font-bold text-slate-300"><Rotate3D className="mr-2 inline h-4 w-4 text-cyan-300" />10 組專屬 3D 模型 <span className="ml-2 text-slate-600">展開圖鑑</span></summary><div className="mt-4 overflow-x-auto"><table className="w-full min-w-[860px] text-left text-xs"><thead className="text-slate-500"><tr><th className="pb-3">數字造型</th><th className="pb-3">聯想</th><th className="pb-3">模型類型</th><th className="pb-3">Morph Target</th><th className="pb-3">動畫效果名稱</th></tr></thead><tbody>{SPATIAL_NUMBER_ROUNDS.map((item) => { const isGlb = Boolean(['04','18','23','51','64','77','80','94'].includes(item.code)); return <tr key={item.code} className="border-t border-white/5"><td className="py-3 font-mono font-black" style={{ color: item.palette }}>{item.code} · {item.material}</td><td className="py-3">{item.icon} {item.word}</td><td className="py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-black ${isGlb ? 'bg-emerald-300/10 text-emerald-200' : 'bg-violet-300/10 text-violet-200'}`}>{isGlb ? 'GLB MORPH' : '程序模型'}</span></td><td className="py-3 text-slate-400">{item.transformation}</td><td className="py-3 text-slate-400">{item.animation}</td></tr>; })}</tbody></table></div></details>
+      <details className="relative border-t border-white/10 bg-black/15 px-5 py-4 md:px-7"><summary className="cursor-pointer list-none text-xs font-bold text-slate-300"><Rotate3D className="mr-2 inline h-4 w-4 text-cyan-300" />10 組專屬 3D 模型 <span className="ml-2 text-slate-600">展開圖鑑</span></summary><div className="mt-4 overflow-x-auto"><table className="w-full min-w-[860px] text-left text-xs"><thead className="text-slate-500"><tr><th className="pb-3">數字造型</th><th className="pb-3">聯想</th><th className="pb-3">模型類型</th><th className="pb-3">Morph Target</th><th className="pb-3">動畫效果名稱</th></tr></thead><tbody>{SPATIAL_NUMBER_ROUNDS.map((item) => <tr key={item.code} className="border-t border-white/5"><td className="py-3 font-mono font-black" style={{ color: item.palette }}>{item.code} · {item.material}</td><td className="py-3">{item.icon} {item.word}</td><td className="py-3"><span className="rounded-full bg-emerald-300/10 px-2 py-1 text-[10px] font-black text-emerald-200">GLB MORPH</span></td><td className="py-3 text-slate-400">{item.transformation}</td><td className="py-3 text-slate-400">{item.animation}</td></tr>)}</tbody></table></div></details>
     </section>
   );
 }

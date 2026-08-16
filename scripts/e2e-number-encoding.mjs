@@ -61,8 +61,7 @@ try {
   await page.goto(`${baseURL}/practice/number-encoding-demo`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: '03 3D 空間戰' }).click();
   await page.getByText('10 組專屬 3D 模型').click();
-  assert(await page.getByText('GLB MORPH').count() === 8, '圖鑑應標示 8 組 GLB 模型');
-  assert(await page.getByText('程序模型').count() === 2, '圖鑑應標示 2 組程序模型');
+  assert(await page.getByText('GLB MORPH').count() === 10, '圖鑑應標示完整 10 組 GLB 模型');
   const motionToggle = page.getByRole('button', { name: '切換為靜態記憶組' });
   await motionToggle.click();
   await page.getByRole('button', { name: '切換為動態記憶組' }).click();

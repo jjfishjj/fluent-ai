@@ -5,8 +5,10 @@ export type NumberTrainingAttempt = {
   correct: number;
   total: number;
   averageResponseMs: number;
-  results: Array<{ code: string; correct: boolean; responseMs: number }>;
+  results: Array<{ code: string; correct: boolean; responseMs: number; animationEnabled?: boolean }>;
 };
+
+export type MotionModeSummary = { mode: 'dynamic' | 'static'; answers: number; correctRate: number; averageResponseMs: number };
 
 const KEY = 'mnemo-verse:number-training-attempts:v1';
 
@@ -29,4 +31,17 @@ export function codeRiskRanking(attempts: NumberTrainingAttempt[]) {
     value.attempts += 1; value.errors += result.correct ? 0 : 1; value.responseMs += result.responseMs; map.set(result.code, value);
   }));
   return [...map.values()].map((item) => ({ ...item, errorRate: item.errors / item.attempts, averageResponseMs: item.responseMs / item.attempts, riskScore: item.errors / item.attempts * .72 + Math.min(1, item.responseMs / item.attempts / 10_000) * .28 })).sort((a, b) => b.riskScore - a.riskScore);
+}
+
+export function motionModeComparison(attempts: NumberTrainingAttempt[]): MotionModeSummary[] {
+  const summarize = (animationEnabled: boolean): MotionModeSummary => {
+    const results = attempts.flatMap((attempt) => attempt.results).filter((result) => (result.animationEnabled ?? true) === animationEnabled);
+    return {
+      mode: animationEnabled ? 'dynamic' : 'static',
+      answers: results.length,
+      correctRate: results.length ? results.filter((result) => result.correct).length / results.length : 0,
+      averageResponseMs: results.length ? results.reduce((sum, result) => sum + result.responseMs, 0) / results.length : 0,
+    };
+  };
+  return [summarize(true), summarize(false)];
 }
