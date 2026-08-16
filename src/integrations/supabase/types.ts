@@ -677,6 +677,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_talent_tutorial_funnel: {
+        Args: {
+          p_end_at: string
+          p_start_at: string
+        }
+        Returns: {
+          event_count: number
+          player_count: number
+          session_count: number
+          tutorial_event: string
+          tutorial_step: string | null
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

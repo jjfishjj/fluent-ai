@@ -60,6 +60,8 @@ import { useBrainwave } from '@/contexts/BrainwaveContext';
 import { markUsed, markCompleted } from '@/lib/material-progress';
 import { recordSessionEnd } from '@/lib/brainwave/behavioral-inference';
 import { LearningGymActivity } from '@/components/practice/LearningGymActivity';
+import { NumberEncodingTrainer } from '@/components/practice/NumberEncodingTrainer';
+import { CoreTrainingDemo } from '@/components/practice/CoreTrainingDemo';
 import {
   applyGymTaskStart,
   getGeniusIdentityTraining,
@@ -388,6 +390,20 @@ const Practice = () => {
     const next = applyGymTaskStart(gymProgress, task);
     setGymProgress(next);
     saveLearningGymProgress(next, uid);
+    if (task.id === 'number_encoding') {
+      navigate('/practice/number-encoding-demo');
+      return;
+    }
+    const demoRoutes: Partial<Record<LearningGymTask['id'], string>> = {
+      scene_anchor: 'scene-anchor-demo',
+      data_to_table: 'data-table-demo',
+      story_recall: 'emotion-story-demo',
+      concept_web: 'concept-web-demo',
+    };
+    if (demoRoutes[task.id]) {
+      navigate(`/practice/${demoRoutes[task.id]}`);
+      return;
+    }
     setActiveGymTask(task);
   };
 
@@ -603,6 +619,35 @@ const Practice = () => {
   const topAbilities = topLearningGymAbilities(gymProgress, 4);
 
   if (activeGymTask) {
+    if (
+      activeGymTask.id === 'scene_anchor'
+      || activeGymTask.id === 'data_to_table'
+      || activeGymTask.id === 'sound_shadow'
+      || activeGymTask.id === 'story_recall'
+    ) {
+      return (
+        <CoreTrainingDemo
+          task={activeGymTask as LearningGymTask & { id: 'scene_anchor' | 'data_to_table' | 'sound_shadow' | 'story_recall' }}
+          progress={gymProgress}
+          learningStyle={normalizedLearningStyle}
+          geniusType={geniusType}
+          onProgressChange={handleGymProgressChange}
+          onBack={() => setActiveGymTask(null)}
+        />
+      );
+    }
+    if (activeGymTask.id === 'number_encoding') {
+      return (
+        <NumberEncodingTrainer
+          task={activeGymTask}
+          progress={gymProgress}
+          learningStyle={normalizedLearningStyle}
+          geniusType={geniusType}
+          onProgressChange={handleGymProgressChange}
+          onBack={() => setActiveGymTask(null)}
+        />
+      );
+    }
     return (
       <LearningGymActivity
         task={activeGymTask}
