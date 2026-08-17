@@ -70,6 +70,7 @@ export default function TrainingDemo() {
   if (task.id === 'number_encoding') {
     return (
       <NumberEncodingTrainer
+        userId={user?.id}
         task={task}
         progress={progress}
         learningStyle={learningStyle}

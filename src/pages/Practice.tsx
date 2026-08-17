@@ -639,6 +639,7 @@ const Practice = () => {
     if (activeGymTask.id === 'number_encoding') {
       return (
         <NumberEncodingTrainer
+          userId={user?.id}
           task={activeGymTask}
           progress={gymProgress}
           learningStyle={normalizedLearningStyle}

@@ -14,6 +14,11 @@ export function saveClassroomStudent(student: ClassroomStudent, storage: Pick<St
   const students = [...current, student]; storage.setItem(ROSTER_KEY, JSON.stringify(students)); return { students, error: '' };
 }
 
+export function replaceClassroom(students: ClassroomStudent[], storage: Pick<Storage, 'setItem'> = localStorage) {
+  storage.setItem(ROSTER_KEY, JSON.stringify(students));
+  return students;
+}
+
 export function setActiveStudent(student: ClassroomStudent, storage: Pick<Storage, 'setItem'> = localStorage) { storage.setItem(ACTIVE_KEY, JSON.stringify(student)); }
 
 export function readActiveStudent(storage: Pick<Storage, 'getItem'> = localStorage): ClassroomStudent | null {

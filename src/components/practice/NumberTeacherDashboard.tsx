@@ -1,7 +1,8 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { AlertTriangle, BarChart3, CalendarDays, Clock3, GraduationCap, Pause, Play, Plus, Target, Users } from 'lucide-react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { AlertTriangle, BarChart3, CalendarDays, CheckCircle2, Clock3, Cloud, CloudOff, GraduationCap, LoaderCircle, Pause, Play, Plus, Target, Users } from 'lucide-react';
 import { codeRiskRanking, motionDifferenceInsight, motionModeComparison, motionTrendByAttempt, readNumberAttempts } from '@/lib/number-training-analytics';
-import { readClassroom, saveClassroomStudent, setActiveStudent, type TestGroup } from '@/lib/number-classroom';
+import { readClassroom, replaceClassroom, saveClassroomStudent, setActiveStudent, type TestGroup } from '@/lib/number-classroom';
+import { syncClassroom, upsertCloudClassroomStudent } from '@/lib/number-classroom-supabase';
 
 const DEMO_ATTEMPTS = [
   { id: 'demo-1', student: '王小明（示範）', completedAt: Date.now() - 3_600_000, correct: 7, total: 10, averageResponseMs: 4200, results: [{ code: '04', correct: false, responseMs: 7100, animationEnabled: false }, { code: '18', correct: true, responseMs: 2600, animationEnabled: true }, { code: '31', correct: false, responseMs: 6800, animationEnabled: false }, { code: '43', correct: true, responseMs: 3100, animationEnabled: true }, { code: '77', correct: false, responseMs: 6400, animationEnabled: false }] },
@@ -10,7 +11,9 @@ const DEMO_ATTEMPTS = [
   { id: 'demo-4', student: '王小明（示範）', completedAt: Date.now() - 7 * 86_400_000, correct: 5, total: 10, averageResponseMs: 5900, results: [{ code: '04', correct: false, responseMs: 7200, animationEnabled: false }, { code: '18', correct: true, responseMs: 4100, animationEnabled: true }, { code: '31', correct: false, responseMs: 6900, animationEnabled: false }, { code: '43', correct: true, responseMs: 4300, animationEnabled: true }] },
 ];
 
-export function NumberTeacherDashboard() {
+type SyncState = 'local' | 'syncing' | 'synced' | 'error';
+
+export function NumberTeacherDashboard({ userId }: { userId?: string }) {
   const [savedAttempts] = useState(readNumberAttempts);
   const attempts = savedAttempts.length ? savedAttempts : DEMO_ATTEMPTS;
   const students = useMemo(() => ['全部學生', ...new Set(attempts.map((item) => item.student))], [attempts]);
@@ -21,6 +24,7 @@ export function NumberTeacherDashboard() {
   const [studentCode, setStudentCode] = useState('');
   const [testGroup, setTestGroup] = useState<TestGroup>('alternating');
   const [rosterMessage, setRosterMessage] = useState('');
+  const [syncState, setSyncState] = useState<SyncState>(userId ? 'syncing' : 'local');
   const filtered = student === '全部學生' ? attempts : attempts.filter((item) => item.student === student);
   const ranking = codeRiskRanking(filtered);
   const accuracy = filtered.length ? filtered.reduce((sum, item) => sum + item.correct / item.total, 0) / filtered.length : 0;
@@ -29,12 +33,33 @@ export function NumberTeacherDashboard() {
   const trend = motionTrendByAttempt(filtered);
   const insight = motionDifferenceInsight(filtered);
 
-  const addStudent = (event: FormEvent) => {
+  useEffect(() => {
+    if (!userId) { setSyncState('local'); return; }
+    let active = true;
+    setSyncState('syncing');
+    syncClassroom(userId, readClassroom()).then((students) => {
+      if (!active) return;
+      replaceClassroom(students);
+      setClassroom(students);
+      setSyncState('synced');
+    }).catch(() => active && setSyncState('error'));
+    return () => { active = false; };
+  }, [userId]);
+
+  const addStudent = async (event: FormEvent) => {
     event.preventDefault();
     if (!className.trim() || !studentName.trim() || !/^[A-Za-z0-9-]{3,12}$/.test(studentCode)) { setRosterMessage('請填班級、姓名，學生代碼需為 3–12 位英數字或連字號。'); return; }
-    const result = saveClassroomStudent({ id: `student-${Date.now()}`, className: className.trim(), name: studentName.trim(), studentCode: studentCode.toUpperCase(), testGroup, createdAt: Date.now() });
+    const newStudent = { id: `student-${Date.now()}`, className: className.trim(), name: studentName.trim(), studentCode: studentCode.toUpperCase(), testGroup, createdAt: Date.now() };
+    const result = saveClassroomStudent(newStudent);
     setClassroom(result.students); setRosterMessage(result.error || '學生已建立，可直接指定開始測驗。');
-    if (!result.error) { setStudentName(''); setStudentCode(''); }
+    if (!result.error) {
+      setStudentName(''); setStudentCode('');
+      if (userId) {
+        setSyncState('syncing');
+        try { await upsertCloudClassroomStudent(userId, newStudent); setSyncState('synced'); }
+        catch { setSyncState('error'); setRosterMessage('學生已保存在本機；雲端同步失敗，稍後會自動重試。'); }
+      }
+    }
   };
 
   return <section className="mt-6 rounded-[28px] bg-[#081226] p-6 text-white shadow-xl md:p-8">
@@ -45,6 +70,7 @@ export function NumberTeacherDashboard() {
       <div className="mt-5 grid gap-5 lg:grid-cols-[1.35fr_.65fr]"><MotionTrend points={trend} /><div className="rounded-2xl border border-amber-300/15 bg-amber-300/5 p-5"><h3 className="flex items-center gap-2 font-black"><BarChart3 className="h-4 w-4 text-amber-300" />統計差異提示</h3><div className="mt-4 text-3xl font-black text-amber-100">{Math.abs(Math.round(insight.difference * 100))}<span className="ml-1 text-base">百分點</span></div><p className="mt-2 text-sm leading-6 text-slate-300">{insight.leader === 'tie' ? '目前兩組差異很小。' : insight.leader === 'dynamic' ? '目前動態組回想率較高。' : '目前靜態組回想率較高。'} {!insight.enoughData ? '兩組各累積 10 筆前僅視為早期訊號。' : '樣本量已達初步比較門檻，仍不代表因果效果。'}</p><div className="mt-4 rounded-xl bg-black/20 px-3 py-2 text-xs text-slate-500">樣本 {insight.totalAnswers} 筆 · 僅比較同一篩選學生</div></div></div>
       <div className="mt-7 grid gap-5 lg:grid-cols-[1.15fr_.85fr]"><div className="rounded-2xl border border-white/10 bg-white/5 p-5"><h3 className="font-black">最近學習紀錄</h3><div className="mt-4 space-y-2">{filtered.slice(0, 8).map((item) => <div key={item.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-xl bg-black/20 p-3 text-sm"><div><div className="font-bold">{item.student}</div><div className="text-xs text-slate-500">{new Date(item.completedAt).toLocaleString('zh-TW')}</div></div><div className="font-mono font-black text-cyan-200">{item.correct}/{item.total}</div><div className="text-xs text-slate-400">{(item.averageResponseMs / 1000).toFixed(1)}s</div></div>)}</div></div><div className="rounded-2xl border border-rose-300/15 bg-rose-300/5 p-5"><h3 className="flex items-center gap-2 font-black"><AlertTriangle className="h-4 w-4 text-rose-300" />高風險編碼排行</h3><div className="mt-4 space-y-3">{ranking.slice(0, 6).map((item, index) => <div key={item.code}><div className="flex items-center justify-between text-sm"><span><b className="mr-2 text-rose-200">#{index + 1}</b><span className="font-mono font-black">{item.code}</span></span><span className="text-xs text-slate-400">錯誤 {Math.round(item.errorRate * 100)}% · {(item.averageResponseMs / 1000).toFixed(1)}s</span></div><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-rose-400" style={{ width: `${Math.max(5, item.riskScore * 100)}%` }} /></div></div>)}</div></div></div>
     </>}
+    <div className="mt-7 flex justify-end"><SyncBadge state={syncState} /></div>
     <div className="mt-7 rounded-2xl border border-violet-300/15 bg-violet-300/5 p-5"><div className="flex items-center gap-2"><Users className="h-5 w-5 text-violet-300" /><div><h3 className="font-black">班級與測驗指派</h3><p className="text-xs text-slate-400">建立學生代碼，指定動態、靜態或交錯 A/B 組。</p></div></div><form onSubmit={addStudent} className="mt-4 grid gap-2 md:grid-cols-[1fr_1fr_.8fr_1fr_auto]"><input aria-label="班級名稱" value={className} onChange={(event) => setClassName(event.target.value)} className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm" placeholder="班級" /><input aria-label="學生姓名" value={studentName} onChange={(event) => setStudentName(event.target.value)} className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm" placeholder="學生姓名" /><input aria-label="學生代碼" value={studentCode} onChange={(event) => setStudentCode(event.target.value)} className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 font-mono text-sm uppercase" placeholder="A001" /><select aria-label="指定測驗組別" value={testGroup} onChange={(event) => setTestGroup(event.target.value as TestGroup)} className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm"><option value="alternating">交錯 A/B 組</option><option value="dynamic">動態組</option><option value="static">靜態組</option></select><button className="inline-flex items-center justify-center gap-1 rounded-xl bg-violet-300 px-4 py-2 text-sm font-black text-slate-950"><Plus className="h-4 w-4" />建立</button></form>{rosterMessage && <p role="status" className="mt-2 text-xs text-violet-200">{rosterMessage}</p>}<div className="mt-4 grid gap-2 md:grid-cols-2">{classroom.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl bg-black/20 p-3"><div><div className="font-bold">{item.name} <span className="font-mono text-xs text-violet-200">{item.studentCode}</span></div><div className="text-xs text-slate-500">{item.className} · {groupLabel(item.testGroup)}</div></div><button type="button" onClick={() => { setActiveStudent(item); setRosterMessage(`已指定 ${item.name} 進入${groupLabel(item.testGroup)}`); }} className="rounded-lg border border-violet-300/20 px-3 py-1.5 text-xs font-bold text-violet-200">指定測驗</button></div>)}{!classroom.length && <div className="rounded-xl border border-dashed border-white/10 p-5 text-center text-xs text-slate-500 md:col-span-2">尚未建立學生；上方輸入後即可產生第一筆班級名單。</div>}</div></div>
   </section>;
 }
@@ -56,3 +82,14 @@ function ModeCard({ icon, label, summary, accent }: { icon: ReactNode; label: st
 function MotionTrend({ points }: { points: ReturnType<typeof motionTrendByAttempt> }) { return <div className="rounded-2xl border border-white/10 bg-white/5 p-5"><div className="flex items-center justify-between"><h3 className="font-black">同一學生 A/B 趨勢</h3><div className="flex gap-3 text-[10px] font-bold"><span className="text-cyan-200">● 動態</span><span className="text-violet-200">● 靜態</span></div></div><div className="mt-5 flex h-40 items-end gap-3 border-b border-white/10">{points.slice(-8).map((point, index) => <div key={point.id} className="flex h-full min-w-0 flex-1 items-end justify-center gap-1"><TrendBar value={point.dynamicRate} color="bg-cyan-300" label={`第 ${index + 1} 次動態`} /><TrendBar value={point.staticRate} color="bg-violet-300" label={`第 ${index + 1} 次靜態`} /></div>)}</div><div className="mt-2 flex justify-between text-[10px] text-slate-600"><span>較早</span><span>最近</span></div></div>; }
 function TrendBar({ value, color, label }: { value: number | null; color: string; label: string }) { return <div aria-label={`${label} ${value === null ? '無資料' : `${Math.round(value * 100)}%`}`} title={value === null ? '無資料' : `${Math.round(value * 100)}%`} className={`w-3 rounded-t-sm transition-all ${value === null ? 'h-1 bg-white/10' : color}`} style={value === null ? undefined : { height: `${Math.max(5, value * 100)}%` }} />; }
 function groupLabel(group: TestGroup) { return group === 'dynamic' ? '動態組' : group === 'static' ? '靜態組' : '交錯 A/B 組'; }
+
+function SyncBadge({ state }: { state: SyncState }) {
+  const content = state === 'syncing'
+    ? { icon: <LoaderCircle className="h-3.5 w-3.5 animate-spin" />, label: '正在同步班級資料' }
+    : state === 'synced'
+      ? { icon: <CheckCircle2 className="h-3.5 w-3.5" />, label: '已跨裝置同步' }
+      : state === 'error'
+        ? { icon: <CloudOff className="h-3.5 w-3.5" />, label: '同步失敗 · 已保存在本機' }
+        : { icon: <Cloud className="h-3.5 w-3.5" />, label: '登入後可跨裝置同步' };
+  return <span role="status" className="inline-flex items-center gap-1.5 rounded-full border border-violet-300/20 bg-violet-300/10 px-3 py-1.5 text-xs font-bold text-violet-100">{content.icon}{content.label}</span>;
+}

@@ -244,6 +244,24 @@ export type Database = {
           },
         ]
       }
+      number_memory_classrooms: {
+        Row: { created_at: string; id: string; name: string; owner_id: string; updated_at: string }
+        Insert: { created_at?: string; id?: string; name: string; owner_id: string; updated_at?: string }
+        Update: { created_at?: string; id?: string; name?: string; owner_id?: string; updated_at?: string }
+        Relationships: []
+      }
+      number_memory_students: {
+        Row: { classroom_id: string; created_at: string; id: string; name: string; owner_id: string; student_code: string; test_group: string; updated_at: string }
+        Insert: { classroom_id: string; created_at?: string; id?: string; name: string; owner_id: string; student_code: string; test_group?: string; updated_at?: string }
+        Update: { classroom_id?: string; created_at?: string; id?: string; name?: string; owner_id?: string; student_code?: string; test_group?: string; updated_at?: string }
+        Relationships: [{
+          foreignKeyName: "number_memory_students_owned_classroom_fkey"
+          columns: ["classroom_id", "owner_id"]
+          isOneToOne: false
+          referencedRelation: "number_memory_classrooms"
+          referencedColumns: ["id", "owner_id"]
+        }]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
