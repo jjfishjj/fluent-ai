@@ -244,6 +244,12 @@ export type Database = {
           },
         ]
       }
+      number_memory_attempts: {
+        Row: { average_response_ms: number; completed_at: string; correct: number; created_at: string; id: string; owner_id: string; attempt_key: string; results: Json; student_code: string | null; student_name: string; total: number; updated_at: string }
+        Insert: { average_response_ms: number; completed_at: string; correct: number; created_at?: string; id?: string; owner_id: string; attempt_key: string; results: Json; student_code?: string | null; student_name: string; total: number; updated_at?: string }
+        Update: { average_response_ms?: number; completed_at?: string; correct?: number; created_at?: string; id?: string; owner_id?: string; attempt_key?: string; results?: Json; student_code?: string | null; student_name?: string; total?: number; updated_at?: string }
+        Relationships: []
+      }
       number_memory_classrooms: {
         Row: { created_at: string; id: string; name: string; owner_id: string; updated_at: string }
         Insert: { created_at?: string; id?: string; name: string; owner_id: string; updated_at?: string }

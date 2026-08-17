@@ -3,6 +3,7 @@ import { Brain, CalendarClock, CheckCircle2, Crosshair, Expand, Gauge, Lightbulb
 import { Button } from '@/components/ui/button';
 import { formatRecallDelay, getDueRecalls, gradeScheduledRecall, readRecallSchedule, scheduleWrongCodes, type ScheduledRecall } from '@/lib/number-recall-schedule';
 import { saveNumberAttempt } from '@/lib/number-training-analytics';
+import { upsertCloudNumberAttempt } from '@/lib/number-training-supabase';
 import { readActiveStudent } from '@/lib/number-classroom';
 
 const WebGLNumberScene = lazy(() => import('./WebGLNumberScene').then((module) => ({ default: module.WebGLNumberScene })));
@@ -42,7 +43,7 @@ export type NumberSceneComponent = ComponentType<{
   animationEnabled?: boolean;
 }>;
 
-type Props = { onComplete: (evidence: string) => void; scene?: NumberSceneComponent };
+type Props = { onComplete: (evidence: string) => void; scene?: NumberSceneComponent; userId?: string };
 type Phase = 'encode' | 'interference' | 'recall' | 'scheduledRecall' | 'result';
 type Quality = 'auto' | 'low' | 'high';
 type RecallResult = { code: string; answer: string; correct: boolean; responseMs: number; animationEnabled?: boolean; retryAfterSeconds?: number };
@@ -119,7 +120,7 @@ function detectWebGLSupport() {
   }
 }
 
-export function SpatialNumberGame({ onComplete, scene }: Props) {
+export function SpatialNumberGame({ onComplete, scene, userId }: Props) {
   const SceneComponent = scene ?? WebGLNumberScene;
   const [phase, setPhase] = useState<Phase>('encode');
   const [roundIndex, setRoundIndex] = useState(0);
@@ -184,8 +185,10 @@ export function SpatialNumberGame({ onComplete, scene }: Props) {
   useEffect(() => {
     if (phase !== 'result' || !recallResults.length) return;
     setSchedule(scheduleWrongCodes(recallResults.filter((item) => !item.correct).map((item) => item.code), attemptId.current));
-    saveNumberAttempt({ id: attemptId.current, student: activeStudent ? `${activeStudent.name}（${activeStudent.studentCode}）` : '學生 A', completedAt: Date.now(), correct: recallResults.filter((item) => item.correct).length, total: recallResults.length, averageResponseMs: recallResults.reduce((sum, item) => sum + item.responseMs, 0) / recallResults.length, results: recallResults.map(({ code, correct, responseMs, animationEnabled }) => ({ code, correct, responseMs, animationEnabled })) });
-  }, [activeStudent, phase, recallResults]);
+    const attempt = { id: attemptId.current, student: activeStudent ? `${activeStudent.name}（${activeStudent.studentCode}）` : '學生 A', studentCode: activeStudent?.studentCode, completedAt: Date.now(), correct: recallResults.filter((item) => item.correct).length, total: recallResults.length, averageResponseMs: recallResults.reduce((sum, item) => sum + item.responseMs, 0) / recallResults.length, results: recallResults.map(({ code, correct, responseMs, animationEnabled }) => ({ code, correct, responseMs, animationEnabled })) };
+    saveNumberAttempt(attempt);
+    if (userId) void upsertCloudNumberAttempt(userId, attempt).catch(() => undefined);
+  }, [activeStudent, phase, recallResults, userId]);
 
   const submitEncoding = (event: FormEvent) => {
     event.preventDefault();

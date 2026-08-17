@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { AlertTriangle, BarChart3, CalendarDays, CheckCircle2, Clock3, Cloud, CloudOff, GraduationCap, LoaderCircle, Pause, Play, Plus, Target, Users } from 'lucide-react';
-import { codeRiskRanking, motionDifferenceInsight, motionModeComparison, motionTrendByAttempt, readNumberAttempts } from '@/lib/number-training-analytics';
-import { readClassroom, replaceClassroom, saveClassroomStudent, setActiveStudent, type TestGroup } from '@/lib/number-classroom';
-import { syncClassroom, upsertCloudClassroomStudent } from '@/lib/number-classroom-supabase';
+import { AlertTriangle, BarChart3, CalendarDays, CheckCircle2, Clock3, Cloud, CloudOff, Edit3, GraduationCap, LoaderCircle, Pause, Play, Plus, Radio, Target, Trash2, Upload, Users } from 'lucide-react';
+import { codeRiskRanking, motionDifferenceInsight, motionModeComparison, motionTrendByAttempt, readNumberAttempts, replaceNumberAttempts } from '@/lib/number-training-analytics';
+import { deleteClassroomStudent, parseClassroomCsv, readClassroom, replaceClassroom, saveClassroomStudent, setActiveStudent, updateClassroomStudent, type ClassroomStudent, type TestGroup } from '@/lib/number-classroom';
+import { ClassroomWriteConflict, deleteCloudClassroomStudent, loadCloudClassroom, subscribeClassroom, syncClassroom, upsertCloudClassroomStudent } from '@/lib/number-classroom-supabase';
+import { loadCloudNumberAttempts, subscribeNumberAttempts, syncNumberAttempts } from '@/lib/number-training-supabase';
 
 const DEMO_ATTEMPTS = [
   { id: 'demo-1', student: '王小明（示範）', completedAt: Date.now() - 3_600_000, correct: 7, total: 10, averageResponseMs: 4200, results: [{ code: '04', correct: false, responseMs: 7100, animationEnabled: false }, { code: '18', correct: true, responseMs: 2600, animationEnabled: true }, { code: '31', correct: false, responseMs: 6800, animationEnabled: false }, { code: '43', correct: true, responseMs: 3100, animationEnabled: true }, { code: '77', correct: false, responseMs: 6400, animationEnabled: false }] },
@@ -14,7 +15,7 @@ const DEMO_ATTEMPTS = [
 type SyncState = 'local' | 'syncing' | 'synced' | 'error';
 
 export function NumberTeacherDashboard({ userId }: { userId?: string }) {
-  const [savedAttempts] = useState(readNumberAttempts);
+  const [savedAttempts, setSavedAttempts] = useState(readNumberAttempts);
   const attempts = savedAttempts.length ? savedAttempts : DEMO_ATTEMPTS;
   const students = useMemo(() => ['全部學生', ...new Set(attempts.map((item) => item.student))], [attempts]);
   const [student, setStudent] = useState('全部學生');
@@ -25,6 +26,7 @@ export function NumberTeacherDashboard({ userId }: { userId?: string }) {
   const [testGroup, setTestGroup] = useState<TestGroup>('alternating');
   const [rosterMessage, setRosterMessage] = useState('');
   const [syncState, setSyncState] = useState<SyncState>(userId ? 'syncing' : 'local');
+  const [conflictMessage, setConflictMessage] = useState('');
   const filtered = student === '全部學生' ? attempts : attempts.filter((item) => item.student === student);
   const ranking = codeRiskRanking(filtered);
   const accuracy = filtered.length ? filtered.reduce((sum, item) => sum + item.correct / item.total, 0) / filtered.length : 0;
@@ -37,13 +39,25 @@ export function NumberTeacherDashboard({ userId }: { userId?: string }) {
     if (!userId) { setSyncState('local'); return; }
     let active = true;
     setSyncState('syncing');
-    syncClassroom(userId, readClassroom()).then((students) => {
+    Promise.all([syncClassroom(userId, readClassroom()), syncNumberAttempts(userId, readNumberAttempts())]).then(([roster, cloudAttempts]) => {
       if (!active) return;
-      replaceClassroom(students);
-      setClassroom(students);
+      replaceClassroom(roster.students);
+      replaceNumberAttempts(cloudAttempts);
+      setClassroom(roster.students);
+      setSavedAttempts(cloudAttempts);
+      if (roster.conflicts.length) setConflictMessage(`偵測到 ${roster.conflicts.length} 筆跨裝置衝突，已保留最後更新版本。`);
       setSyncState('synced');
     }).catch(() => active && setSyncState('error'));
     return () => { active = false; };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const refreshRoster = () => { void loadCloudClassroom(userId).then((students) => { replaceClassroom(students); setClassroom(students); }).catch(() => setSyncState('error')); };
+    const refreshAttempts = () => { void loadCloudNumberAttempts(userId).then((items) => { replaceNumberAttempts(items); setSavedAttempts(items); }).catch(() => setSyncState('error')); };
+    const stopRoster = subscribeClassroom(userId, refreshRoster);
+    const stopAttempts = subscribeNumberAttempts(userId, refreshAttempts);
+    return () => { stopRoster(); stopAttempts(); };
   }, [userId]);
 
   const addStudent = async (event: FormEvent) => {
@@ -62,6 +76,52 @@ export function NumberTeacherDashboard({ userId }: { userId?: string }) {
     }
   };
 
+  const editStudent = async (student: ClassroomStudent) => {
+    const name = window.prompt('學生姓名', student.name)?.trim();
+    if (!name) return;
+    const nextClass = window.prompt('班級／轉入班級', student.className)?.trim();
+    if (!nextClass) return;
+    const rawGroup = window.prompt('測驗組別：dynamic、static 或 alternating', student.testGroup)?.trim();
+    if (!rawGroup || !['dynamic', 'static', 'alternating'].includes(rawGroup)) { setRosterMessage('測驗組別格式不正確。'); return; }
+    const updated = { ...student, name, className: nextClass, testGroup: rawGroup as TestGroup, updatedAt: Date.now() };
+    setClassroom(updateClassroomStudent(updated));
+    setRosterMessage(`已更新 ${name}，跨裝置同步中。`);
+    if (userId) {
+      setSyncState('syncing');
+      try { await upsertCloudClassroomStudent(userId, updated, student.updatedAt); setSyncState('synced'); }
+      catch (error) {
+        if (error instanceof ClassroomWriteConflict) {
+          const latest = await loadCloudClassroom(userId);
+          replaceClassroom(latest); setClassroom(latest);
+          setConflictMessage(`「${student.name}」已在另一台裝置更新，本次修改未覆蓋雲端版本。`);
+          setSyncState('synced');
+        } else { setSyncState('error'); setRosterMessage('修改已保存在本機，雲端稍後重試。'); }
+      }
+    }
+  };
+
+  const removeStudent = async (student: ClassroomStudent) => {
+    if (!window.confirm(`確定刪除 ${student.name}（${student.studentCode}）？`)) return;
+    setClassroom(deleteClassroomStudent(student.id));
+    setRosterMessage(`已刪除 ${student.name}。`);
+    if (userId) {
+      try { await deleteCloudClassroomStudent(userId, student); }
+      catch { setSyncState('error'); setRosterMessage('本機已刪除；雲端刪除失敗，請稍後重試。'); }
+    }
+  };
+
+  const importCsv = async (file: File) => {
+    try {
+      const imported = parseClassroomCsv(await file.text());
+      const known = new Set(classroom.map((item) => item.studentCode));
+      const added = imported.filter((item) => !known.has(item.studentCode));
+      const next = [...classroom, ...added];
+      replaceClassroom(next); setClassroom(next);
+      if (userId) await Promise.all(added.map((item) => upsertCloudClassroomStudent(userId, item)));
+      setRosterMessage(`CSV 匯入完成：新增 ${added.length} 筆，略過 ${imported.length - added.length} 筆重複代碼。`);
+    } catch (error) { setRosterMessage(error instanceof Error ? error.message : 'CSV 匯入失敗'); }
+  };
+
   return <section className="mt-6 rounded-[28px] bg-[#081226] p-6 text-white shadow-xl md:p-8">
     <div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-xs font-black tracking-[.2em] text-cyan-300"><GraduationCap className="h-5 w-5" />TEACHER ANALYTICS</div><h2 className="mt-2 text-3xl font-black">數字轉碼學習儀表板</h2><p className="mt-2 text-sm text-slate-400">依真實回想紀錄追蹤學生、日期、正確率、反應時間與高風險編碼。</p>{!savedAttempts.length && <span className="mt-3 inline-block rounded-full bg-amber-300/10 px-3 py-1 text-[11px] font-bold text-amber-200">目前顯示示範資料 · 完成測驗後自動切換</span>}</div><select aria-label="篩選學生" value={student} onChange={(event) => setStudent(event.target.value)} className="rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-sm font-bold">{students.map((name) => <option key={name}>{name}</option>)}</select></div>
     {!filtered.length ? <div className="mt-8 rounded-2xl border border-dashed border-white/15 p-10 text-center"><Target className="mx-auto h-10 w-10 text-slate-600" /><h3 className="mt-3 font-black">尚無學生測驗紀錄</h3><p className="mt-2 text-sm text-slate-500">完成一次「3D 空間戰」後，資料會自動出現在這裡。</p></div> : <>
@@ -70,8 +130,14 @@ export function NumberTeacherDashboard({ userId }: { userId?: string }) {
       <div className="mt-5 grid gap-5 lg:grid-cols-[1.35fr_.65fr]"><MotionTrend points={trend} /><div className="rounded-2xl border border-amber-300/15 bg-amber-300/5 p-5"><h3 className="flex items-center gap-2 font-black"><BarChart3 className="h-4 w-4 text-amber-300" />統計差異提示</h3><div className="mt-4 text-3xl font-black text-amber-100">{Math.abs(Math.round(insight.difference * 100))}<span className="ml-1 text-base">百分點</span></div><p className="mt-2 text-sm leading-6 text-slate-300">{insight.leader === 'tie' ? '目前兩組差異很小。' : insight.leader === 'dynamic' ? '目前動態組回想率較高。' : '目前靜態組回想率較高。'} {!insight.enoughData ? '兩組各累積 10 筆前僅視為早期訊號。' : '樣本量已達初步比較門檻，仍不代表因果效果。'}</p><div className="mt-4 rounded-xl bg-black/20 px-3 py-2 text-xs text-slate-500">樣本 {insight.totalAnswers} 筆 · 僅比較同一篩選學生</div></div></div>
       <div className="mt-7 grid gap-5 lg:grid-cols-[1.15fr_.85fr]"><div className="rounded-2xl border border-white/10 bg-white/5 p-5"><h3 className="font-black">最近學習紀錄</h3><div className="mt-4 space-y-2">{filtered.slice(0, 8).map((item) => <div key={item.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-xl bg-black/20 p-3 text-sm"><div><div className="font-bold">{item.student}</div><div className="text-xs text-slate-500">{new Date(item.completedAt).toLocaleString('zh-TW')}</div></div><div className="font-mono font-black text-cyan-200">{item.correct}/{item.total}</div><div className="text-xs text-slate-400">{(item.averageResponseMs / 1000).toFixed(1)}s</div></div>)}</div></div><div className="rounded-2xl border border-rose-300/15 bg-rose-300/5 p-5"><h3 className="flex items-center gap-2 font-black"><AlertTriangle className="h-4 w-4 text-rose-300" />高風險編碼排行</h3><div className="mt-4 space-y-3">{ranking.slice(0, 6).map((item, index) => <div key={item.code}><div className="flex items-center justify-between text-sm"><span><b className="mr-2 text-rose-200">#{index + 1}</b><span className="font-mono font-black">{item.code}</span></span><span className="text-xs text-slate-400">錯誤 {Math.round(item.errorRate * 100)}% · {(item.averageResponseMs / 1000).toFixed(1)}s</span></div><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-rose-400" style={{ width: `${Math.max(5, item.riskScore * 100)}%` }} /></div></div>)}</div></div></div>
     </>}
+    {conflictMessage && <div role="alert" className="mt-7 flex items-center justify-between gap-3 rounded-xl border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-sm text-amber-100"><span>{conflictMessage}</span><button type="button" onClick={() => setConflictMessage('')} className="font-black">知道了</button></div>}
     <div className="mt-7 flex justify-end"><SyncBadge state={syncState} /></div>
     <div className="mt-7 rounded-2xl border border-violet-300/15 bg-violet-300/5 p-5"><div className="flex items-center gap-2"><Users className="h-5 w-5 text-violet-300" /><div><h3 className="font-black">班級與測驗指派</h3><p className="text-xs text-slate-400">建立學生代碼，指定動態、靜態或交錯 A/B 組。</p></div></div><form onSubmit={addStudent} className="mt-4 grid gap-2 md:grid-cols-[1fr_1fr_.8fr_1fr_auto]"><input aria-label="班級名稱" value={className} onChange={(event) => setClassName(event.target.value)} className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm" placeholder="班級" /><input aria-label="學生姓名" value={studentName} onChange={(event) => setStudentName(event.target.value)} className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm" placeholder="學生姓名" /><input aria-label="學生代碼" value={studentCode} onChange={(event) => setStudentCode(event.target.value)} className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 font-mono text-sm uppercase" placeholder="A001" /><select aria-label="指定測驗組別" value={testGroup} onChange={(event) => setTestGroup(event.target.value as TestGroup)} className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm"><option value="alternating">交錯 A/B 組</option><option value="dynamic">動態組</option><option value="static">靜態組</option></select><button className="inline-flex items-center justify-center gap-1 rounded-xl bg-violet-300 px-4 py-2 text-sm font-black text-slate-950"><Plus className="h-4 w-4" />建立</button></form>{rosterMessage && <p role="status" className="mt-2 text-xs text-violet-200">{rosterMessage}</p>}<div className="mt-4 grid gap-2 md:grid-cols-2">{classroom.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl bg-black/20 p-3"><div><div className="font-bold">{item.name} <span className="font-mono text-xs text-violet-200">{item.studentCode}</span></div><div className="text-xs text-slate-500">{item.className} · {groupLabel(item.testGroup)}</div></div><button type="button" onClick={() => { setActiveStudent(item); setRosterMessage(`已指定 ${item.name} 進入${groupLabel(item.testGroup)}`); }} className="rounded-lg border border-violet-300/20 px-3 py-1.5 text-xs font-bold text-violet-200">指定測驗</button></div>)}{!classroom.length && <div className="rounded-xl border border-dashed border-white/10 p-5 text-center text-xs text-slate-500 md:col-span-2">尚未建立學生；上方輸入後即可產生第一筆班級名單。</div>}</div></div>
+    <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black">名單管理</h3><p className="text-xs text-slate-400">編輯、刪除、轉班，或用 CSV 批次匯入。</p></div><label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-cyan-300/20 px-3 py-2 text-xs font-black text-cyan-200"><Upload className="h-4 w-4" />CSV 匯入<input type="file" accept=".csv,text/csv" className="sr-only" aria-label="CSV 匯入" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCsv(file); event.currentTarget.value = ''; }} /></label></div>
+      <div className="mt-4 grid gap-2 md:grid-cols-2">{classroom.map((item) => <div key={`manage-${item.id}`} className="flex items-center justify-between gap-3 rounded-xl bg-black/20 p-3"><div><div className="font-bold">{item.name} <span className="font-mono text-xs text-violet-200">{item.studentCode}</span></div><div className="text-xs text-slate-500">{item.className} · {groupLabel(item.testGroup)}</div></div><div className="flex gap-1"><button type="button" aria-label={`編輯 ${item.name}`} onClick={() => void editStudent(item)} className="rounded-lg border border-white/10 p-2 text-slate-300"><Edit3 className="h-4 w-4" /></button><button type="button" aria-label={`刪除 ${item.name}`} onClick={() => void removeStudent(item)} className="rounded-lg border border-rose-300/20 p-2 text-rose-200"><Trash2 className="h-4 w-4" /></button></div></div>)}</div>
+      <div className="mt-4 flex items-center gap-2 text-xs text-emerald-200"><Radio className="h-4 w-4" />{userId ? 'Realtime 已啟用：其他裝置的名單與成績會自動更新。' : '登入教師帳號後啟用 Realtime 跨裝置更新。'}</div>
+    </div>
   </section>;
 }
 
