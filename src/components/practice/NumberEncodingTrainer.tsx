@@ -29,6 +29,7 @@ const SpatialNumberGame = lazy(() => import('./SpatialNumberGame').then((module)
 const NumberTeacherDashboard = lazy(() => import('./NumberTeacherDashboard').then((module) => ({ default: module.NumberTeacherDashboard })));
 
 interface NumberEncodingTrainerProps {
+  userId?: string;
   task: LearningGymTask;
   progress: LearningGymProgress;
   learningStyle: LearningStyle | null;
@@ -156,6 +157,7 @@ function randomDigits(length: number) {
 }
 
 export function NumberEncodingTrainer({
+  userId,
   task,
   progress,
   learningStyle,
@@ -504,7 +506,7 @@ export function NumberEncodingTrainer({
             }} />
             </Suspense>
           </div>
-        ) : <Suspense fallback={<div className="mt-6 rounded-[28px] bg-slate-900 p-16 text-center text-cyan-300">LOADING ANALYTICS…</div>}><NumberTeacherDashboard /></Suspense>}
+        ) : <Suspense fallback={<div className="mt-6 rounded-[28px] bg-slate-900 p-16 text-center text-cyan-300">LOADING ANALYTICS…</div>}><NumberTeacherDashboard userId={userId} /></Suspense>}
       </main>
     </div>
   );
