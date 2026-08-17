@@ -70,6 +70,12 @@ try {
   await page.getByLabel('指定測驗組別').selectOption('alternating');
   await page.getByRole('button', { name: '建立' }).click();
   await page.getByText('學生已建立，可直接指定開始測驗。').waitFor();
+  await page.getByLabel('CSV 匯入').setInputFiles({ name: 'roster.csv', mimeType: 'text/csv', buffer: Buffer.from('班級,姓名,學生代碼,組別\n記憶 B 班,CSV學生,C002,static') });
+  await page.getByText('CSV 匯入完成：新增 1 筆').waitFor();
+  assert(await page.getByRole('button', { name: '編輯 測試學生' }).isVisible(), '名單應提供編輯與轉班控制');
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: '刪除 CSV學生' }).click();
+  await page.getByText('已刪除 CSV學生。').waitFor();
   await page.getByRole('button', { name: '指定測驗' }).click();
   await page.getByText('已指定 測試學生 進入交錯 A/B 組').waitFor();
   await page.getByRole('button', { name: '03 3D 空間戰' }).click();

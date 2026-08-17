@@ -494,7 +494,7 @@ export function NumberEncodingTrainer({
         ) : mode === 'spatial' ? (
           <div className="mt-6">
             <Suspense fallback={<div className="flex min-h-[520px] items-center justify-center rounded-[28px] bg-[#07101f] text-xs font-black tracking-[.22em] text-cyan-300"><span className="animate-pulse">LOADING THREE.JS LAB…</span></div>}>
-            <SpatialNumberGame onComplete={(lastAnswer) => {
+            <SpatialNumberGame userId={userId} onComplete={(lastAnswer) => {
               const nextProgress = { ...progress };
               const gained = { numberCoding: 5, visualSpatial: 3, activeRecall: 2 };
               Object.entries(gained).forEach(([key, value]) => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { readActiveStudent, readClassroom, replaceClassroom, saveClassroomStudent, setActiveStudent } from './number-classroom';
-import { mergeClassroomStudents } from './number-classroom-supabase';
+import { parseClassroomCsv, readActiveStudent, readClassroom, replaceClassroom, saveClassroomStudent, setActiveStudent } from './number-classroom';
+import { mergeClassroomStudents, resolveClassroomMerge } from './number-classroom-supabase';
+import { mergeNumberAttempts } from './number-training-supabase';
 
 function memoryStorage() { const values = new Map<string, string>(); return { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) }; }
 
@@ -23,8 +24,20 @@ describe('number classroom', () => {
   });
 
   it('merges devices by student code and keeps the local edit for upload', () => {
-    const cloud = [{ id: 'cloud-1', className: 'A 班', name: '小明', studentCode: 'A001', testGroup: 'static' as const, createdAt: 1 }];
-    const local = [{ ...cloud[0], id: 'local-1', name: '小明（更新）', testGroup: 'dynamic' as const }];
+    const cloud = [{ id: 'cloud-1', className: 'A 班', name: '小明', studentCode: 'A001', testGroup: 'static' as const, createdAt: 1, updatedAt: 10 }];
+    const local = [{ ...cloud[0], id: 'local-1', name: '小明（更新）', testGroup: 'dynamic' as const, updatedAt: 20 }];
     expect(mergeClassroomStudents(local, cloud)).toEqual(local);
+    expect(resolveClassroomMerge(local, cloud).conflicts).toHaveLength(1);
+  });
+
+  it('parses CSV rosters and validates student codes', () => {
+    const rows = parseClassroomCsv('班級,姓名,學生代碼,組別\n記憶 A 班,小華,a003,dynamic');
+    expect(rows[0]).toMatchObject({ className: '記憶 A 班', name: '小華', studentCode: 'A003', testGroup: 'dynamic' });
+    expect(() => parseClassroomCsv('A 班,小華,?,dynamic')).toThrow('格式錯誤');
+  });
+
+  it('deduplicates attempts received from a second device', () => {
+    const attempt = { id: 'run-1', student: '小華', completedAt: 1, correct: 1, total: 1, averageResponseMs: 900, results: [{ code: '04', correct: true, responseMs: 900 }] };
+    expect(mergeNumberAttempts([attempt], [{ ...attempt, student: '舊名稱' }])).toEqual([attempt]);
   });
 });

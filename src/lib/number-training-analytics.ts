@@ -1,6 +1,7 @@
 export type NumberTrainingAttempt = {
   id: string;
   student: string;
+  studentCode?: string;
   completedAt: number;
   correct: number;
   total: number;
@@ -23,6 +24,11 @@ export function saveNumberAttempt(attempt: NumberTrainingAttempt, storage: Pick<
   const next = [attempt, ...current].slice(0, 100);
   storage.setItem(KEY, JSON.stringify(next));
   return next;
+}
+
+export function replaceNumberAttempts(attempts: NumberTrainingAttempt[], storage: Pick<Storage, 'setItem'> = localStorage) {
+  storage.setItem(KEY, JSON.stringify(attempts.slice(0, 100)));
+  return attempts;
 }
 
 export function codeRiskRanking(attempts: NumberTrainingAttempt[]) {
