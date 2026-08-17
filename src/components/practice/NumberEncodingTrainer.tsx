@@ -14,6 +14,8 @@ import {
   Zap,
   Orbit,
   GraduationCap,
+  LockKeyhole,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,6 +26,7 @@ import {
   LearningGymProgress,
   LearningGymTask,
 } from '@/lib/learning-gym';
+import { normalizeDigits, questLevel, scoreRecall } from '@/lib/memory-quest';
 
 const SpatialNumberGame = lazy(() => import('./SpatialNumberGame').then((module) => ({ default: module.SpatialNumberGame })));
 const NumberTeacherDashboard = lazy(() => import('./NumberTeacherDashboard').then((module) => ({ default: module.NumberTeacherDashboard })));
@@ -169,6 +172,12 @@ export function NumberEncodingTrainer({
   const [association, setAssociation] = useState('');
   const [revealed, setRevealed] = useState(false);
   const [completedRounds, setCompletedRounds] = useState(0);
+  const [recallStarted, setRecallStarted] = useState(false);
+  const [recallAnswer, setRecallAnswer] = useState('');
+  const [recallAttempts, setRecallAttempts] = useState(0);
+  const [recallFeedback, setRecallFeedback] = useState<'idle' | 'wrong' | 'correct'>('idle');
+  const [questPoints, setQuestPoints] = useState(0);
+  const [lastQuestPoints, setLastQuestPoints] = useState(0);
   const [query, setQuery] = useState('');
   const [selectedGenius, setSelectedGenius] = useState<GeniusType>(geniusType || 'visionary');
   const style = learningStyle || DEFAULT_STYLE;
@@ -189,6 +198,11 @@ export function NumberEncodingTrainer({
     setDigits(randomDigits(length));
     setAssociation('');
     setRevealed(false);
+    setRecallStarted(false);
+    setRecallAnswer('');
+    setRecallAttempts(0);
+    setRecallFeedback('idle');
+    setLastQuestPoints(0);
   };
 
   const speakCodes = () => {
@@ -213,6 +227,29 @@ export function NumberEncodingTrainer({
     });
     onProgressChange(nextProgress, gained, `數字 ${digits}：${association}`);
     setCompletedRounds((round) => round + 1);
+  };
+
+  const startRecall = () => {
+    setRecallStarted(true);
+    setRecallAnswer('');
+    setRecallAttempts(0);
+    setRecallFeedback('idle');
+  };
+
+  const submitRecall = () => {
+    const result = scoreRecall(digits, recallAnswer, recallAttempts);
+    if (!result.correct) {
+      setRecallAttempts((attempts) => attempts + 1);
+      setRecallFeedback('wrong');
+      return;
+    }
+    setLastQuestPoints(result.points);
+    setQuestPoints((points) => points + result.points);
+    finishRound();
+    setRecallFeedback('correct');
+  };
+
+  const nextQuest = () => {
     newRound();
   };
 
@@ -224,9 +261,15 @@ export function NumberEncodingTrainer({
             <ArrowLeft className="h-4 w-4" />
             返回訓練場
           </Button>
-          <div className="flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-700">
-            <Zap className="h-4 w-4 fill-current" />
-            數字轉碼 Lv.{Math.max(1, Math.floor(progress.numberCoding / 10) + 1)}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-700">
+              <Zap className="h-4 w-4 fill-current" />
+              數字轉碼 Lv.{Math.max(1, Math.floor(progress.numberCoding / 10) + 1)}
+            </div>
+            <div className="hidden items-center gap-2 rounded-full bg-violet-50 px-3 py-1.5 text-sm font-bold text-violet-700 sm:flex">
+              <Trophy className="h-4 w-4" />
+              記憶任務 Lv.{questLevel(questPoints)} · {questPoints} XP
+            </div>
           </div>
         </div>
       </div>
@@ -389,12 +432,12 @@ export function NumberEncodingTrainer({
               </div>
 
               <div className="my-8 text-center">
-                <div className="font-mono text-5xl font-black tracking-[0.14em] text-slate-950 sm:text-7xl">{digits}</div>
+                <div className="font-mono text-5xl font-black tracking-[0.14em] text-slate-950 sm:text-7xl">{recallStarted ? '•••••••' : digits}</div>
                 <div className="mt-5 flex flex-wrap justify-center gap-2">
                   {chunks.map((chunk, index) => (
-                    <div key={`${chunk}-${index}`} className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2">
-                      <span className="font-mono font-black text-cyan-950">{chunk}</span>
-                      {revealed && (
+                    <div key={`${chunk}-${index}`} className={`rounded-xl border px-4 py-2 ${recallStarted ? 'border-violet-200 bg-violet-50' : 'border-cyan-200 bg-cyan-50'}`}>
+                      <span className={`font-mono font-black ${recallStarted ? 'text-violet-300' : 'text-cyan-950'}`}>{recallStarted ? '••' : chunk}</span>
+                      {revealed && !recallStarted && (
                         <span className="ml-2 text-sm text-cyan-700">{CODE_WORDS[Number(chunk)]}</span>
                       )}
                     </div>
@@ -426,21 +469,55 @@ export function NumberEncodingTrainer({
               </div>
 
               {revealed && (
-                <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-                  <div className="flex items-start gap-3">
-                    <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                    <div>
-                      <div className="font-black text-amber-950">參考故事（沒有唯一答案）</div>
-                      <p className="mt-2 leading-7 text-amber-900">{digits === '5201314' ? '「我愛你一生一世」— 先用熟悉的數字語意建立整體鉤子，再用 52／01／31／04 的圖像補強細節。' : reference}</p>
-                      <div className="mt-3 text-xs leading-5 text-amber-700">
-                        好故事檢核：每個轉碼都有出現、有明確動作、畫面夠誇張，而且你能從故事反推數字。
+                <div className={`mt-6 rounded-2xl border p-5 ${recallStarted ? 'border-violet-200 bg-violet-50' : 'border-amber-200 bg-amber-50'}`}>
+                  {!recallStarted ? (
+                    <>
+                      <div className="flex items-start gap-3">
+                        <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                        <div>
+                          <div className="font-black text-amber-950">參考故事（沒有唯一答案）</div>
+                          <p className="mt-2 leading-7 text-amber-900">{digits === '5201314' ? '「我愛你一生一世」— 先用熟悉的數字語意建立整體鉤子，再用 52／01／31／04 的圖像補強細節。' : reference}</p>
+                          <div className="mt-3 text-xs leading-5 text-amber-700">
+                            好故事檢核：每個轉碼都有出現、有明確動作、畫面夠誇張，而且你能從故事反推數字。
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  <Button onClick={finishRound} className="mt-5 w-full gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700">
-                    <CheckCircle2 className="h-4 w-4" />
-                    完成並進入下一題
-                  </Button>
+                      <Button onClick={startRecall} className="mt-5 w-full gap-2 rounded-xl bg-violet-600 hover:bg-violet-700">
+                        <LockKeyhole className="h-4 w-4" />
+                        藏起答案，開始回想
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-start gap-3">
+                        <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0 text-violet-700" />
+                        <div>
+                          <div className="font-black text-violet-950">記憶回想關：從故事反推出數字</div>
+                          <p className="mt-2 text-sm leading-6 text-violet-800">答案已藏起來。先在腦中重播角色、動作與衝突，再輸入完整數字；支援全形數字、空格與連字號。</p>
+                        </div>
+                      </div>
+                      <form onSubmit={(event) => { event.preventDefault(); if (recallFeedback !== 'correct') submitRecall(); }} className="mt-5">
+                        <label htmlFor="memory-recall-answer" className="text-sm font-black text-violet-950">你的回想答案</label>
+                        <input
+                          id="memory-recall-answer"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          value={recallAnswer}
+                          onChange={(event) => { setRecallAnswer(normalizeDigits(event.target.value).replace(/[^0-9]/g, '').slice(0, digits.length)); setRecallFeedback('idle'); }}
+                          placeholder={`${digits.length} 位數字`}
+                          className="mt-2 h-12 w-full rounded-xl border border-violet-200 bg-white px-4 font-mono text-lg font-black tracking-[0.18em] text-violet-950 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
+                        />
+                        <div className="mt-3 min-h-6 text-sm font-bold">
+                          {recallFeedback === 'wrong' && <span className="text-rose-600">還差一點。再重播一次故事，先找第一個畫面，再逐段往回推。</span>}
+                          {recallFeedback === 'correct' && <span className="text-emerald-700">答對了！本回合獲得 +{lastQuestPoints} XP，記憶任務完成。</span>}
+                        </div>
+                        <Button type={recallFeedback === 'correct' ? 'button' : 'submit'} onClick={recallFeedback === 'correct' ? nextQuest : undefined} disabled={!recallAnswer.trim()} className="mt-2 w-full gap-2 rounded-xl bg-violet-600 hover:bg-violet-700">
+                          {recallFeedback === 'correct' ? <><RotateCcw className="h-4 w-4" />下一場記憶任務</> : <><CheckCircle2 className="h-4 w-4" />送出回想答案</>}
+                        </Button>
+                      </form>
+                      <div className="mt-4 rounded-xl border border-violet-200 bg-white/70 p-3 text-xs leading-5 text-violet-800">小提示：不要急著猜。記憶提取本身就是訓練，答錯後再嘗試一次，通常比立刻看答案更有幫助。</div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
