@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag, Brain, Sparkles, Waves, Swords } from 'lucide-react';
+import { User, LogOut, Settings, LayoutDashboard, Menu, X, Globe, Users, ShoppingBag, Brain, Sparkles, Waves, Swords, Languages } from 'lucide-react';
 import { WhatsNewButton } from '@/components/layout/WhatsNewButton';
 
 interface HeaderProps {
@@ -97,6 +97,12 @@ export function Header({
               <Button variant={isActive('/talent-card-game') ? 'secondary' : 'ghost'} size="sm">
                 <Sparkles className="w-4 h-4 mr-1" />
                 天賦卡牌
+              </Button>
+            </Link>
+            <Link to="/interpreter">
+              <Button variant={isActive('/interpreter') ? 'secondary' : 'ghost'} size="sm">
+                <Languages className="w-4 h-4 mr-1" />
+                通譯官
               </Button>
             </Link>
             <Link to="/xianjing">
@@ -210,6 +216,12 @@ export function Header({
                 <Button variant={isActive('/talent-card-game') ? 'secondary' : 'ghost'} className="w-full justify-start">
                   <Sparkles className="w-4 h-4 mr-2" />
                   天賦卡牌
+                </Button>
+              </Link>
+              <Link to="/interpreter" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button variant={isActive('/interpreter') ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <Languages className="w-4 h-4 mr-2" />
+                  通譯官
                 </Button>
               </Link>
               <Link to="/xianjing" onClick={() => setIsMobileMenuOpen(false)}>

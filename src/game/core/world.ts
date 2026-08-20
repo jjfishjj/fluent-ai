@@ -1,9 +1,5 @@
-import { classDef } from '../data/classes';
-import { ITEMS, itemDef } from '../data/items';
-import { MONSTERS, monsterDef } from '../data/monsters';
-import { QUESTS, questDef } from '../data/quests';
-import { SKILLS, skillDef } from '../data/skills';
-import { ZONES, zoneDef } from '../data/zones';
+import { XIANXIA_PACK } from '../data/xianxia-pack';
+import { ContentPack, classOf, itemOf, monsterOf, questOf, skillOf, zoneOf } from './content';
 import {
   MAX_LEVEL,
   STAT_POINTS_PER_LEVEL,
@@ -19,6 +15,19 @@ import {
   silverReward,
   statCost,
 } from './formulas';
+import {
+  ActiveAid,
+  AnswerOutcome,
+  EncounterQuestion,
+  EncounterState,
+  QuestionContext,
+  QuestionSource,
+  SWIFT_WINDOW,
+  applyAid,
+  phaseAt,
+  resolveAnswer,
+  shuffleOptions,
+} from './encounter';
 import { Rng } from './rng';
 import { blockers, terrainHeight } from './terrain';
 import type {
@@ -26,6 +35,7 @@ import type {
   ChatLine,
   Derived,
   Element,
+  EncounterHud,
   Entity,
   GameEvent,
   HudSnapshot,
@@ -74,13 +84,23 @@ export interface WorldOptions {
   seed?: number;
   /** Injected so tests can drive time deterministically. */
   now?: () => number;
+  /** Campaign content; defaults to the 仙境 pack. */
+  pack?: ContentPack;
+  /** Supplies encounter questions in turn-based packs. */
+  questions?: QuestionSource;
+  /** Called after every answer so the SRS schedule can be updated. */
+  onAnswer?: (question: EncounterQuestion, correct: boolean) => void;
 }
 
 let uid = 0;
 const nextId = (prefix: string) => `${prefix}_${(uid++).toString(36)}`;
 
-export function newProfile(name: string, classId: PlayerProfile['classId']): PlayerProfile {
-  const cls = classDef(classId);
+export function newProfile(
+  name: string,
+  classId: PlayerProfile['classId'],
+  pack: ContentPack = XIANXIA_PACK,
+): PlayerProfile {
+  const cls = classOf(pack, classId);
   return {
     name,
     classId,
@@ -89,17 +109,14 @@ export function newProfile(name: string, classId: PlayerProfile['classId']): Pla
     statPoints: 0,
     skillPoints: 1,
     stats: { ...cls.baseStats },
-    silver: 300,
-    inventory: [
-      { itemId: 'redpotion', qty: 10 },
-      { itemId: 'bluepotion', qty: 5 },
-    ],
+    silver: pack.startingSilver,
+    inventory: pack.startingKit.map((s) => ({ ...s })),
     equipment: {},
     learned: { [cls.skills[0]]: 1 },
     quests: [],
     kills: {},
-    zone: 'qingyun',
-    pos: { x: 0, z: -4 },
+    zone: pack.start.zone,
+    pos: { ...pack.start.pos },
   };
 }
 
@@ -108,6 +125,7 @@ export function newProfile(name: string, classId: PlayerProfile['classId']): Pla
  * so it can be stepped in tests with a fixed seed and a fake clock.
  */
 export class World {
+  readonly pack: ContentPack;
   profile: PlayerProfile;
   zone: ZoneDef;
   entities = new Map<string, Entity>();
@@ -124,6 +142,10 @@ export class World {
   autoAttack = true;
   paused = false;
   respawnAt = 0;
+  /** Active turn-based exchange; the realtime sim is frozen while set. */
+  encounter?: EncounterState;
+  private questions?: QuestionSource;
+  private onAnswer?: (question: EncounterQuestion, correct: boolean) => void;
   private rng: Rng;
   private chatSeq = 0;
   private lastCombatAt = -999;
@@ -131,9 +153,12 @@ export class World {
   private zoneCooldown = 0;
 
   constructor(profile: PlayerProfile, opts: WorldOptions = {}) {
+    this.pack = opts.pack ?? XIANXIA_PACK;
+    this.questions = opts.questions;
+    this.onAnswer = opts.onAnswer;
     this.profile = profile;
     this.rng = new Rng(opts.seed ?? 20260809);
-    this.zone = zoneDef(profile.zone);
+    this.zone = zoneOf(this.pack, profile.zone);
     this.spawnPlayer();
     this.loadZone(profile.zone, profile.pos, true);
   }
@@ -159,7 +184,7 @@ export class World {
   }
 
   private spawnPlayer() {
-    const cls = classDef(this.profile.classId);
+    const cls = classOf(this.pack, this.profile.classId);
     const gear = this.gearBonus();
     const maxHp = maxHpFor(cls, this.profile.level, this.profile.stats, gear.def);
     const maxSp = maxSpFor(cls, this.profile.level, this.profile.stats);
@@ -191,7 +216,7 @@ export class World {
   // ── zone management ───────────────────────────────────────────────────
 
   loadZone(zoneId: string, at?: Vec2, silent = false) {
-    const zone = zoneDef(zoneId);
+    const zone = zoneOf(this.pack, zoneId);
     this.zone = zone;
     this.profile.zone = zone.id;
 
@@ -252,7 +277,7 @@ export class World {
   }
 
   private spawnMonster(monsterId: string, pos: Vec2) {
-    const def = monsterDef(monsterId);
+    const def = monsterOf(this.pack, monsterId);
     if (!def) return;
     const id = nextId('mob');
     this.entities.set(id, {
@@ -319,7 +344,7 @@ export class World {
 
   /** Effective skill definition at the player's learned level. */
   skillAt(skillId: string): (SkillDef & { power: number; spCost: number; skillLevel: number }) | undefined {
-    const def = skillDef(skillId);
+    const def = skillOf(this.pack, skillId);
     if (!def) return undefined;
     const lvl = this.profile.learned[skillId] ?? 0;
     if (lvl <= 0) return undefined;
@@ -444,7 +469,7 @@ export class World {
   }
 
   useItem(itemId: string): boolean {
-    const def = itemDef(itemId);
+    const def = itemOf(this.pack, itemId);
     const slot = this.profile.inventory.find((s) => s.itemId === itemId);
     if (!def || !slot || slot.qty <= 0) return false;
     if (def.kind !== 'consumable') return this.equip(itemId);
@@ -460,7 +485,7 @@ export class World {
   }
 
   equip(itemId: string): boolean {
-    const def = itemDef(itemId);
+    const def = itemOf(this.pack, itemId);
     if (!def) return false;
     if (def.kind !== 'weapon' && def.kind !== 'armor' && def.kind !== 'accessory') return false;
     const eq = this.profile.equipment;
@@ -487,9 +512,9 @@ export class World {
   }
 
   learnSkill(skillId: string): boolean {
-    const def = skillDef(skillId);
+    const def = skillOf(this.pack, skillId);
     if (!def) return false;
-    const cls = classDef(this.profile.classId);
+    const cls = classOf(this.pack, this.profile.classId);
     if (!cls.skills.includes(skillId)) return false;
     if (this.profile.level < def.reqLevel) return false;
     const lvl = this.profile.learned[skillId] ?? 0;
@@ -502,7 +527,7 @@ export class World {
   }
 
   acceptQuest(questId: string): boolean {
-    const def = questDef(questId);
+    const def = questOf(this.pack, questId);
     if (!def) return false;
     if (this.profile.level < def.reqLevel) {
       this.say('system', '系統', `需要 Lv.${def.reqLevel} 才能接取此任務`);
@@ -520,7 +545,7 @@ export class World {
   }
 
   completeQuest(questId: string): boolean {
-    const def = questDef(questId);
+    const def = questOf(this.pack, questId);
     const state = this.profile.quests.find((q) => q.id === questId);
     if (!def || !state || state.status !== 'complete') return false;
     if (def.kind === 'collect' && !this.removeItem(def.target, def.count)) return false;
@@ -532,7 +557,7 @@ export class World {
     this.events.push({ type: 'quest', questId, status: 'done' });
     this.say('system', '任務', `完成任務：${def.name}`);
     if (def.next) {
-      const nd = questDef(def.next);
+      const nd = questOf(this.pack, def.next);
       if (nd && this.profile.level >= nd.reqLevel) this.acceptQuest(def.next);
     }
     return true;
@@ -549,6 +574,237 @@ export class World {
       return { npcId: def.id, name: def.name, lines: def.lines };
     }
     return undefined;
+  }
+
+  // ── turn-based encounters ─────────────────────────────────────────────
+
+  /**
+   * Opens a question exchange with an obstacle. Returns false when the pack is
+   * realtime, the source has no questions left, or one is already running.
+   */
+  startEncounter(enemyId: string): boolean {
+    if (!this.pack.turnBased || this.encounter) return false;
+    const enemy = this.entity(enemyId);
+    if (!enemy || enemy.kind !== 'monster' || enemy.state === 'dead') return false;
+    const question = this.questions?.(0, this.questionContext());
+    if (!question) return false;
+
+    const p = this.player;
+    p.moveTarget = undefined;
+    p.targetId = enemy.id;
+    this.moveInput = { x: 0, z: 0 };
+    p.facing = Math.atan2(enemy.pos.x - p.pos.x, enemy.pos.z - p.pos.z);
+
+    this.encounter = {
+      enemyId: enemy.id,
+      enemyName: enemy.name,
+      enemyLevel: enemy.level,
+      enemyElement: enemy.element,
+      index: 0,
+      question,
+      options: shuffleOptions(question.options, () => this.rng.next()),
+      hintRevealed: false,
+      streak: 0,
+      correct: 0,
+      wrong: 0,
+      aids: [],
+      askedAt: this.time,
+      phase: 0,
+      stage: monsterOf(this.pack, enemy.monsterId)?.phases?.[0],
+    };
+    const opening = this.encounter.stage;
+    this.say('system', '遭遇', `${enemy.name} 擋住了去路。`);
+    if (opening) this.say('system', enemy.name, `【${opening.name}】${opening.line}`);
+    return true;
+  }
+
+  private questionContext(): QuestionContext {
+    const enc = this.encounter;
+    const def = enc ? monsterOf(this.pack, this.entity(enc.enemyId)?.monsterId) : undefined;
+    // A boss stage narrows the topic further than the obstacle's own bias.
+    const stageTopic = enc?.stage?.topic;
+    return {
+      language: this.zone.language ?? this.pack.language ?? 'english',
+      level: this.profile.level,
+      topics: stageTopic ? [stageTopic] : def?.topics,
+    };
+  }
+
+  /** Answers the current question and advances or ends the encounter. */
+  answerEncounter(chosen: string): AnswerOutcome | undefined {
+    const enc = this.encounter;
+    if (!enc || enc.outcome) return undefined;
+    const enemy = this.entity(enc.enemyId);
+    if (!enemy) {
+      this.encounter = undefined;
+      return undefined;
+    }
+
+    const def = monsterOf(this.pack, enemy.monsterId);
+    const d = this.derived();
+    const outcome = resolveAnswer({
+      chosen,
+      question: enc.question,
+      power: d.matk + d.atk * 0.35,
+      enemyAtk: def?.atk ?? 10,
+      defense: d.def,
+      streak: enc.streak,
+      elapsed: this.time - enc.askedAt,
+      aids: enc.aids,
+      swiftWindow: enc.stage?.swiftWindow,
+      pressure: enc.stage?.pressure,
+    });
+
+    this.onAnswer?.(enc.question, outcome.correct);
+    enc.lastResult = outcome;
+    enc.streak = outcome.streak;
+    // Aids that act on an answer are spent whether or not they were needed.
+    enc.aids = enc.aids.filter((a) => a.effect !== 'amplify' && a.effect !== 'shield');
+
+    if (outcome.correct) {
+      enc.correct += 1;
+      enemy.hp -= outcome.damage;
+      enemy.flash = 0.18;
+      this.events.push({
+        type: 'damage',
+        targetId: enemy.id,
+        amount: outcome.damage,
+        crit: outcome.swift || outcome.amplified,
+        element: 'holy',
+        fromPlayer: true,
+      });
+    } else {
+      enc.wrong += 1;
+      if (outcome.backlash > 0) {
+        const p = this.player;
+        p.hp -= outcome.backlash;
+        p.flash = 0.18;
+        this.events.push({
+          type: 'damage',
+          targetId: p.id,
+          amount: outcome.backlash,
+          crit: false,
+          element: enemy.element,
+          fromPlayer: false,
+        });
+      }
+    }
+    this.lastCombatAt = this.time;
+
+    // A boss moves through its interview stages as its resolve drops.
+    if (def?.phases?.length && enemy.hp > 0) {
+      const next = phaseAt(def.phases, enemy.hp / enemy.maxHp);
+      if (next > enc.phase) {
+        enc.phase = next;
+        enc.stage = def.phases[next];
+        outcome.phaseAdvanced = enc.stage;
+        // Techniques queued for the next answer do not survive a stage change.
+        if (enc.stage.sealAids) enc.aids = [];
+        this.say('system', enemy.name, `【${enc.stage.name}】${enc.stage.line}`);
+      }
+    }
+
+    if (enemy.hp <= 0) {
+      this.killMonster(enemy);
+      enc.outcome = 'win';
+      this.say('system', '遭遇', `溝通成功，${enemy.name} 消散了。`);
+      return outcome;
+    }
+    if (this.player.hp <= 0) {
+      enc.outcome = 'lose';
+      this.killPlayer();
+      return outcome;
+    }
+    return outcome;
+  }
+
+  /** Moves on to the next question after the player has read the result. */
+  nextQuestion(): boolean {
+    const enc = this.encounter;
+    if (!enc || enc.outcome) return false;
+    const question = this.questions?.(enc.index + 1, this.questionContext());
+    if (!question) {
+      // Out of material — let the player disengage rather than soft-lock.
+      enc.outcome = 'flee';
+      this.say('system', '遭遇', '沒有可用的記憶卡了，先撤退吧。');
+      return false;
+    }
+    enc.index += 1;
+    enc.question = question;
+    enc.options = shuffleOptions(question.options, () => this.rng.next());
+    enc.hintRevealed = false;
+    enc.lastResult = undefined;
+    enc.askedAt = this.time;
+    return true;
+  }
+
+  /** Spends SP to apply a memory technique to the exchange. */
+  useAid(skillId: string): boolean {
+    const enc = this.encounter;
+    const skill = this.skillAt(skillId);
+    if (!enc || enc.outcome || !skill || skill.kind !== 'aid' || !skill.aidEffect) return false;
+    if (enc.stage?.sealAids) {
+      this.say('system', '系統', '對方步步進逼，這個階段用不了記憶技法。');
+      return false;
+    }
+    if ((this.cooldowns[skillId] ?? 0) > this.time) return false;
+    if (this.player.sp < skill.spCost) {
+      this.say('system', '系統', '專注力不足');
+      return false;
+    }
+    // Only one copy of a given technique may be queued at a time.
+    if (enc.aids.some((a) => a.skillId === skillId)) return false;
+
+    this.player.sp -= skill.spCost;
+    this.cooldowns[skillId] = this.time + skill.cooldown;
+
+    if (skill.aidEffect === 'skip') {
+      this.say('system', '遭遇', `${skill.name}：跳過這題。`);
+      this.nextQuestion();
+      return true;
+    }
+
+    const aid: ActiveAid = { skillId, effect: skill.aidEffect, label: skill.name };
+    const applied = applyAid(enc, skill.aidEffect, (n) => this.rng.int(0, n - 1));
+    enc.options = applied.options;
+    enc.hintRevealed = applied.hintRevealed;
+    if (skill.aidEffect === 'amplify' || skill.aidEffect === 'shield') enc.aids.push(aid);
+    this.say('system', '遭遇', `施展 ${skill.name}`);
+    return true;
+  }
+
+  /** Backs out of an encounter, losing the streak and a little ground. */
+  fleeEncounter() {
+    const enc = this.encounter;
+    if (!enc) return;
+    enc.outcome = enc.outcome ?? 'flee';
+    this.closeEncounter();
+  }
+
+  /** Clears the encounter and returns control to the realtime world. */
+  closeEncounter() {
+    const enc = this.encounter;
+    if (!enc) return;
+    const enemy = this.entity(enc.enemyId);
+    if (enc.outcome === 'flee' && enemy && enemy.state !== 'dead') {
+      // Step back so contact does not immediately re-trigger.
+      const p = this.player;
+      const dx = p.pos.x - enemy.pos.x;
+      const dz = p.pos.z - enemy.pos.z;
+      const len = Math.hypot(dx, dz) || 1;
+      // Must clear the contact radius, otherwise the next tick walks straight
+      // back into the same exchange. Passive barriers have no aggro range, so
+      // the contact distance — not aggro — is what sets the floor here.
+      const push = Math.max(
+        enemy.radius + enemy.attackRange + 2.5,
+        (enemy.aggroRange ?? 0) + 2,
+      );
+      p.pos.x = clamp(enemy.pos.x + (dx / len) * push, -this.zone.half + 2, this.zone.half - 2);
+      p.pos.z = clamp(enemy.pos.z + (dz / len) * push, -this.zone.half + 2, this.zone.half - 2);
+      enemy.targetId = undefined;
+    }
+    this.player.targetId = undefined;
+    this.encounter = undefined;
   }
 
   /** Used by the village healer NPC. */
@@ -579,7 +835,7 @@ export class World {
   }
 
   addItem(itemId: string, qty = 1) {
-    if (!ITEMS[itemId]) return;
+    if (!this.pack.items[itemId]) return;
     const slot = this.profile.inventory.find((s) => s.itemId === itemId);
     if (slot) slot.qty += qty;
     else this.profile.inventory.push({ itemId, qty });
@@ -595,7 +851,7 @@ export class World {
   }
 
   buy(itemId: string): boolean {
-    const def = itemDef(itemId);
+    const def = itemOf(this.pack, itemId);
     if (!def || this.profile.silver < def.price) return false;
     this.profile.silver -= def.price;
     this.addItem(itemId, 1);
@@ -603,7 +859,7 @@ export class World {
   }
 
   sell(itemId: string): boolean {
-    const def = itemDef(itemId);
+    const def = itemOf(this.pack, itemId);
     if (!def || !this.removeItem(itemId, 1)) return false;
     const gain = Math.max(1, Math.floor(def.price * 0.4));
     this.profile.silver += gain;
@@ -616,7 +872,7 @@ export class World {
     const eq = this.profile.equipment;
     const sum = { atk: 0, matk: 0, def: 0 };
     for (const id of [eq.weapon, eq.armor, eq.accessory]) {
-      const d = id ? itemDef(id) : undefined;
+      const d = id ? itemOf(this.pack, id) : undefined;
       if (!d) continue;
       sum.atk += d.atk ?? 0;
       sum.matk += d.matk ?? 0;
@@ -626,7 +882,7 @@ export class World {
   }
 
   derived(): Derived {
-    const cls = classDef(this.profile.classId);
+    const cls = classOf(this.pack, this.profile.classId);
     const d = deriveStats(cls, this.profile.level, this.profile.stats, this.gearBonus());
     const p = this.player;
     for (const b of p.buffs) {
@@ -641,7 +897,7 @@ export class World {
 
   /** Recompute pools after a stat/gear/level change. `heal` refills them. */
   recalcPlayer(keepRatio = false) {
-    const cls = classDef(this.profile.classId);
+    const cls = classOf(this.pack, this.profile.classId);
     const p = this.player;
     const gear = this.gearBonus();
     const hpRatio = p.maxHp > 0 ? p.hp / p.maxHp : 1;
@@ -692,7 +948,7 @@ export class World {
 
   private hitEntity(target: Entity, atk: number, power: number, element: Element, hits: number) {
     if (target.state === 'dead') return;
-    const def = target.monsterId ? monsterDef(target.monsterId) : undefined;
+    const def = target.monsterId ? monsterOf(this.pack, target.monsterId) : undefined;
     const d = this.derived();
     for (let i = 0; i < hits; i++) {
       const result = rollDamage({
@@ -734,7 +990,7 @@ export class World {
     m.state = 'dead';
     m.targetId = undefined;
     m.moveTarget = undefined;
-    const def = m.monsterId ? monsterDef(m.monsterId) : undefined;
+    const def = m.monsterId ? monsterOf(this.pack, m.monsterId) : undefined;
     m.respawnAt = this.time + (def?.boss ? BOSS_RESPAWN : MONSTER_RESPAWN);
     this.events.push({ type: 'death', entityId: m.id, monsterId: m.monsterId, boss: m.boss });
     if (!def) return;
@@ -773,7 +1029,7 @@ export class World {
   private bumpKillQuests(monsterId: string) {
     for (const q of this.profile.quests) {
       if (q.status !== 'active') continue;
-      const def = QUESTS[q.id];
+      const def = this.pack.quests[q.id];
       if (!def || def.kind !== 'kill' || def.target !== monsterId) continue;
       q.progress = Math.min(def.count, q.progress + 1);
       if (q.progress >= def.count) {
@@ -787,7 +1043,7 @@ export class World {
   private bumpCollectQuests(itemId: string) {
     for (const q of this.profile.quests) {
       if (q.status !== 'active') continue;
-      const def = QUESTS[q.id];
+      const def = this.pack.quests[q.id];
       if (!def || def.kind !== 'collect' || def.target !== itemId) continue;
       q.progress = Math.min(def.count, this.itemCount(itemId));
       if (q.progress >= def.count) {
@@ -799,7 +1055,7 @@ export class World {
   }
 
   private monsterAttack(m: Entity, p: Entity) {
-    const def = m.monsterId ? monsterDef(m.monsterId) : undefined;
+    const def = m.monsterId ? monsterOf(this.pack, m.monsterId) : undefined;
     if (!def) return;
     const d = this.derived();
     const result = rollDamage({
@@ -910,6 +1166,13 @@ export class World {
     p.attackCd = Math.max(0, p.attackCd - dt);
     p.buffs = p.buffs.filter((b) => b.until > this.time);
 
+    // A turn-based exchange owns the clock: nothing chases or swings while the
+    // player is reading a question.
+    if (this.encounter && !this.encounter.outcome) {
+      this.casts = this.casts.filter((c) => this.time - c.bornAt < c.ttl);
+      return;
+    }
+
     if (p.state === 'dead') {
       this.tickDrops();
       this.flushProfilePos();
@@ -999,6 +1262,20 @@ export class World {
 
   private tickPlayerCombat() {
     const p = this.player;
+
+    // Turn-based packs never trade blows in realtime — walking into an
+    // obstacle opens a question exchange instead.
+    if (this.pack.turnBased) {
+      if (this.encounter) return;
+      for (const m of this.entities.values()) {
+        if (m.kind !== 'monster' || m.state === 'dead') continue;
+        if (distance(p.pos.x, p.pos.z, m.pos.x, m.pos.z) - m.radius > m.attackRange + 0.4) continue;
+        this.startEncounter(m.id);
+        return;
+      }
+      return;
+    }
+
     if (!this.autoAttack) return;
     const t = this.target;
     if (!t || t.kind === 'npc') return;
@@ -1014,7 +1291,7 @@ export class World {
     p.attackCd = 1 / Math.max(0.3, p.attackSpeed);
     p.actionTimer = Math.min(0.35, p.attackCd * 0.6);
     p.state = 'attack';
-    const cls = classDef(this.profile.classId);
+    const cls = classOf(this.pack, this.profile.classId);
     const d = this.derived();
     const magic = cls.weapon === 'talisman' || cls.weapon === 'staff';
     this.hitEntity(t, magic ? d.matk : d.atk, 100, 'neutral', 1);
@@ -1030,7 +1307,7 @@ export class World {
 
       if (m.state === 'dead') {
         if (m.respawnAt !== undefined && this.time >= m.respawnAt) {
-          const def = monsterDef(m.monsterId!)!;
+          const def = monsterOf(this.pack, m.monsterId!)!;
           m.hp = def.hp;
           m.state = 'idle';
           m.pos = { ...(m.spawn ?? m.pos) };
@@ -1079,7 +1356,7 @@ export class World {
         m.facing += angleDelta(m.facing, Math.atan2(dx, dz)) * Math.min(1, dt * 6);
         if (m.actionTimer <= 0) m.state = 'move';
         // Regenerate while disengaged.
-        const def = monsterDef(m.monsterId!)!;
+        const def = monsterOf(this.pack, m.monsterId!)!;
         m.hp = Math.min(m.maxHp, m.hp + def.hp * 0.12 * dt);
       } else if (m.actionTimer <= 0) {
         m.state = 'idle';
@@ -1137,12 +1414,16 @@ export class World {
 
   snapshot(fps = 0): HudSnapshot {
     const p = this.player;
-    const cls = classDef(this.profile.classId);
+    const cls = classOf(this.pack, this.profile.classId);
     const t = this.target;
     const d = this.derived();
     return {
       name: this.profile.name,
       classId: this.profile.classId,
+      className: cls.name,
+      classTitle: cls.title,
+      classColor: cls.color,
+      classIcon: cls.icon,
       level: this.profile.level,
       exp: this.profile.exp,
       expToNext: expToNext(this.profile.level),
@@ -1172,7 +1453,7 @@ export class World {
             }
           : undefined,
       skills: cls.skills.map((id) => {
-        const def = SKILLS[id];
+        const def = this.pack.skills[id];
         const lvl = this.profile.learned[id] ?? 0;
         const scaled = this.skillAt(id);
         const left = Math.max(0, (this.cooldowns[id] ?? 0) - this.time);
@@ -1185,13 +1466,16 @@ export class World {
           cooldownLeft: left,
           spCost: scaled?.spCost ?? def.spCost,
           ready: lvl > 0 && left <= 0 && p.sp >= (scaled?.spCost ?? def.spCost) && p.state !== 'dead',
+          description: def.description,
+          reqLevel: def.reqLevel,
+          technique: def.technique,
         };
       }),
       buffs: p.buffs.map((b) => ({ id: b.id, name: b.name, left: Math.max(0, b.until - this.time) })),
       quests: this.profile.quests
         .filter((q) => q.status !== 'done')
         .map((q) => {
-          const def = QUESTS[q.id];
+          const def = this.pack.quests[q.id];
           return {
             id: q.id,
             name: def?.name ?? q.id,
@@ -1203,7 +1487,7 @@ export class World {
         }),
       questsDone: this.profile.quests.filter((q) => q.status === 'done').map((q) => q.id),
       inventory: this.profile.inventory.map((s) => {
-        const def = ITEMS[s.itemId];
+        const def = this.pack.items[s.itemId];
         return {
           itemId: s.itemId,
           qty: s.qty,
@@ -1211,11 +1495,82 @@ export class World {
           icon: def?.icon ?? '❔',
           kind: def?.kind ?? 'material',
           rarity: def?.rarity ?? 'common',
+          description: def?.description ?? '',
         };
       }),
+      itemIndex: this.itemIndex(),
       equipment: { ...this.profile.equipment },
       playersOnline: [...this.entities.values()].filter((e) => e.kind === 'remote').length + 1,
       fps,
+      currency: this.pack.currency,
+      turnBased: !!this.pack.turnBased,
+      encounter: this.encounterHud(),
+    };
+  }
+
+  /** Display data for everything the player is carrying or wearing. */
+  private itemIndex(): HudSnapshot['itemIndex'] {
+    const ids = new Set<string>(this.profile.inventory.map((s) => s.itemId));
+    for (const id of Object.values(this.profile.equipment)) if (id) ids.add(id);
+    const out: HudSnapshot['itemIndex'] = {};
+    for (const id of ids) {
+      const def = this.pack.items[id];
+      out[id] = {
+        name: def?.name ?? id,
+        icon: def?.icon ?? '❔',
+        kind: def?.kind ?? 'material',
+        rarity: def?.rarity ?? 'common',
+        description: def?.description ?? '',
+      };
+    }
+    return out;
+  }
+
+  private encounterHud(): EncounterHud | undefined {
+    const enc = this.encounter;
+    if (!enc) return undefined;
+    const enemy = this.entity(enc.enemyId);
+    const r = enc.lastResult;
+    return {
+      enemyName: enc.enemyName,
+      enemyLevel: enc.enemyLevel,
+      enemyHp: Math.max(0, Math.round(enemy?.hp ?? 0)),
+      enemyMaxHp: enemy?.maxHp ?? 1,
+      round: enc.index + 1,
+      streak: enc.streak,
+      correct: enc.correct,
+      wrong: enc.wrong,
+      prompt: enc.question.prompt,
+      hint: enc.question.hint,
+      hintRevealed: enc.hintRevealed,
+      options: [...enc.options],
+      result: r
+        ? {
+            correct: r.correct,
+            chosen: r.chosen,
+            answer: r.answer,
+            damage: r.damage,
+            backlash: r.backlash,
+            swift: r.swift,
+            amplified: r.amplified,
+            shielded: r.shielded,
+            note: r.note,
+          }
+        : undefined,
+      outcome: enc.outcome,
+      aids: enc.aids.map((a) => ({ skillId: a.skillId, label: a.label, effect: a.effect })),
+      stage: enc.stage
+        ? {
+            name: enc.stage.name,
+            line: enc.stage.line,
+            index: enc.phase + 1,
+            total: monsterOf(this.pack, enemy?.monsterId)?.phases?.length ?? 1,
+            sealed: !!enc.stage.sealAids,
+            swiftWindow: enc.stage.swiftWindow ?? SWIFT_WINDOW,
+            pressure: enc.stage.pressure ?? 1,
+          }
+        : undefined,
+      stageAdvanced: r?.phaseAdvanced?.name,
     };
   }
 
@@ -1226,5 +1581,3 @@ export class World {
     return out;
   }
 }
-
-export { ZONES, MONSTERS, SKILLS, QUESTS };

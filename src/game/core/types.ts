@@ -23,7 +23,11 @@ export interface Stats {
 
 export type Element = 'neutral' | 'fire' | 'water' | 'wind' | 'earth' | 'holy' | 'shadow';
 
-export type ClassId = 'sword' | 'talisman' | 'archer' | 'healer';
+/**
+ * Campaign-defined class id. Kept open so each content pack can name its own
+ * classes — 仙境 uses 劍俠/符籙師/…, 通譯官 uses the eight memory-genius types.
+ */
+export type ClassId = string;
 
 export interface ClassDef {
   id: ClassId;
@@ -41,9 +45,27 @@ export interface ClassDef {
   attackRange: number;
   weapon: 'blade' | 'talisman' | 'bow' | 'staff';
   skills: string[];
+  /** Emoji shown on the HUD portrait. */
+  icon: string;
 }
 
-export type SkillKind = 'melee' | 'ranged' | 'aoe' | 'heal' | 'buff' | 'dash';
+export type SkillKind = 'melee' | 'ranged' | 'aoe' | 'heal' | 'buff' | 'dash' | 'aid';
+
+/**
+ * What a memory-technique skill does inside a turn-based encounter.
+ * Used only by packs with `turnBased` set.
+ */
+export type AidEffect =
+  /** Remove two wrong options from the current question. */
+  | 'eliminate'
+  /** Reveal the question's hint. */
+  | 'hint'
+  /** Double the damage of the next correct answer. */
+  | 'amplify'
+  /** Absorb the backlash from the next wrong answer. */
+  | 'shield'
+  /** Skip the current question without penalty. */
+  | 'skip';
 
 export interface SkillDef {
   id: string;
@@ -70,6 +92,33 @@ export interface SkillDef {
   icon: string;
   /** Colour of the visual effect. */
   fx: number;
+  /** For `aid` skills: what it does to the current question. */
+  aidEffect?: AidEffect;
+  /** Short label for the technique this skill represents, e.g. 記憶宮殿. */
+  technique?: string;
+}
+
+/**
+ * A stage of a representative's interview. Turn-based packs only.
+ *
+ * Phases turn a long boss into a shape: the pressure ramps, the clock
+ * tightens, and the last stage seals your memory techniques — which changes
+ * how you play the whole fight, because aids have to be banked early.
+ */
+export interface BossPhase {
+  /** Entered once the boss falls to this fraction of its health. */
+  at: number;
+  name: string;
+  /** What the representative says on entering this stage. */
+  line: string;
+  /** Multiplier on the backlash a wrong answer deals. */
+  pressure?: number;
+  /** Seconds allowed for the speed bonus; shorter is harsher. */
+  swiftWindow?: number;
+  /** Memory techniques cannot be used during this stage. */
+  sealAids?: boolean;
+  /** Question topic this stage drills. */
+  topic?: string;
 }
 
 export interface MonsterDef {
@@ -94,6 +143,10 @@ export interface MonsterDef {
   accent: number;
   boss?: boolean;
   drops: DropEntry[];
+  /** Topics this obstacle prefers to test, in turn-based packs. */
+  topics?: string[];
+  /** Interview stages, highest `at` first. Bosses only. */
+  phases?: BossPhase[];
 }
 
 export interface DropEntry {
@@ -153,6 +206,8 @@ export interface ZoneDef {
   id: string;
   name: string;
   subtitle: string;
+  /** Language spoken here; drives which deck an encounter draws from. */
+  language?: string;
   /** Half-extent of the square playfield, in world units. */
   half: number;
   safe: boolean;
@@ -334,6 +389,11 @@ export interface ChatLine {
 export interface HudSnapshot {
   name: string;
   classId: ClassId;
+  /** Class display data, so HUD components never import a campaign's tables. */
+  className: string;
+  classTitle: string;
+  classColor: number;
+  classIcon: string;
   level: number;
   exp: number;
   expToNext: number;
@@ -368,6 +428,10 @@ export interface HudSnapshot {
     cooldownLeft: number;
     spCost: number;
     ready: boolean;
+    description: string;
+    reqLevel: number;
+    /** Memory technique label, for the 通譯官 campaign. */
+    technique?: string;
   }[];
   buffs: { id: string; name: string; left: number }[];
   quests: {
@@ -380,10 +444,73 @@ export interface HudSnapshot {
   }[];
   /** Ids of quests already turned in, so NPCs stop offering them. */
   questsDone: string[];
-  inventory: { itemId: string; qty: number; name: string; icon: string; kind: ItemKind; rarity: string }[];
+  inventory: {
+    itemId: string;
+    qty: number;
+    name: string;
+    icon: string;
+    kind: ItemKind;
+    rarity: string;
+    description: string;
+  }[];
+  /** Item display data keyed by id — includes equipped gear, which is not in
+   *  the bag, so the UI never has to reach into a campaign's tables. */
+  itemIndex: Record<string, { name: string; icon: string; kind: ItemKind; rarity: string; description: string }>;
   equipment: Equipment;
   playersOnline: number;
   fps: number;
+  /** Present while a turn-based exchange is on screen. */
+  encounter?: EncounterHud;
+  /** Campaign labels so the HUD does not hard-code 仙境 wording. */
+  currency: string;
+  turnBased: boolean;
+}
+
+export interface EncounterHud {
+  enemyName: string;
+  enemyLevel: number;
+  enemyHp: number;
+  enemyMaxHp: number;
+  /** Which question of the exchange this is, 1-based for display. */
+  round: number;
+  streak: number;
+  correct: number;
+  wrong: number;
+  prompt: string;
+  hint?: string;
+  hintRevealed: boolean;
+  options: string[];
+  /** Set once the player has answered and is reading the result. */
+  result?: {
+    correct: boolean;
+    chosen: string;
+    answer: string;
+    damage: number;
+    backlash: number;
+    swift: boolean;
+    amplified: boolean;
+    shielded: boolean;
+    note?: string;
+  };
+  outcome?: 'win' | 'lose' | 'flee';
+  /** Techniques queued for the next answer. */
+  aids: { skillId: string; label: string; effect: string }[];
+  /** Present when the obstacle runs staged interviews. */
+  stage?: {
+    name: string;
+    line: string;
+    /** 1-based, for display. */
+    index: number;
+    total: number;
+    /** Techniques are unavailable this stage. */
+    sealed: boolean;
+    /** Seconds allowed for the speed bonus. */
+    swiftWindow: number;
+    /** Backlash multiplier. */
+    pressure: number;
+  };
+  /** Set on the frame a stage change happened, for the banner. */
+  stageAdvanced?: string;
 }
 
 export interface Derived {
