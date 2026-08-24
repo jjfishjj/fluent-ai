@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   BookOpen,
@@ -27,6 +27,13 @@ import {
   LearningGymTask,
 } from '@/lib/learning-gym';
 import { normalizeDigits, questLevel, scoreRecall } from '@/lib/memory-quest';
+import {
+  createMemoryQuestAttemptId,
+  memoryQuestStats,
+  readMemoryQuestHistory,
+  saveMemoryQuestAttempt,
+} from '@/lib/memory-quest-analytics';
+import { MemoryQuestXpTrendChart } from './MemoryQuestXpTrendChart';
 
 const SpatialNumberGame = lazy(() => import('./SpatialNumberGame').then((module) => ({ default: module.SpatialNumberGame })));
 const NumberTeacherDashboard = lazy(() => import('./NumberTeacherDashboard').then((module) => ({ default: module.NumberTeacherDashboard })));
@@ -43,6 +50,7 @@ interface NumberEncodingTrainerProps {
     evidence: string
   ) => void;
   onBack: () => void;
+  userId?: string;
 }
 
 const CODE_WORDS = [
@@ -167,6 +175,7 @@ export function NumberEncodingTrainer({
   geniusType,
   onProgressChange,
   onBack,
+  userId = 'guest',
 }: NumberEncodingTrainerProps) {
   const [mode, setMode] = useState<'learn' | 'game' | 'spatial' | 'teacher'>('learn');
   const [length, setLength] = useState(7);
@@ -178,8 +187,20 @@ export function NumberEncodingTrainer({
   const [recallAnswer, setRecallAnswer] = useState('');
   const [recallAttempts, setRecallAttempts] = useState(0);
   const [recallFeedback, setRecallFeedback] = useState<'idle' | 'wrong' | 'correct'>('idle');
-  const [questPoints, setQuestPoints] = useState(0);
+  const [questHistory, setQuestHistory] = useState(() => readMemoryQuestHistory(userId));
   const [lastQuestPoints, setLastQuestPoints] = useState(0);
+  const roundIdRef = useRef(createMemoryQuestAttemptId());
+  const roundStartedAtRef = useRef(Date.now());
+  const settledQuestIdRef = useRef<string | null>(null);
+  const questPoints = useMemo(() => memoryQuestStats(questHistory).totalXp, [questHistory]);
+
+  useEffect(() => {
+    setQuestHistory(readMemoryQuestHistory(userId));
+    roundIdRef.current = createMemoryQuestAttemptId();
+    roundStartedAtRef.current = Date.now();
+    settledQuestIdRef.current = null;
+    setLastQuestPoints(0);
+  }, [userId]);
   const [query, setQuery] = useState('');
   const [selectedGenius, setSelectedGenius] = useState<GeniusType>(geniusType || 'visionary');
   const style = learningStyle || DEFAULT_STYLE;
@@ -197,6 +218,9 @@ export function NumberEncodingTrainer({
   }, [query, selectedGenius]);
 
   const newRound = () => {
+    roundIdRef.current = createMemoryQuestAttemptId();
+    roundStartedAtRef.current = Date.now();
+    settledQuestIdRef.current = null;
     setDigits(randomDigits(length));
     setAssociation('');
     setRevealed(false);
@@ -245,8 +269,23 @@ export function NumberEncodingTrainer({
       setRecallFeedback('wrong');
       return;
     }
+    if (settledQuestIdRef.current === roundIdRef.current) return;
+
+    settledQuestIdRef.current = roundIdRef.current;
+    const completedAt = Date.now();
+    const attempt = {
+      id: roundIdRef.current,
+      userId,
+      startedAt: roundStartedAtRef.current,
+      completedAt,
+      digitsLength: digits.length,
+      attempts: recallAttempts,
+      points: result.points,
+      grade: result.grade,
+    };
+    const nextHistory = saveMemoryQuestAttempt(attempt, userId);
+    setQuestHistory(nextHistory);
     setLastQuestPoints(result.points);
-    setQuestPoints((points) => points + result.points);
     finishRound();
     setRecallFeedback('correct');
   };
@@ -545,6 +584,8 @@ export function NumberEncodingTrainer({
                 </div>
                 <p className="mt-2 text-xs text-slate-500">今日目標：完成 5 回合</p>
               </div>
+
+              <MemoryQuestXpTrendChart history={questHistory} />
 
               <div className="rounded-2xl bg-[#eafcff] p-5">
                 <div className="flex items-center gap-2 font-black text-cyan-950">

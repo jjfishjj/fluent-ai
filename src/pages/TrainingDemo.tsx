@@ -75,6 +75,7 @@ export default function TrainingDemo() {
         progress={progress}
         learningStyle={learningStyle}
         geniusType={geniusType}
+        userId={uid}
         onProgressChange={handleProgressChange}
         onBack={() => navigate('/practice')}
       />
