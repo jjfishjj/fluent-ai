@@ -50,7 +50,6 @@ interface NumberEncodingTrainerProps {
     evidence: string
   ) => void;
   onBack: () => void;
-  userId?: string;
 }
 
 const CODE_WORDS = [
@@ -168,14 +167,13 @@ function randomDigits(length: number) {
 }
 
 export function NumberEncodingTrainer({
-  userId,
+  userId = 'guest',
   task,
   progress,
   learningStyle,
   geniusType,
   onProgressChange,
   onBack,
-  userId = 'guest',
 }: NumberEncodingTrainerProps) {
   const [mode, setMode] = useState<'learn' | 'game' | 'spatial' | 'teacher'>('learn');
   const [length, setLength] = useState(7);
