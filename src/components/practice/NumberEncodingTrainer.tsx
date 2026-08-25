@@ -167,7 +167,7 @@ function randomDigits(length: number) {
 }
 
 export function NumberEncodingTrainer({
-  userId = 'guest',
+  userId,
   task,
   progress,
   learningStyle,
@@ -175,6 +175,7 @@ export function NumberEncodingTrainer({
   onProgressChange,
   onBack,
 }: NumberEncodingTrainerProps) {
+  const storageUserId = userId || 'guest';
   const [mode, setMode] = useState<'learn' | 'game' | 'spatial' | 'teacher'>('learn');
   const [length, setLength] = useState(7);
   const [digits, setDigits] = useState('5201314');
@@ -185,7 +186,7 @@ export function NumberEncodingTrainer({
   const [recallAnswer, setRecallAnswer] = useState('');
   const [recallAttempts, setRecallAttempts] = useState(0);
   const [recallFeedback, setRecallFeedback] = useState<'idle' | 'wrong' | 'correct'>('idle');
-  const [questHistory, setQuestHistory] = useState(() => readMemoryQuestHistory(userId));
+  const [questHistory, setQuestHistory] = useState(() => readMemoryQuestHistory(storageUserId));
   const [lastQuestPoints, setLastQuestPoints] = useState(0);
   const roundIdRef = useRef(createMemoryQuestAttemptId());
   const roundStartedAtRef = useRef(Date.now());
@@ -193,12 +194,12 @@ export function NumberEncodingTrainer({
   const questPoints = useMemo(() => memoryQuestStats(questHistory).totalXp, [questHistory]);
 
   useEffect(() => {
-    setQuestHistory(readMemoryQuestHistory(userId));
+    setQuestHistory(readMemoryQuestHistory(storageUserId));
     roundIdRef.current = createMemoryQuestAttemptId();
     roundStartedAtRef.current = Date.now();
     settledQuestIdRef.current = null;
     setLastQuestPoints(0);
-  }, [userId]);
+  }, [storageUserId]);
   const [query, setQuery] = useState('');
   const [selectedGenius, setSelectedGenius] = useState<GeniusType>(geniusType || 'visionary');
   const style = learningStyle || DEFAULT_STYLE;
@@ -273,7 +274,7 @@ export function NumberEncodingTrainer({
     const completedAt = Date.now();
     const attempt = {
       id: roundIdRef.current,
-      userId,
+      userId: storageUserId,
       startedAt: roundStartedAtRef.current,
       completedAt,
       digitsLength: digits.length,
@@ -281,7 +282,7 @@ export function NumberEncodingTrainer({
       points: result.points,
       grade: result.grade,
     };
-    const nextHistory = saveMemoryQuestAttempt(attempt, userId);
+    const nextHistory = saveMemoryQuestAttempt(attempt, storageUserId);
     setQuestHistory(nextHistory);
     setLastQuestPoints(result.points);
     finishRound();
