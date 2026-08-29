@@ -1,7 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ITEMS, SHOP_STOCK } from '@/game/data/items';
-import { QUESTS } from '@/game/data/quests';
+import type { ContentPack } from '@/game/core/content';
 import type { HudSnapshot, NpcDef } from '@/game/core/types';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +9,7 @@ export interface NpcTalk {
 }
 
 export function NpcDialog({
+  pack,
   talk,
   hud,
   onClose,
@@ -18,6 +18,7 @@ export function NpcDialog({
   onHeal,
   onOpenShop,
 }: {
+  pack: ContentPack;
   talk: NpcTalk | null;
   hud: HudSnapshot;
   onClose: () => void;
@@ -27,7 +28,7 @@ export function NpcDialog({
   onOpenShop: () => void;
 }) {
   const npc = talk?.npc;
-  const quest = npc?.questId ? QUESTS[npc.questId] : undefined;
+  const quest = npc?.questId ? pack.quests[npc.questId] : undefined;
   const state = quest ? hud.quests.find((q) => q.id === quest.id) : undefined;
   const alreadyDone = quest ? hud.questsDone.includes(quest.id) : false;
 
@@ -51,7 +52,7 @@ export function NpcDialog({
             <div className="mt-1 text-[11px] text-white/50">
               獎勵：{quest.reward.exp} 經驗 · {quest.reward.silver} 銀兩
               {quest.reward.items?.length
-                ? ` · ${quest.reward.items.map((i) => `${ITEMS[i.itemId]?.name ?? i.itemId}×${i.qty}`).join('、')}`
+                ? ` · ${quest.reward.items.map((i) => `${pack.items[i.itemId]?.name ?? i.itemId}×${i.qty}`).join('、')}`
                 : ''}
             </div>
 
@@ -112,12 +113,14 @@ export function NpcDialog({
 }
 
 export function ShopDialog({
+  pack,
   open,
   onOpenChange,
   hud,
   onBuy,
   onSell,
 }: {
+  pack: ContentPack;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   hud: HudSnapshot;
@@ -130,7 +133,7 @@ export function ShopDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between text-base">
             <span>雜貨鋪</span>
-            <span className="text-xs font-normal text-amber-300">{hud.silver.toLocaleString()} 銀兩</span>
+            <span className="text-xs font-normal text-amber-300">{hud.silver.toLocaleString()} {hud.currency}</span>
           </DialogTitle>
         </DialogHeader>
 
@@ -141,8 +144,9 @@ export function ShopDialog({
           </TabsList>
 
           <TabsContent value="buy" className="space-y-1.5 pt-3">
-            {SHOP_STOCK.map((id) => {
-              const def = ITEMS[id];
+            {pack.shop.map((id) => {
+              const def = pack.items[id];
+              if (!def) return null;
               const affordable = hud.silver >= def.price;
               return (
                 <div key={id} className="flex items-center gap-2.5 rounded-lg border border-white/10 p-2">
@@ -159,7 +163,7 @@ export function ShopDialog({
                       affordable ? 'bg-amber-400 text-slate-900 hover:bg-amber-300' : 'bg-white/10 text-white/30',
                     )}
                   >
-                    {def.price} 銀
+                    {def.price}
                   </button>
                 </div>
               );
@@ -168,8 +172,7 @@ export function ShopDialog({
 
           <TabsContent value="sell" className="space-y-1.5 pt-3">
             {hud.inventory.map((slot) => {
-              const def = ITEMS[slot.itemId];
-              const price = Math.max(1, Math.floor((def?.price ?? 1) * 0.4));
+              const price = Math.max(1, Math.floor((pack.items[slot.itemId]?.price ?? 1) * 0.4));
               return (
                 <div key={slot.itemId} className="flex items-center gap-2.5 rounded-lg border border-white/10 p-2">
                   <span className="text-lg">{slot.icon}</span>
@@ -182,7 +185,7 @@ export function ShopDialog({
                     onClick={() => onSell(slot.itemId)}
                     className="shrink-0 rounded-md bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-white/20"
                   >
-                    賣 {price} 銀
+                    賣 {price}
                   </button>
                 </div>
               );
