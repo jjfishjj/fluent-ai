@@ -24,6 +24,7 @@ import {
   LearningGymProgress,
   LearningGymTask,
 } from '@/lib/learning-gym';
+import { CODE_WORDS, NUMBER_CODEBOOK } from '@/lib/number-codebook';
 
 const SpatialNumberGame = lazy(() => import('./SpatialNumberGame').then((module) => ({ default: module.SpatialNumberGame })));
 const NumberTeacherDashboard = lazy(() => import('./NumberTeacherDashboard').then((module) => ({ default: module.NumberTeacherDashboard })));
@@ -41,19 +42,6 @@ interface NumberEncodingTrainerProps {
   ) => void;
   onBack: () => void;
 }
-
-const CODE_WORDS = [
-  '鈴鐺', '靈異事件', '趙靈兒', '山', '零食', '領舞', '溜冰', '令旗', '泥巴', '菱角',
-  '棒球', '筷子', '嬰兒', '醫生', '鑰匙', '鸚鵡', '石榴', '儀器', '腰包', '藥酒',
-  '鴨子', '鱷魚', '耳機', '和尚', '鬧鐘', '二胡', '河流', '耳塞', '惡霸', '餓囚',
-  '森林', '鯊魚', '扇兒', '仙丹', '紳士', '珊瑚', '山鹿', '山雞', '婦女', '三角尺',
-  '司令', '司儀', '柿兒', '石山', '石獅', '師父', '石榴', '司機', '絲瓜', '死狗',
-  '武林', '狐狸', '木耳', '烏山', '武士', '火舞', '物流箱', '武器', '尾巴', '五角星',
-  '榴槤', '輪椅', '牛耳', '硫酸', '律師', '鑼鼓', '乳牛', '油漆', '喇叭', '遛狗',
-  '麒麟', '蜥蜴', '企鵝', '旗山', '騎士', '積木', '犀牛', '機器人', '西瓜', '氣球',
-  '巴黎鐵塔', '白蟻', '靶心', '爬山', '巴士', '白虎', '芭樂', '白旗', '琵琶', '八爪魚',
-  '精靈', '球衣', '球兒', '舊傘', '教師', '酒壺', '九頭牛', '酒旗', '酒吧', '舅舅',
-] as const;
 
 const STYLE_MODULES: Record<LearningStyle, {
   emoji: string;
@@ -180,11 +168,12 @@ export function NumberEncodingTrainer({
   const reference = useMemo(() => sampleStory(chunks), [chunks]);
   const filteredCodes = useMemo(() => {
     const normalized = query.trim();
-    return CODE_WORDS.map((word, number) => ({
-      code: String(number).padStart(2, '0'),
-      word,
-      cue: GENIUS_CODEBOOKS[selectedGenius].cue(word, String(number).padStart(2, '0'), number),
-    })).filter((item) => !normalized || item.code.includes(normalized) || item.word.includes(normalized) || item.cue.includes(normalized));
+    return NUMBER_CODEBOOK.map((entry, number) => ({
+      ...entry,
+      word: entry.association.split('／')[0],
+      cue: GENIUS_CODEBOOKS[selectedGenius].cue(entry.association.split('／')[0], entry.code, number),
+    })).filter((item) => !normalized || [item.code, item.original, item.association, item.english, item.teenTopic, item.cue]
+      .some((value) => value.toLocaleLowerCase().includes(normalized.toLocaleLowerCase())));
   }, [query, selectedGenius]);
 
   const newRound = () => {
@@ -329,12 +318,12 @@ export function NumberEncodingTrainer({
               <div>
                 <div className="text-xs font-black tracking-[0.2em] text-cyan-600">00—99 CODEBOOK</div>
                 <h2 className="mt-2 text-2xl font-black">100 組圖像轉碼字典</h2>
-                <p className="mt-2 text-sm text-slate-500">這是一套起始範例。熟悉後，請把不直覺的詞換成你自己的角色、品牌或回憶。</p>
+                <p className="mt-2 text-sm text-slate-500">已整合「Memgenius 00–99」試算表，並加入英文與當代高中生活兩種聯想入口。</p>
               </div>
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜尋數字或關鍵字"
+                placeholder="搜尋數字、中英文字或高中話題"
                 className="h-11 rounded-xl border bg-slate-50 px-4 text-sm outline-none ring-cyan-500 transition focus:ring-2 md:w-64"
               />
             </div>
@@ -348,12 +337,21 @@ export function NumberEncodingTrainer({
                 回到完整學習轉碼表
               </button>
             )}
+            {filteredCodes.length === 1 && (
+              <div className="mt-6 grid gap-3 rounded-2xl border border-cyan-200 bg-cyan-50/60 p-4 sm:grid-cols-2 lg:grid-cols-4" data-testid="codebook-detail">
+                <div><div className="text-[11px] font-black tracking-wider text-slate-400">原始文字</div><div className="mt-1 font-bold">{filteredCodes[0].original}</div></div>
+                <div><div className="text-[11px] font-black tracking-wider text-slate-400">自訂對應文字</div><div className="mt-1 font-bold text-cyan-900">{filteredCodes[0].association}</div></div>
+                <div><div className="text-[11px] font-black tracking-wider text-slate-400">ENGLISH ASSOCIATION</div><div className="mt-1 font-bold text-violet-700">{filteredCodes[0].english}</div></div>
+                <div><div className="text-[11px] font-black tracking-wider text-slate-400">高中生話題聯想</div><div className="mt-1 font-bold text-amber-700">{filteredCodes[0].teenTopic}</div></div>
+              </div>
+            )}
             <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-10">
               {filteredCodes.map((item) => (
                 <button key={item.code} type="button" onClick={() => setQuery(item.code)} className="group rounded-2xl border bg-slate-50 p-3 text-left transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50">
                   <div className="font-mono text-2xl font-black text-slate-900">{item.code}</div>
-                  <div className="mt-1 truncate text-xs font-semibold text-slate-500 group-hover:text-cyan-800">{item.word}</div>
-                  <div className="mt-2 line-clamp-2 text-[10px] leading-4 text-slate-400">{item.cue}</div>
+                  <div className="mt-1 truncate text-xs font-semibold text-slate-600 group-hover:text-cyan-800">{item.word}</div>
+                  <div className="mt-1 truncate text-[10px] font-semibold text-violet-500">{item.english}</div>
+                  <div className="mt-2 line-clamp-2 text-[10px] leading-4 text-amber-600">{item.teenTopic}</div>
                 </button>
               ))}
             </div>
