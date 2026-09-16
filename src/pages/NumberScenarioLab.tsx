@@ -107,13 +107,13 @@ const storyActions = [
   ['從背後嚇到', '伸手拉住', '用力丟向', '噴出光包住', '最後衝向'],
 ] as const;
 
-function buildCustomScenario(title: string, rawDigits: string, context: string): Scenario | null {
-  const digits = rawDigits.replace(/\D/g, '');
-  const codes = chunkNumber(rawDigits);
-  if (!title.trim() || digits.length < 2 || digits.length > 20 || !codes.length) return null;
-  const chunks = codes.map((code) => ({ code, image: CODE_WORDS[Number(code)] }));
-  const setting = context.trim() || title.trim();
-  const answers = storyActions.map((actions, version) => {
+const randomLengths: Record<string, number> = {
+  door: 6, phone: 10, parking: 6, id: 12, card: 16,
+  bank: 14, history: 4, presentation: 6, science: 8,
+};
+
+function buildStoryOptions(chunks: Scenario['chunks'], setting: string) {
+  return storyActions.map((actions, version) => {
     const links = chunks.slice(1).map((chunk, index) => {
       const action = actions[index % actions.length];
       return `${chunks[index].image}${action}${chunk.image}`;
@@ -121,6 +121,19 @@ function buildCustomScenario(title: string, rawDigits: string, context: string):
     const endings = ['，整個畫面定格成你要記住的數字。', '，結果在現場留下巨大的數字軌跡。', '，最後所有角色排成原本的數字順序。'];
     return `在「${setting}」裡，${links}${endings[version]}`;
   });
+}
+
+function createRandomDigits(length: number) {
+  return Array.from({ length }, () => Math.floor(Math.random() * 10)).join('');
+}
+
+function buildCustomScenario(title: string, rawDigits: string, context: string): Scenario | null {
+  const digits = rawDigits.replace(/\D/g, '');
+  const codes = chunkNumber(rawDigits);
+  if (!title.trim() || digits.length < 2 || digits.length > 20 || !codes.length) return null;
+  const chunks = codes.map((code) => ({ code, image: CODE_WORDS[Number(code)] }));
+  const setting = context.trim() || title.trim();
+  const answers = buildStoryOptions(chunks, setting);
   return {
     id: 'custom', category: '自我輸入', title: title.trim(), pain: `這是你自己建立的「${title.trim()}」記憶任務。`,
     digits: `${digits.length} 位數`, format: context.trim() || '自訂真實情境', sample: rawDigits.trim(),
@@ -141,10 +154,12 @@ export default function NumberScenarioLab() {
   const [customContext, setCustomContext] = useState('');
   const [customError, setCustomError] = useState('');
   const [customScenario, setCustomScenario] = useState<Scenario | null>(null);
-  const scenario = scenarioId === 'custom' && customScenario ? customScenario : scenarios.find((item) => item.id === scenarioId) ?? scenarios[0];
+  const [randomizedScenario, setRandomizedScenario] = useState<Scenario | null>(null);
+  const baseScenario = scenarios.find((item) => item.id === scenarioId) ?? scenarios[0];
+  const scenario = scenarioId === 'custom' && customScenario ? customScenario : randomizedScenario?.id === scenarioId ? randomizedScenario : baseScenario;
 
   const chooseScenario = (id: string) => {
-    setScenarioId(id); setStory(''); setRevealed(false); setSubmitted(false);
+    setScenarioId(id); setRandomizedScenario(null); setStory(''); setRevealed(false); setSubmitted(false);
   };
 
   const submit = (event: FormEvent) => {
@@ -153,8 +168,19 @@ export default function NumberScenarioLab() {
   };
 
   const randomScenario = () => {
-    const pool = filtered.filter((item) => item.id !== scenario.id);
-    chooseScenario((pool[Math.floor(Math.random() * pool.length)] ?? filtered[0] ?? scenarios[0]).id);
+    const length = randomLengths[baseScenario.id] ?? 6;
+    const digits = createRandomDigits(length);
+    const codes = chunkNumber(digits);
+    const chunks = codes.map((code) => ({ code, image: CODE_WORDS[Number(code)] }));
+    const answers = buildStoryOptions(chunks, baseScenario.title);
+    setRandomizedScenario({
+      ...baseScenario,
+      sample: codes.join('-'),
+      chunks,
+      answer: answers[0],
+      answers,
+    });
+    setStory(''); setRevealed(false); setSubmitted(false);
   };
 
   const generateCustom = (event: FormEvent) => {
@@ -234,7 +260,7 @@ export default function NumberScenarioLab() {
             <form onSubmit={submit} className="p-6 md:p-8">
               <div className="flex items-start justify-between gap-4">
                 <div><div className="text-xs font-black tracking-[.18em] text-slate-400">STORY STUDIO</div><h3 className="mt-2 text-2xl font-black">寫下你看見的情境</h3></div>
-                {scenario.id !== 'custom' && <button type="button" onClick={randomScenario} className="inline-flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black hover:bg-slate-50"><Shuffle className="h-4 w-4" />換題</button>}
+                {scenario.id !== 'custom' && <button type="button" onClick={randomScenario} className="inline-flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black hover:bg-slate-50"><Shuffle className="h-4 w-4" />換一組亂數</button>}
               </div>
               <p className="mt-3 text-sm leading-6 text-slate-500">不用挑選動詞。請先自由想像；參考答案會依圖像關係，自動加入連續動作與因果。</p>
               <label htmlFor="memory-story" className="mt-6 block text-sm font-black">我的聯想故事</label>
