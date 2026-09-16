@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CODE_WORDS, NUMBER_CODEBOOK } from './number-codebook';
+import { chunkNumber, CODE_WORDS, NUMBER_CODEBOOK } from './number-codebook';
 
 describe('number codebook spreadsheet integration', () => {
   it('contains one complete bilingual, teen-relevant entry for every code', () => {
@@ -20,5 +20,14 @@ describe('number codebook spreadsheet integration', () => {
     expect(CODE_WORDS[23]).toBe('和尚');
     expect(NUMBER_CODEBOOK[23].english).toContain('basketball');
     expect(NUMBER_CODEBOOK[77].teenTopic).toContain('AI');
+  });
+
+  it('cleans display separators and chunks from left to right', () => {
+    expect(chunkNumber('0912-345-678')).toEqual(['09', '12', '34', '56', '78']);
+  });
+
+  it('pads an odd leading digit so every code maps to 00–99', () => {
+    expect(chunkNumber('5201314')).toEqual(['05', '20', '13', '14']);
+    expect(chunkNumber('abc')).toEqual([]);
   });
 });

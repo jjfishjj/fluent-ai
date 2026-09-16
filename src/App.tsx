@@ -28,6 +28,7 @@ import NotFound from "./pages/NotFound";
 import ShadowingLab from "./pages/ShadowingLab";
 import TrainingDemo from "./pages/TrainingDemo";
 import MnemoVerse from "./pages/MnemoVerse";
+import NumberScenarioLab from "./pages/NumberScenarioLab";
 
 // The 3D world pulls in three.js, so it is split out of the main bundle.
 const XianjingWorld = lazy(() => import("./pages/XianjingWorld"));
@@ -80,6 +81,7 @@ const App = () => (
                 <Route path="/talent-card-game" element={<TalentCardGame />} />
                 <Route path="/talent-card-game-guide" element={<TalentCardGameGuide />} />
                 <Route path="/mnemoverse" element={<MnemoVerse />} />
+                <Route path="/practice/number-scenario-lab" element={<NumberScenarioLab />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

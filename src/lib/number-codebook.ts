@@ -67,3 +67,10 @@ export const NUMBER_CODEBOOK: NumberCodebookEntry[] = ORIGINAL.map((original, in
 }));
 
 export const CODE_WORDS = NUMBER_CODEBOOK.map((entry) => entry.association.split('／')[0]) as string[];
+
+export function chunkNumber(value: string) {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return [];
+  const normalized = digits.length % 2 ? `0${digits}` : digits;
+  return normalized.match(/\d{2}/g) ?? [];
+}
