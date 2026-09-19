@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import { classDef } from '../data/classes';
-import { monsterDef } from '../data/monsters';
+import { classOf, monsterOf } from '../core/content';
 import { terrainHeight } from '../core/terrain';
 import type { Entity, GameEvent, Vec2, ZoneDef } from '../core/types';
 import type { World } from '../core/world';
@@ -314,8 +313,8 @@ export class GameRenderer {
   private createView(e: Entity): EntityView {
     const rig =
       e.kind === 'monster' && e.monsterId
-        ? buildMonsterRig(monsterDef(e.monsterId)!)
-        : buildPlayerRig(classDef(e.classId ?? 'sword'));
+        ? buildMonsterRig(monsterOf(this.world.pack, e.monsterId)!)
+        : buildPlayerRig(classOf(this.world.pack, e.classId));
 
     if (e.kind === 'npc') {
       // NPCs reuse the humanoid rig but wear their own robe colour.

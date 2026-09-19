@@ -1,5 +1,4 @@
 import { Coins, Crown, Heart, Sparkles, Swords, Users } from 'lucide-react';
-import { CLASSES } from '@/game/data/classes';
 import type { HudSnapshot } from '@/game/core/types';
 import { cn } from '@/lib/utils';
 
@@ -30,7 +29,6 @@ function Bar({ value, max, className, label, compact }: BarProps) {
 
 /** Portrait, vitals and experience — the top-left frame. */
 export function PlayerFrame({ hud, onOpenSheet }: { hud: HudSnapshot; onOpenSheet: () => void }) {
-  const cls = CLASSES[hud.classId];
   const expPct = hud.expToNext === Infinity ? 100 : (hud.exp / hud.expToNext) * 100;
   return (
     <div className="pointer-events-auto w-52 rounded-xl sm:w-64 border border-white/15 bg-slate-950/70 p-2.5 backdrop-blur-md">
@@ -38,10 +36,10 @@ export function PlayerFrame({ hud, onOpenSheet }: { hud: HudSnapshot; onOpenShee
         <button
           onClick={onOpenSheet}
           className="relative grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-white/20 text-xl"
-          style={{ background: `#${cls.color.toString(16).padStart(6, '0')}33` }}
+          style={{ background: `#${hud.classColor.toString(16).padStart(6, '0')}33` }}
           title="開啟角色面板 (C)"
         >
-          <span>{hud.classId === 'sword' ? '⚔️' : hud.classId === 'talisman' ? '🔥' : hud.classId === 'archer' ? '🏹' : '✨'}</span>
+          <span>{hud.classIcon}</span>
           {(hud.statPoints > 0 || hud.skillPoints > 0) && (
             <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-amber-400 text-[10px] font-bold text-slate-900">
               !
@@ -53,7 +51,7 @@ export function PlayerFrame({ hud, onOpenSheet }: { hud: HudSnapshot; onOpenShee
             <span className="truncate text-sm font-semibold text-white">{hud.name}</span>
             <span className="shrink-0 text-[11px] text-amber-300">Lv.{hud.level}</span>
           </div>
-          <div className="text-[10px] text-white/60">{cls.name} · {cls.title}</div>
+          <div className="text-[10px] text-white/60">{hud.className} · {hud.classTitle}</div>
         </div>
       </div>
 
@@ -72,6 +70,7 @@ export function PlayerFrame({ hud, onOpenSheet }: { hud: HudSnapshot; onOpenShee
         <span className="flex items-center gap-1">
           <Coins className="h-3 w-3 text-amber-300" />
           {hud.silver.toLocaleString()}
+          <span className="text-white/35">{hud.currency}</span>
         </span>
         <span>EXP {expPct.toFixed(1)}%</span>
       </div>

@@ -1,13 +1,19 @@
-import { CLASSES } from '../data/classes';
+import { XIANXIA_PACK } from '../data/xianxia-pack';
+import type { ContentPack } from './content';
 import { newProfile } from './world';
 import type { PlayerProfile } from './types';
 
-const KEY = 'xianjing.save.v1';
+
 
 interface SaveFile {
   version: 1;
   savedAt: number;
   profile: PlayerProfile;
+}
+
+/** Each campaign gets its own save slot. */
+function keyFor(pack: ContentPack): string {
+  return `game.save.v1.${pack.id}`;
 }
 
 function storage(): Storage | undefined {
@@ -19,43 +25,43 @@ function storage(): Storage | undefined {
   }
 }
 
-export function saveProfile(profile: PlayerProfile) {
+export function saveProfile(profile: PlayerProfile, pack: ContentPack = XIANXIA_PACK) {
   const store = storage();
   if (!store) return;
   const file: SaveFile = { version: 1, savedAt: Date.now(), profile };
   try {
-    store.setItem(KEY, JSON.stringify(file));
+    store.setItem(keyFor(pack), JSON.stringify(file));
   } catch {
     /* quota exceeded — losing the save is preferable to breaking the game loop */
   }
 }
 
-export function loadProfile(): PlayerProfile | undefined {
+export function loadProfile(pack: ContentPack = XIANXIA_PACK): PlayerProfile | undefined {
   const store = storage();
   if (!store) return undefined;
   try {
-    const raw = store.getItem(KEY);
+    const raw = store.getItem(keyFor(pack));
     if (!raw) return undefined;
     const file = JSON.parse(raw) as SaveFile;
     if (file?.version !== 1 || !file.profile) return undefined;
-    return normalise(file.profile);
+    return normalise(file.profile, pack);
   } catch {
     return undefined;
   }
 }
 
-export function clearProfile() {
-  storage()?.removeItem(KEY);
+export function clearProfile(pack: ContentPack = XIANXIA_PACK) {
+  storage()?.removeItem(keyFor(pack));
 }
 
-export function hasSave(): boolean {
-  return !!storage()?.getItem(KEY);
+export function hasSave(pack: ContentPack = XIANXIA_PACK): boolean {
+  return !!storage()?.getItem(keyFor(pack));
 }
 
 /** Fill in anything a save from an older build might be missing. */
-function normalise(p: Partial<PlayerProfile>): PlayerProfile {
-  const classId = p.classId && CLASSES[p.classId] ? p.classId : 'sword';
-  const base = newProfile(p.name?.trim() || '無名俠客', classId);
+function normalise(p: Partial<PlayerProfile>, pack: ContentPack): PlayerProfile {
+  const classId = p.classId && pack.classes[p.classId] ? p.classId : pack.defaultClass;
+  const base = newProfile(p.name?.trim() || '無名俠客', classId, pack);
   return {
     ...base,
     ...p,

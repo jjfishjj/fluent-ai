@@ -1,8 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CLASSES } from '@/game/data/classes';
-import { SKILLS } from '@/game/data/skills';
-import { ITEMS } from '@/game/data/items';
 import { MAX_SKILL_LEVEL } from '@/game/core/world';
 import { statCost } from '@/game/core/formulas';
 import type { HudSnapshot, Stats } from '@/game/core/types';
@@ -39,7 +36,6 @@ export function CharacterSheet({
   onLearnSkill: (skillId: string) => void;
   onUseItem: (itemId: string) => void;
 }) {
-  const cls = CLASSES[hud.classId];
   const equipped = new Set(Object.values(hud.equipment).filter(Boolean) as string[]);
 
   return (
@@ -49,7 +45,7 @@ export function CharacterSheet({
           <DialogTitle className="flex items-center gap-2 text-base">
             {hud.name}
             <span className="rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-normal text-white/70">
-              {cls.name} Lv.{hud.level}
+              {hud.className} Lv.{hud.level}
             </span>
           </DialogTitle>
         </DialogHeader>
@@ -108,36 +104,38 @@ export function CharacterSheet({
             <div className="rounded-lg border border-white/10 bg-white/5 p-2 text-[11px] text-white/70">
               技能點：<span className="font-semibold text-amber-300">{hud.skillPoints}</span>
             </div>
-            {cls.skills.map((id) => {
-              const def = SKILLS[id];
-              const learned = hud.skills.find((s) => s.id === id)?.level ?? 0;
+            {hud.skills.map((s) => {
               const canLearn =
-                hud.skillPoints > 0 && learned < MAX_SKILL_LEVEL && hud.level >= def.reqLevel;
+                hud.skillPoints > 0 && s.level < MAX_SKILL_LEVEL && hud.level >= s.reqLevel;
               return (
-                <div key={id} className="flex items-start gap-2.5 rounded-lg border border-white/10 p-2.5">
-                  <span className="text-xl">{def.icon}</span>
+                <div key={s.id} className="flex items-start gap-2.5 rounded-lg border border-white/10 p-2.5">
+                  <span className="text-xl">{s.icon}</span>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold">{def.name}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold">{s.name}</span>
+                      {s.technique && (
+                        <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] text-white/60">
+                          {s.technique}
+                        </span>
+                      )}
                       <span className="text-[10px] text-white/45">
-                        Lv.{learned}/{MAX_SKILL_LEVEL} · 需 Lv.{def.reqLevel}
+                        Lv.{s.level}/{MAX_SKILL_LEVEL} · 需 Lv.{s.reqLevel}
                       </span>
                     </div>
-                    <div className="text-[10px] leading-tight text-white/55">{def.description}</div>
+                    <div className="text-[10px] leading-tight text-white/55">{s.description}</div>
                     <div className="mt-0.5 text-[10px] text-white/40">
-                      靈力 {def.spCost} · 冷卻 {def.cooldown}s
-                      {def.power > 0 && ` · 威力 ${def.power}%`}
+                      {hud.turnBased ? '專注' : '靈力'} {s.spCost} · 冷卻 {s.cooldown}s
                     </div>
                   </div>
                   <button
-                    onClick={() => onLearnSkill(id)}
+                    onClick={() => onLearnSkill(s.id)}
                     disabled={!canLearn}
                     className={cn(
                       'shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold',
                       canLearn ? 'bg-amber-400 text-slate-900 hover:bg-amber-300' : 'bg-white/10 text-white/30',
                     )}
                   >
-                    {learned >= MAX_SKILL_LEVEL ? '已滿' : learned > 0 ? '升級' : '習得'}
+                    {s.level >= MAX_SKILL_LEVEL ? '已滿' : s.level > 0 ? '升級' : '習得'}
                   </button>
                 </div>
               );
@@ -146,14 +144,14 @@ export function CharacterSheet({
 
           <TabsContent value="bag" className="space-y-2 pt-3 focus-visible:outline-none focus-visible:ring-0">
             <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-2 text-[11px] text-white/70">
-              <span>銀兩：<span className="font-semibold text-amber-300">{hud.silver.toLocaleString()}</span></span>
+              <span>{hud.currency}：<span className="font-semibold text-amber-300">{hud.silver.toLocaleString()}</span></span>
               <span>{hud.inventory.length} / 40 格</span>
             </div>
 
             <div className="grid grid-cols-3 gap-1.5">
               {(['weapon', 'armor', 'accessory'] as const).map((slot) => {
                 const id = hud.equipment[slot];
-                const def = id ? ITEMS[id] : undefined;
+                const def = id ? hud.itemIndex[id] : undefined;
                 const label = slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : '飾品';
                 return (
                   <button
@@ -174,9 +172,8 @@ export function CharacterSheet({
             </div>
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
               {hud.inventory.map((slot) => {
-                const def = ITEMS[slot.itemId];
                 const isEquipped = equipped.has(slot.itemId);
-                const actionable = def && def.kind !== 'material';
+                const actionable = slot.kind !== 'material';
                 return (
                   <button
                     key={slot.itemId}
@@ -194,7 +191,7 @@ export function CharacterSheet({
                       <div className={cn('truncate text-xs font-medium', RARITY_CLASS[slot.rarity])}>
                         {slot.name} ×{slot.qty}
                       </div>
-                      <div className="truncate text-[10px] text-white/45">{def?.description}</div>
+                      <div className="truncate text-[10px] text-white/45">{slot.description}</div>
                     </div>
                     {isEquipped && (
                       <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] text-emerald-300">
