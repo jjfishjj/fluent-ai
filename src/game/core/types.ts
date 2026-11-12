@@ -134,7 +134,7 @@ export interface SpawnRule {
 export interface NpcDef {
   id: string;
   name: string;
-  role: 'quest' | 'shop' | 'healer' | 'warp';
+  role: 'quest' | 'shop' | 'healer' | 'warp' | 'learning';
   at: Vec2;
   color: number;
   lines: string[];

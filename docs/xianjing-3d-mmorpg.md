@@ -41,6 +41,8 @@ CompanionDirector（其他玩家：模擬 bot 或 Supabase Realtime）
 | `src/game/render/GameRenderer.ts` | 場景管理、攝影機、滑鼠拾取、每幀同步 World → 3D |
 | `src/game/net/companions.ts` | 其他玩家：模擬 bot／Supabase Realtime 同步 |
 | `src/components/game/*` | HUD、小地圖、聊天、角色面板、NPC 與商店對話框 |
+| `src/components/game/LanguageLearningDialog.tsx` | 情境翻牌、單字測驗、發音播放與記憶卡複習 |
+| `src/game/data/language-lessons.ts` | 青雲村初階單字、相似詞、例句與諧音鉤子 |
 | `src/pages/XianjingWorld.tsx` | 頁面：建角 → 遊戲 |
 
 ---
@@ -113,6 +115,16 @@ CompanionDirector（其他玩家：模擬 bot 或 Supabase Realtime）
 | F | 與附近 NPC 對話 |
 | C | 開／關角色面板 |
 | Enter | 聚焦聊天輸入框 |
+
+---
+
+## 六之一、青雲記憶祭壇（語言修行）
+
+- 青雲村中心新增「記憶導師 阿語」與漂浮卡片、旋轉符文環、水晶核心；點擊 NPC 或 HUD「單字修行」都可開始。
+- 每張卡先要求主動回想，再翻面揭示中文意思、情境例句、易混／相似詞與記憶鉤子；之後用任務句填空作答。
+- 目前有 `meet / meat`、`right / write`、`hear / here` 的同音對照，以及 `borrow / lend` 借入/借出方向差異。`borrow` 的「抱來」只標為近似諧音記憶提示，不是標準發音。
+- 答題後以既有 `memory-srs.ts` 儲存/複習卡片，並按使用者的 Genius 記憶計畫排定間隔；未登入時使用 `guest` 本機卡片。答對每題給 3 點角色經驗，不改變戰鬥公式。
+- 發音只有在玩家按「聽發音」時才呼叫瀏覽器語音合成。祭壇只增加少量場景幾何，動畫在 `ZoneScene.update()` 中更新，尊重 `prefers-reduced-motion` 的卡片翻面設定。
 
 ---
 

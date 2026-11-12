@@ -38,6 +38,14 @@ export const ZONES: Record<string, ZoneDef> = {
         questId: 'q1',
       },
       {
+        id: 'memory-guide',
+        name: '記憶導師 阿語',
+        role: 'learning',
+        at: { x: 8, z: 3 },
+        color: 0x42d9d0,
+        lines: ['單字也能成為冒險的線索。', '來翻開記憶卡，試著在情境裡使用它們吧！'],
+      },
+      {
         id: 'merchant',
         name: '雜貨商 阿福',
         role: 'shop',

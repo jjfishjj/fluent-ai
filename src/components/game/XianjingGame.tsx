@@ -23,10 +23,14 @@ import { Minimap } from './Minimap';
 import { ChatPanel } from './ChatPanel';
 import { CharacterSheet } from './CharacterSheet';
 import { NpcDialog, ShopDialog } from './GameDialogs';
+import { LanguageLearningDialog } from './LanguageLearningDialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 const HUD_INTERVAL = 100;
 
 export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onExit: () => void }) {
+  const { user } = useAuth();
+  const learningUserId = user?.id ?? 'guest';
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
@@ -40,6 +44,7 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
   const [chat, setChat] = useState<ChatLine[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
+  const [learningOpen, setLearningOpen] = useState(false);
   const [talk, setTalk] = useState<{ npc: NpcDef } | null>(null);
   const [netMode, setNetMode] = useState('simulated');
 
@@ -61,6 +66,21 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
     [],
   );
 
+  const openLearning = useCallback(() => {
+    keysRef.current.clear();
+    worldRef.current?.setMoveInput(0, 0);
+    setLearningOpen(true);
+  }, []);
+
+  const openNpc = useCallback((npc: NpcDef) => {
+    if (npc.role === 'learning') {
+      setTalk(null);
+      openLearning();
+      return;
+    }
+    setTalk({ npc });
+  }, [openLearning]);
+
   const interact = useCallback(() => {
     const w = worldRef.current;
     if (!w) return;
@@ -70,8 +90,8 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
       return;
     }
     const npc = w.zone.npcs.find((n) => n.id === hit.npcId);
-    if (npc) setTalk({ npc });
-  }, []);
+    if (npc) openNpc(npc);
+  }, [openNpc]);
 
   // ── boot ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -86,7 +106,7 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
     worldRef.current = world;
     rendererRef.current = renderer;
     companionsRef.current = companions;
-    world.say('system', '系統', '歡迎來到仙境。點擊地面移動，點擊怪物選取目標。');
+    world.say('system', '系統', '歡迎來到仙境。點擊地面移動、點擊怪物選取目標；青雲村記憶祭壇可進行單字修行。');
 
     const resize = () => {
       renderer.resize(wrap.clientWidth, wrap.clientHeight);
@@ -165,6 +185,7 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
     };
 
     const down = (e: KeyboardEvent) => {
+      if (learningOpen) return;
       if (e.key === 'Enter' && !typing()) {
         e.preventDefault();
         chatInputRef.current?.focus();
@@ -227,7 +248,7 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
       window.removeEventListener('keyup', up);
       window.removeEventListener('blur', blur);
     };
-  }, [cast, interact, skillOrder]);
+  }, [cast, interact, learningOpen, skillOrder]);
 
   // ── pointer ────────────────────────────────────────────────────────────
   const orbiting = useRef(false);
@@ -257,7 +278,7 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
     if (entity && entity.kind === 'npc') {
       if (distance(w.player.pos.x, w.player.pos.z, entity.pos.x, entity.pos.z) < 4.5) {
         const npc = w.zone.npcs.find((n) => n.id === entity.npcId);
-        if (npc) setTalk({ npc });
+        if (npc) openNpc(npc);
       } else {
         w.moveTo(entity.pos);
       }
@@ -405,6 +426,12 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
         <Minimap worldRef={worldRef} yawRef={yawRef} />
         <QuestTracker hud={hud} onTurnIn={turnInQuest} />
         <button
+          onClick={openLearning}
+          className="pointer-events-auto rounded-lg border border-cyan-200/25 bg-slate-950/75 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 backdrop-blur-md transition hover:border-cyan-100/50 hover:bg-cyan-400/10"
+        >
+          單字修行
+        </button>
+        <button
           onClick={onExit}
           className="pointer-events-auto rounded-lg border border-white/15 bg-slate-950/70 px-3 py-1.5 text-[11px] text-white/70 backdrop-blur-md hover:text-white"
         >
@@ -477,6 +504,14 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
         hud={hud}
         onBuy={(id) => withWorld((w) => w.buy(id))}
         onSell={(id) => withWorld((w) => w.sell(id))}
+      />
+      <LanguageLearningDialog
+        open={learningOpen}
+        onOpenChange={setLearningOpen}
+        userId={learningUserId}
+        onCorrect={() => {
+          withWorld((w) => w.gainExp(3));
+        }}
       />
     </div>
   );

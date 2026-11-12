@@ -9,6 +9,7 @@ const TERRAIN_SEGMENTS = 150;
 export interface ZoneScene {
   root: THREE.Group;
   ground: THREE.Mesh;
+  update(time: number): void;
   dispose(): void;
 }
 
@@ -158,6 +159,10 @@ export function buildZoneScene(zone: ZoneDef): ZoneScene {
   // ── town platform ─────────────────────────────────────────────────────
   if (zone.safe) root.add(buildVillage(zone, track));
 
+  // A small, animated memory landmark guides players to the language lesson.
+  const learningShrine = zone.id === 'qingyun' ? buildLearningShrine(zone, track) : undefined;
+  if (learningShrine) root.add(learningShrine);
+
   // ── portals ───────────────────────────────────────────────────────────
   for (const portal of zone.portals) {
     root.add(buildPortal(zone, portal.at.x, portal.at.z, track));
@@ -166,6 +171,9 @@ export function buildZoneScene(zone: ZoneDef): ZoneScene {
   return {
     root,
     ground,
+    update(time) {
+      learningShrine?.userData.updateScene?.(time);
+    },
     dispose() {
       for (const d of disposables) d.dispose();
       root.clear();
@@ -357,6 +365,93 @@ function buildPortal(zone: ZoneDef, x: number, z: number, track: Track): THREE.G
   g.add(ring, disc, beam);
   g.userData.spin = ring;
   return g;
+}
+
+/** A low-cost 3D flashcard shrine: four orbiting cards, a floating crystal and a rune ring. */
+function buildLearningShrine(zone: ZoneDef, track: Track): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'language-learning-shrine';
+  const x = 5;
+  const z = 1;
+  group.position.set(x, terrainHeight(zone, x, z), z);
+
+  const stoneMat = track(new THREE.MeshLambertMaterial({ color: 0x39495a, flatShading: true }));
+  const plinth = new THREE.Mesh(track(new THREE.CylinderGeometry(1.55, 1.8, 0.42, 12)), stoneMat);
+  plinth.position.y = 0.24;
+  plinth.castShadow = true;
+  plinth.receiveShadow = true;
+  group.add(plinth);
+
+  const ring = new THREE.Mesh(
+    track(new THREE.TorusGeometry(2.25, 0.07, 8, 40)),
+    track(new THREE.MeshBasicMaterial({ color: 0x51e3df, transparent: true, opacity: 0.85 })),
+  );
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.54;
+  group.add(ring);
+
+  const innerRing = new THREE.Mesh(
+    track(new THREE.TorusGeometry(1.45, 0.035, 6, 32)),
+    track(new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.85 })),
+  );
+  innerRing.rotation.x = Math.PI / 2;
+  innerRing.position.y = 0.58;
+  group.add(innerRing);
+
+  const core = new THREE.Group();
+  core.name = 'memory-crystal';
+  const crystal = new THREE.Mesh(
+    track(new THREE.OctahedronGeometry(0.82, 0)),
+    track(new THREE.MeshStandardMaterial({ color: 0x8ef4f0, emissive: 0x167b83, emissiveIntensity: 1.1, metalness: 0.35, roughness: 0.22, flatShading: true })),
+  );
+  crystal.scale.set(0.78, 1.28, 0.78);
+  core.add(crystal);
+  const heart = new THREE.Mesh(
+    track(new THREE.OctahedronGeometry(0.35, 0)),
+    track(new THREE.MeshBasicMaterial({ color: 0xffe8a3 })),
+  );
+  core.add(heart);
+  core.position.y = 2.2;
+  group.add(core);
+
+  const cardColors = [0x6ee7e0, 0xffd166, 0xc4a1ff, 0xff9fb2];
+  const cardGeometry = track(new THREE.BoxGeometry(0.76, 1.04, 0.12));
+  const markGeometry = track(new THREE.BoxGeometry(0.34, 0.055, 0.025));
+  const markShortGeometry = track(new THREE.BoxGeometry(0.22, 0.045, 0.025));
+  const cards = cardColors.map((color, index) => {
+    const card = new THREE.Group();
+    card.name = `floating-memory-card-${index}`;
+    const face = new THREE.Mesh(
+      cardGeometry,
+      track(new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.22, metalness: 0.12, roughness: 0.35 })),
+    );
+    card.add(face);
+    const markMat = track(new THREE.MeshBasicMaterial({ color: 0xf7fbff, transparent: true, opacity: 0.8 }));
+    const longMark = new THREE.Mesh(markGeometry, markMat);
+    longMark.position.set(0, 0.18, 0.073);
+    const shortMark = new THREE.Mesh(markShortGeometry, markMat);
+    shortMark.position.set(0, -0.02, 0.073);
+    card.add(longMark, shortMark);
+    group.add(card);
+    return card;
+  });
+
+  const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const updateScene = (time: number) => {
+    const motionTime = reduceMotion ? 0 : time;
+    core.rotation.y = motionTime * 0.42;
+    core.position.y = 2.2 + Math.sin(motionTime * 1.35) * 0.14;
+    ring.rotation.z = motionTime * 0.16;
+    innerRing.rotation.z = -motionTime * 0.22;
+    cards.forEach((card, index) => {
+      const angle = motionTime * 0.2 + (index * Math.PI * 2) / cards.length;
+      card.position.set(Math.cos(angle) * 2.45, 1.55 + Math.sin(motionTime * 1.2 + index) * 0.09, Math.sin(angle) * 2.45);
+      card.rotation.y = -angle + Math.PI / 2;
+    });
+  };
+  group.userData.updateScene = updateScene;
+  updateScene(0);
+  return group;
 }
 
 /** Gradient dome used instead of a flat background colour. */

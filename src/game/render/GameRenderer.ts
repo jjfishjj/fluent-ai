@@ -250,6 +250,7 @@ export class GameRenderer {
     this.updateCamera(dt);
 
     if (this.zoneScene) {
+      this.zoneScene.update(time);
       for (const child of this.zoneScene.root.children) {
         const spin = child.userData.spin as THREE.Object3D | undefined;
         if (spin) spin.rotation.z += dt * 0.8;
@@ -337,7 +338,7 @@ export class GameRenderer {
     let plate: Nameplate | undefined;
     if (e.kind !== 'player') {
       const npcRole = this.world.zone.npcs.find((n) => n.id === e.npcId)?.role;
-      const roleTag = npcRole === 'quest' ? '【任務】' : npcRole === 'shop' ? '【商店】' : npcRole === 'healer' ? '【治療】' : '';
+      const roleTag = npcRole === 'quest' ? '【任務】' : npcRole === 'shop' ? '【商店】' : npcRole === 'healer' ? '【治療】' : npcRole === 'learning' ? '【修行】' : '';
       const label =
         e.kind === 'monster'
           ? `Lv.${e.level} ${e.name}`
