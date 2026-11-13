@@ -367,7 +367,7 @@ function buildPortal(zone: ZoneDef, x: number, z: number, track: Track): THREE.G
   return g;
 }
 
-/** A low-cost 3D flashcard shrine: four orbiting cards, a floating crystal and a rune ring. */
+/** A low-cost 3D flashcard shrine: eight orbiting cards, a floating crystal and a rune ring. */
 function buildLearningShrine(zone: ZoneDef, track: Track): THREE.Group {
   const group = new THREE.Group();
   group.name = 'language-learning-shrine';
@@ -414,7 +414,7 @@ function buildLearningShrine(zone: ZoneDef, track: Track): THREE.Group {
   core.position.y = 2.2;
   group.add(core);
 
-  const cardColors = [0x6ee7e0, 0xffd166, 0xc4a1ff, 0xff9fb2];
+  const cardColors = [0x6ee7e0, 0xffd166, 0xc4a1ff, 0xff9fb2, 0x7dd3fc, 0xfda4af, 0xa3e635, 0xf0abfc];
   const cardGeometry = track(new THREE.BoxGeometry(0.76, 1.04, 0.12));
   const markGeometry = track(new THREE.BoxGeometry(0.34, 0.055, 0.025));
   const markShortGeometry = track(new THREE.BoxGeometry(0.22, 0.045, 0.025));

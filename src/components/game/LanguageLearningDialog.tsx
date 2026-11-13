@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowRight, BookOpen, CheckCircle2, RotateCcw, Sparkles, Volume2, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { LANGUAGE_LESSONS, type LanguageLesson } from '@/game/data/language-lessons';
+import { LANGUAGE_LESSONS, shuffleLessonChoices, type LanguageLesson } from '@/game/data/language-lessons';
 import { addCard, loadCards, reviewCard } from '@/lib/memory-srs';
 import { loadGeniusType } from '@/lib/genius-type';
 import { planFor } from '@/lib/genius-plan';
@@ -26,6 +26,7 @@ export function LanguageLearningDialog({
   const [flipped, setFlipped] = useState(false);
   const [chosen, setChosen] = useState<string | null>(null);
   const [score, setScore] = useState(0);
+  const [choices, setChoices] = useState(() => shuffleLessonChoices(LANGUAGE_LESSONS[0].choices));
 
   const lesson = LANGUAGE_LESSONS[index];
   const progress = stage === 'result' ? LANGUAGE_LESSONS.length : index;
@@ -77,6 +78,7 @@ export function LanguageLearningDialog({
   const startChallenge = () => {
     setFlipped(false);
     setChosen(null);
+    setChoices(shuffleLessonChoices(lesson.choices));
     setStage('challenge');
   };
 
@@ -85,7 +87,9 @@ export function LanguageLearningDialog({
       setStage('result');
       return;
     }
-    setIndex((current) => current + 1);
+    const nextIndex = index + 1;
+    setIndex(nextIndex);
+    setChoices(shuffleLessonChoices(LANGUAGE_LESSONS[nextIndex].choices));
     setFlipped(false);
     setChosen(null);
     setStage('study');
@@ -97,6 +101,7 @@ export function LanguageLearningDialog({
     setFlipped(false);
     setChosen(null);
     setScore(0);
+    setChoices(shuffleLessonChoices(LANGUAGE_LESSONS[0].choices));
   };
 
   return (
@@ -221,7 +226,7 @@ export function LanguageLearningDialog({
               <p className="mt-1 text-xs text-white/50">選出最適合填入空格的單字</p>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {lesson.choices.map((choice) => {
+              {choices.map((choice) => {
                 const isCorrect = choice === lesson.word;
                 const isChosen = choice === chosen;
                 const style = chosen

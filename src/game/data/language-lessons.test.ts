@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { LANGUAGE_LESSONS } from './language-lessons';
+import { LANGUAGE_LESSONS, shuffleLessonChoices } from './language-lessons';
 
 describe('Qingyun language lessons', () => {
   it('provides complete, distinct scenario cards', () => {
-    expect(LANGUAGE_LESSONS).toHaveLength(4);
+    expect(LANGUAGE_LESSONS).toHaveLength(8);
     expect(new Set(LANGUAGE_LESSONS.map((lesson) => lesson.word.toLowerCase())).size).toBe(LANGUAGE_LESSONS.length);
 
     for (const lesson of LANGUAGE_LESSONS) {
@@ -18,5 +18,14 @@ describe('Qingyun language lessons', () => {
       expect(lesson.choices).toContain(lesson.word);
       expect(new Set(lesson.choices).size).toBe(lesson.choices.length);
     }
+  });
+
+  it('shuffles a copy of the answer choices without losing or duplicating options', () => {
+    const choices = ['first', 'second', 'third', 'fourth'];
+    const shuffled = shuffleLessonChoices(choices, () => 0);
+
+    expect(shuffled).toEqual(['second', 'third', 'fourth', 'first']);
+    expect([...shuffled].sort()).toEqual([...choices].sort());
+    expect(choices).toEqual(['first', 'second', 'third', 'fourth']);
   });
 });
