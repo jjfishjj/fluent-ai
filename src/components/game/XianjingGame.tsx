@@ -509,6 +509,9 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
         open={learningOpen}
         onOpenChange={setLearningOpen}
         userId={learningUserId}
+        onDailyComplete={(bonusExp) => {
+          withWorld((w) => w.gainExp(bonusExp));
+        }}
         onCorrect={() => {
           withWorld((w) => w.gainExp(3));
         }}
