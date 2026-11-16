@@ -4,6 +4,10 @@ export interface RelatedWord {
   relation: string;
 }
 
+export type TargetLanguage = 'en' | 'ja';
+export type LessonLevel = 'beginner' | 'intermediate';
+export type LearningRegionId = 'village' | 'forest' | 'ruins';
+
 export interface LanguageLesson {
   id: string;
   word: string;
@@ -15,9 +19,13 @@ export interface LanguageLesson {
   relatedWords: RelatedWord[];
   mnemonic: string;
   choices: string[];
+  targetLanguage: TargetLanguage;
+  locale: string;
+  level: LessonLevel;
+  region: LearningRegionId;
 }
 
-/** Short, story-linked beginner lessons for the Qingyun memory shrine. */
+/** The eight cards shown around Qingyun's 3D memory shrine. */
 export const LANGUAGE_LESSONS: LanguageLesson[] = [
   {
     id: 'meet',
@@ -33,6 +41,7 @@ export const LANGUAGE_LESSONS: LanguageLesson[] = [
     ],
     mnemonic: 'meet 和 meat 同音：想像你 meet 到同伴，接著一起吃 meat。',
     choices: ['meet', 'meat', 'greet', 'wait'],
+    targetLanguage: 'en', locale: 'en-US', level: 'beginner', region: 'village',
   },
   {
     id: 'right',
@@ -48,6 +57,7 @@ export const LANGUAGE_LESSONS: LanguageLesson[] = [
     ],
     mnemonic: 'right 和 write 同音：向 right 轉彎後，把路線 write 在地圖上。',
     choices: ['right', 'write', 'light', 'bright'],
+    targetLanguage: 'en', locale: 'en-US', level: 'beginner', region: 'village',
   },
   {
     id: 'hear',
@@ -63,6 +73,7 @@ export const LANGUAGE_LESSONS: LanguageLesson[] = [
     ],
     mnemonic: 'hear 和 here 常同音：人在 here（這裡），就能 hear（聽見）鐘聲。',
     choices: ['hear', 'here', 'listen', 'there'],
+    targetLanguage: 'en', locale: 'en-US', level: 'beginner', region: 'forest',
   },
   {
     id: 'borrow',
@@ -78,6 +89,7 @@ export const LANGUAGE_LESSONS: LanguageLesson[] = [
     ],
     mnemonic: 'borrow 可用「抱來」作近似諧音鉤子：把借來的東西抱來，用完記得歸還。這只是記憶提示，不是標準發音。',
     choices: ['borrow', 'lend', 'bring', 'keep'],
+    targetLanguage: 'en', locale: 'en-US', level: 'beginner', region: 'village',
   },
   {
     id: 'tell',
@@ -93,6 +105,7 @@ export const LANGUAGE_LESSONS: LanguageLesson[] = [
     ],
     mnemonic: '把消息 tell 給某人時，聽者通常直接接在 tell 後面：tell the guard。',
     choices: ['tell', 'say', 'speak', 'talk'],
+    targetLanguage: 'en', locale: 'en-US', level: 'beginner', region: 'village',
   },
   {
     id: 'bring',
@@ -108,6 +121,7 @@ export const LANGUAGE_LESSONS: LanguageLesson[] = [
     ],
     mnemonic: '來到大家約好的地方，就 bring 東西「帶來」；離開時再 take「帶走」。',
     choices: ['bring', 'take', 'carry', 'fetch'],
+    targetLanguage: 'en', locale: 'en-US', level: 'beginner', region: 'village',
   },
   {
     id: 'dessert',
@@ -123,6 +137,7 @@ export const LANGUAGE_LESSONS: LanguageLesson[] = [
     ],
     mnemonic: 'dessert 有兩個 s，想像甜點太好吃，還想再來一份 seconds。',
     choices: ['dessert', 'desert', 'candy', 'snack'],
+    targetLanguage: 'en', locale: 'en-US', level: 'beginner', region: 'village',
   },
   {
     id: 'lose',
@@ -138,6 +153,7 @@ export const LANGUAGE_LESSONS: LanguageLesson[] = [
     ],
     mnemonic: 'lose 少一個 o，是把東西弄丟；loose 多一個 o，形容東西鬆鬆的。',
     choices: ['lose', 'loose', 'miss', 'leave'],
+    targetLanguage: 'en', locale: 'en-US', level: 'beginner', region: 'forest',
   },
 ];
 

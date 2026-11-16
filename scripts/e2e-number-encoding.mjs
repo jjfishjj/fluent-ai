@@ -119,8 +119,12 @@ try {
   for (let index = 0; index < scheduledAnswers.length; index += 1) {
     await page.getByRole('textbox', { name: '輸入兩位數' }).fill(scheduledAnswers[index]);
     await page.getByRole('button', { name: '確認回想' }).click();
-    if (index === 0) await page.getByText('再次答錯，已縮短為 20 秒後優先重試').waitFor();
-    else await page.getByText('提取成功').waitFor();
+    if (index === 0) {
+      const retryFeedback = page.getByText(/^再次答錯，已縮短為 (\d+) 秒後優先重試$/);
+      await retryFeedback.waitFor();
+      const seconds = Number((await retryFeedback.textContent())?.match(/\d+/)?.[0]);
+      assert([15, 18, 20].includes(seconds), `動態重試間隔不合理：${seconds} 秒`);
+    } else await page.getByText('提取成功').waitFor();
     await page.getByRole('button', { name: index === scheduledAnswers.length - 1 ? '完成本輪回想' : '下一個物件' }).click();
   }
 
