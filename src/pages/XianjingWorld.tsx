@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Header } from '@/components/layout/Header';
 import { CharacterCreate } from '@/components/game/CharacterCreate';
 import { XianjingGame } from '@/components/game/XianjingGame';
 import { hasSave, loadProfile, saveProfile } from '@/game/core/save';
@@ -34,11 +33,9 @@ export default function XianjingWorld() {
     setSaveExists(hasSave());
   }, []);
 
-  // Locked to the viewport: the game must never let the page scroll underneath
-  // the sticky header. The extra 4rem on small screens is the mobile bottom nav.
+  // The game is a standalone full-screen experience without site navigation.
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden bg-slate-950 md:h-dvh">
-      <Header />
+    <div className="flex h-dvh flex-col overflow-hidden bg-slate-950">
       {profile ? (
         <XianjingGame profile={profile} onExit={exit} />
       ) : (

@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BrainwaveProvider } from "@/contexts/BrainwaveContext";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -36,6 +36,58 @@ const XianjingWorld = lazy(() => import("./pages/XianjingWorld"));
 const queryClient = new QueryClient();
 const basename = import.meta.env.BASE_URL === "/" ? undefined : import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function AppRoutes() {
+  const isXianjing = useLocation().pathname === "/xianjing";
+
+  return (
+    <>
+      <div className={isXianjing ? "h-dvh" : "pb-16 md:pb-0"}>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/practice" element={<Practice />} />
+          <Route path="/practice/:demoSlug" element={<TrainingDemo />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/quiz" element={<Quiz />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/friends" element={<Friends />} />
+          <Route path="/energy" element={<Energy />} />
+          <Route path="/shop" element={<Shop />} />
+          <Route path="/interests" element={<Interests />} />
+          <Route path="/brain-lab" element={<BrainLab />} />
+          <Route path="/memory" element={<MemoryLab />} />
+          <Route path="/subjects/:subjectId" element={<SubjectLab />} />
+          <Route path="/subjects" element={<SubjectLab />} />
+          <Route path="/learning-gym-plan" element={<LearningGymPlan />} />
+          <Route path="/shadowing" element={<ShadowingLab />} />
+          <Route
+            path="/xianjing"
+            element={
+              <Suspense
+                fallback={
+                  <div className="grid min-h-screen place-items-center bg-slate-950 text-sm text-white/70">
+                    正在載入仙境…
+                  </div>
+                }
+              >
+                <XianjingWorld />
+              </Suspense>
+            }
+          />
+          <Route path="/talent-card-game" element={<TalentCardGame />} />
+          <Route path="/talent-card-game-guide" element={<TalentCardGameGuide />} />
+          <Route path="/mnemoverse" element={<MnemoVerse />} />
+          <Route path="/practice/number-scenario-lab" element={<NumberScenarioLab />} />
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </div>
+      {!isXianjing && <BottomNav />}
+    </>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -44,49 +96,7 @@ const App = () => (
       <BrowserRouter basename={basename}>
         <AuthProvider>
           <BrainwaveProvider>
-            <div className="pb-16 md:pb-0">
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/practice" element={<Practice />} />
-                <Route path="/practice/:demoSlug" element={<TrainingDemo />} />
-                <Route path="/admin" element={<Admin />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/quiz" element={<Quiz />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/friends" element={<Friends />} />
-                <Route path="/energy" element={<Energy />} />
-                <Route path="/shop" element={<Shop />} />
-                <Route path="/interests" element={<Interests />} />
-                <Route path="/brain-lab" element={<BrainLab />} />
-                <Route path="/memory" element={<MemoryLab />} />
-                <Route path="/subjects/:subjectId" element={<SubjectLab />} />
-                <Route path="/subjects" element={<SubjectLab />} />
-                <Route path="/learning-gym-plan" element={<LearningGymPlan />} />
-                <Route path="/shadowing" element={<ShadowingLab />} />
-                <Route
-                  path="/xianjing"
-                  element={
-                    <Suspense
-                      fallback={
-                        <div className="grid min-h-screen place-items-center bg-slate-950 text-sm text-white/70">
-                          正在載入仙境…
-                        </div>
-                      }
-                    >
-                      <XianjingWorld />
-                    </Suspense>
-                  }
-                />
-                <Route path="/talent-card-game" element={<TalentCardGame />} />
-                <Route path="/talent-card-game-guide" element={<TalentCardGameGuide />} />
-                <Route path="/mnemoverse" element={<MnemoVerse />} />
-                <Route path="/practice/number-scenario-lab" element={<NumberScenarioLab />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </div>
-            <BottomNav />
+            <AppRoutes />
           </BrainwaveProvider>
         </AuthProvider>
       </BrowserRouter>

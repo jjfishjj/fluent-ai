@@ -323,7 +323,7 @@ export function ControlHints() {
       </div>
       左鍵點地移動 · 點怪選取 · 右鍵拖曳轉視角 · 滾輪縮放
       <br />
-      WASD 移動 · 1–4 技能 · R/T 喝藥 · Tab 換目標 · F 對話 · C 角色 · Enter 聊天
+      WASD／方向鍵移動 · 1–4 技能 · R/T 喝藥 · Tab 換目標 · F 對話 · C 角色 · Enter 聊天
     </div>
   );
 }

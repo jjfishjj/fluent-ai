@@ -24,9 +24,11 @@ import { ChatPanel } from './ChatPanel';
 import { CharacterSheet } from './CharacterSheet';
 import { NpcDialog, ShopDialog } from './GameDialogs';
 import { LanguageLearningDialog } from './LanguageLearningDialog';
+import { getKeyboardMovement } from '@/game/core/keyboard-movement';
 import { useAuth } from '@/contexts/AuthContext';
 
 const HUD_INTERVAL = 100;
+const MOVEMENT_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 
 export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onExit: () => void }) {
   const { user } = useAuth();
@@ -106,7 +108,7 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
     worldRef.current = world;
     rendererRef.current = renderer;
     companionsRef.current = companions;
-    world.say('system', '系統', '歡迎來到仙境。點擊地面移動、點擊怪物選取目標；青雲村記憶祭壇可進行單字修行。');
+    world.say('system', '系統', '歡迎來到仙境。使用方向鍵或 WASD 移動，也可點擊地面前往；點擊怪物選取目標。青雲村記憶祭壇可進行單字修行。');
 
     const resize = () => {
       renderer.resize(wrap.clientWidth, wrap.clientHeight);
@@ -194,7 +196,8 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
       if (typing()) return;
 
       const key = e.key.toLowerCase();
-      if (['w', 'a', 's', 'd'].includes(key)) {
+      if (MOVEMENT_KEYS.has(key)) {
+        e.preventDefault();
         keysRef.current.add(key);
         return;
       }
@@ -520,19 +523,7 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
   );
 }
 
-/** Translates held WASD keys into a camera-relative movement vector. */
 function applyKeyboardMovement(world: World, renderer: GameRenderer, keys: Set<string>) {
-  const forward = (keys.has('w') ? 1 : 0) - (keys.has('s') ? 1 : 0);
-  const strafe = (keys.has('d') ? 1 : 0) - (keys.has('a') ? 1 : 0);
-  if (!forward && !strafe) {
-    world.setMoveInput(0, 0);
-    return;
-  }
-  const yaw = renderer.yaw;
-  // The camera sits behind the player at `yaw`, so "forward" points away from it.
-  const fx = -Math.sin(yaw);
-  const fz = -Math.cos(yaw);
-  const rx = fz;
-  const rz = -fx;
-  world.setMoveInput(fx * forward + rx * strafe, fz * forward + rz * strafe);
+  const movement = getKeyboardMovement(keys, renderer.yaw);
+  world.setMoveInput(movement.x, movement.z);
 }
