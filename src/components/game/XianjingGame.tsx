@@ -25,6 +25,7 @@ import { CharacterSheet } from './CharacterSheet';
 import { NpcDialog, ShopDialog } from './GameDialogs';
 import { LanguageLearningDialog } from './LanguageLearningDialog';
 import { getKeyboardMovement } from '@/game/core/keyboard-movement';
+import { markLessonCompleted, recordLessonReview } from '@/game/data/language-learning-progress';
 import { useAuth } from '@/contexts/AuthContext';
 
 const HUD_INTERVAL = 100;
@@ -490,6 +491,19 @@ export function XianjingGame({ profile, onExit }: { profile: PlayerProfile; onEx
         }}
         onCompleteQuest={(id) => {
           withWorld((w) => w.completeQuest(id));
+        }}
+        onAnswerQuestChallenge={(id, answer) => {
+          const result = withWorld((w) => w.answerQuestChallenge(id, answer)) ?? 'inactive';
+          const lessonId = QUESTS[id]?.challenge?.lessonId;
+          if (lessonId && result !== 'inactive') {
+            try {
+              recordLessonReview(learningUserId, 'en', lessonId, result === 'correct' ? 'good' : 'again');
+              if (result === 'correct') markLessonCompleted(learningUserId, 'en', lessonId);
+            } catch (error) {
+              console.warn('[xianjing-quest] could not save the language review locally.', error);
+            }
+          }
+          return result;
         }}
         onHeal={() => {
           withWorld((w) => w.fullRestore());

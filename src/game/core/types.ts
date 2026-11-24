@@ -147,6 +147,7 @@ export interface PortalDef {
   toPos: Vec2;
   label: string;
   reqLevel?: number;
+  requiresQuestId?: string;
 }
 
 export interface ZoneDef {
@@ -191,7 +192,17 @@ export interface ZoneDef {
   bgm?: string;
 }
 
-export type QuestKind = 'kill' | 'collect' | 'reach';
+export type QuestKind = 'kill' | 'collect' | 'reach' | 'challenge';
+
+export interface QuestChallenge {
+  lessonId: string;
+  prompt: string;
+  question: string;
+  answer: string;
+  choices: string[];
+  wrongHints: Record<string, string>;
+  successMessage: string;
+}
 
 export interface QuestDef {
   id: string;
@@ -200,10 +211,11 @@ export interface QuestDef {
   zone: string;
   reqLevel: number;
   kind: QuestKind;
-  /** Monster id for `kill`, item id for `collect`. */
+  /** Monster id for `kill`, item id for `collect`, or lesson id for `challenge`. */
   target: string;
   count: number;
   summary: string;
+  challenge?: QuestChallenge;
   reward: {
     exp: number;
     silver: number;

@@ -348,9 +348,11 @@ describe('quests', () => {
 });
 
 describe('zones', () => {
-  it('teleports the player through a portal', () => {
+  it('teleports the player through a portal after completing its quest gate', () => {
     const world = new World(newProfile('測試俠', 'sword'));
     const portal = ZONES.qingyun.portals[0];
+    expect(world.acceptQuest('q0')).toBe(true);
+    expect(world.answerQuestChallenge('q0', 'bring')).toBe('correct');
     world.player.pos = { x: portal.at.x, z: portal.at.z };
     run(world, 2);
     expect(world.zone.id).toBe('bamboo');

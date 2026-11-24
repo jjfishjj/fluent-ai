@@ -61,8 +61,17 @@ export const ZONES: Record<string, ZoneDef> = {
         color: 0xe07a5f,
         lines: ['站好別動，替你調息一番。'],
       },
+      {
+        id: 'pathkeeper',
+        name: '守林人 林叔',
+        role: 'quest',
+        at: { x: 0, z: -31 },
+        color: 0xb8d27a,
+        lines: ['竹林深處的神殿被濃霧遮住了。', '讀懂我的英文委託，我就交給你通行令。'],
+        questId: 'q0',
+      },
     ],
-    portals: [{ at: { x: 0, z: -40 }, toZone: 'bamboo', toPos: { x: 0, z: 44 }, label: '迷霧竹林' }],
+    portals: [{ at: { x: 0, z: -40 }, toZone: 'bamboo', toPos: { x: 0, z: 44 }, label: '迷霧竹林', requiresQuestId: 'q0' }],
   },
 
   bamboo: {
