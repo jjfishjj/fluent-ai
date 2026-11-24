@@ -2,6 +2,31 @@ import type { QuestDef } from '../core/types';
 
 /** A short main line that walks the player through every zone. */
 export const QUESTS: Record<string, QuestDef> = {
+  q0: {
+    id: 'q0',
+    name: '守林人的通行委託',
+    giver: 'pathkeeper',
+    zone: 'qingyun',
+    reqLevel: 1,
+    kind: 'challenge',
+    target: 'bring',
+    count: 1,
+    summary: '讀懂守林人的英文指示；答對後取得竹林通行令，開啟前往迷霧竹林的道路。',
+    challenge: {
+      lessonId: 'bring',
+      prompt: 'When you come to the shrine, ___ a lantern.',
+      question: '守林人正等你到神殿。選出最符合這句英文指示的動詞。',
+      answer: 'bring',
+      choices: ['bring', 'take', 'carry', 'fetch'],
+      wrongHints: {
+        take: 'take 常從目前位置看，表示「帶走／帶去」。留意句子裡的 come to：這句在說朝目的地帶來物品。',
+        carry: 'carry 強調「拿著、搬運」的動作，沒有明確指出方向；再想想句子指定的目的地。',
+        fetch: 'fetch 是「去取來」，包含先去拿、再帶回的意思；句子要表達的是到神殿時帶著燈籠來。',
+      },
+      successMessage: 'bring 是「帶來、帶到共同目的地」；你讀懂了守林人的指示。竹林道路已開啟。',
+    },
+    reward: { exp: 50, silver: 30, items: [{ itemId: 'forestpass', qty: 1 }] },
+  },
   q1: {
     id: 'q1',
     name: '初入竹林',

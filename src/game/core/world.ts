@@ -538,6 +538,20 @@ export class World {
     return true;
   }
 
+  answerQuestChallenge(questId: string, answer: string): 'correct' | 'incorrect' | 'inactive' {
+    const def = questDef(questId);
+    const state = this.profile.quests.find((q) => q.id === questId);
+    if (!def?.challenge || def.kind !== 'challenge' || !state || state.status !== 'active') return 'inactive';
+    if (answer.trim().toLocaleLowerCase() !== def.challenge.answer.toLocaleLowerCase()) return 'incorrect';
+
+    state.progress = def.count;
+    state.status = 'complete';
+    this.events.push({ type: 'quest', questId, status: 'complete' });
+    this.say('system', '任務', `答對了！${def.name} 已完成。`);
+    this.completeQuest(questId);
+    return 'correct';
+  }
+
   /** Talk to the NPC the player is standing next to. */
   interact(): { npcId: string; name: string; lines: string[] } | undefined {
     const p = this.player;
@@ -1125,6 +1139,12 @@ export class World {
       if (distance(p.pos.x, p.pos.z, portal.at.x, portal.at.z) > 2.6) continue;
       if (portal.reqLevel && this.profile.level < portal.reqLevel) {
         this.say('system', '系統', `需要 Lv.${portal.reqLevel} 才能進入${portal.label}`);
+        this.zoneCooldown = 2;
+        return;
+      }
+      if (portal.requiresQuestId && !this.profile.quests.some((q) => q.id === portal.requiresQuestId && q.status === 'done')) {
+        const questName = questDef(portal.requiresQuestId)?.name ?? '守門人的委託';
+        this.say('system', '系統', `通往${portal.label}的道路仍封閉；先完成「${questName}」取得通行令。`);
         this.zoneCooldown = 2;
         return;
       }

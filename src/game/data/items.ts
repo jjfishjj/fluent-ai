@@ -80,6 +80,15 @@ export const ITEMS: Record<string, ItemDef> = {
     icon: '🪵',
     rarity: 'epic',
   },
+  forestpass: {
+    id: 'forestpass',
+    name: '竹林通行令',
+    kind: 'material',
+    description: '守林人交給你的通行令，已為你打開青雲村通往迷霧竹林的道路。',
+    price: 0,
+    icon: '🎟️',
+    rarity: 'fine',
+  },
 
   // Weapons
   woodblade: {

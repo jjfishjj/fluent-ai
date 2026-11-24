@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ITEMS, SHOP_STOCK } from '@/game/data/items';
+import { LANGUAGE_LESSONS } from '@/game/data/language-lessons';
 import { QUESTS } from '@/game/data/quests';
 import type { HudSnapshot, NpcDef } from '@/game/core/types';
 import { cn } from '@/lib/utils';
@@ -15,6 +17,7 @@ export function NpcDialog({
   onClose,
   onAcceptQuest,
   onCompleteQuest,
+  onAnswerQuestChallenge,
   onHeal,
   onOpenShop,
 }: {
@@ -23,6 +26,7 @@ export function NpcDialog({
   onClose: () => void;
   onAcceptQuest: (questId: string) => void;
   onCompleteQuest: (questId: string) => void;
+  onAnswerQuestChallenge: (questId: string, answer: string) => 'correct' | 'incorrect' | 'inactive';
   onHeal: () => void;
   onOpenShop: () => void;
 }) {
@@ -30,6 +34,15 @@ export function NpcDialog({
   const quest = npc?.questId ? QUESTS[npc.questId] : undefined;
   const state = quest ? hud.quests.find((q) => q.id === quest.id) : undefined;
   const alreadyDone = quest ? hud.questsDone.includes(quest.id) : false;
+  const linkedLesson = quest?.challenge
+    ? LANGUAGE_LESSONS.find((lesson) => lesson.id === quest.challenge?.lessonId)
+    : undefined;
+  const [answerFeedback, setAnswerFeedback] = useState<{
+    questId: string;
+    choice: string;
+    result: 'correct' | 'incorrect';
+  } | null>(null);
+  const feedback = answerFeedback?.questId === quest?.id ? answerFeedback : null;
 
   return (
     <Dialog open={!!talk} onOpenChange={(v) => !v && onClose()}>
@@ -56,7 +69,12 @@ export function NpcDialog({
             </div>
 
             <div className="mt-2">
-              {alreadyDone && <div className="text-center text-xs text-emerald-300">此任務已完成</div>}
+              {alreadyDone && (
+                <div className="rounded-md border border-emerald-200/15 bg-emerald-300/10 p-2 text-center text-xs leading-relaxed text-emerald-100" role="status">
+                  {quest.challenge ? quest.challenge.successMessage : '此任務已完成'}
+                  {quest.challenge && <div className="mt-1 font-semibold">已取得竹林通行令，通往迷霧竹林的道路已開啟。</div>}
+                </div>
+              )}
               {!state && !alreadyDone && (
                 <button
                   onClick={() => onAcceptQuest(quest.id)}
@@ -68,6 +86,40 @@ export function NpcDialog({
               {state?.status === 'active' && (
                 <div className="text-center text-xs text-white/60">
                   進度 {state.progress} / {state.count}
+                </div>
+              )}
+              {state?.status === 'active' && quest.challenge && (
+                <div className="mt-2 space-y-2 rounded-lg border border-cyan-200/20 bg-cyan-300/5 p-3">
+                  <div className="text-[10px] font-semibold tracking-wide text-cyan-100/75">英文情境・通往迷霧竹林</div>
+                  <p className="rounded-md bg-slate-950/60 p-2.5 text-sm font-semibold leading-relaxed text-white">“{quest.challenge.prompt}”</p>
+                  <p className="text-xs leading-relaxed text-white/70">{quest.challenge.question}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {quest.challenge.choices.map((choice) => {
+                      const selectedWrong = feedback?.result === 'incorrect' && feedback.choice === choice;
+                      return (
+                        <button
+                          key={choice}
+                          type="button"
+                          onClick={() => {
+                            const result = onAnswerQuestChallenge(quest.id, choice);
+                            if (result !== 'inactive') setAnswerFeedback({ questId: quest.id, choice, result });
+                          }}
+                          className={`min-h-11 rounded-md border px-2.5 py-2 text-sm font-bold transition ${selectedWrong
+                            ? 'border-rose-300/50 bg-rose-400/15 text-rose-100'
+                            : 'border-white/15 bg-white/5 text-white/85 hover:border-cyan-200/50 hover:bg-cyan-200/10'}`}
+                        >
+                          {choice}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {feedback?.result === 'incorrect' && (
+                    <div className="space-y-1 rounded-md border border-amber-200/15 bg-amber-300/10 p-2.5 text-xs leading-relaxed text-amber-50" role="status">
+                      <div className="font-semibold">還差一點，看看易混詞提示後再選一次。</div>
+                      <div>{quest.challenge.wrongHints[feedback.choice] ?? '再留意句子中的 come to，想想說話者指定的目的地。'}</div>
+                      {linkedLesson && <div className="text-amber-100/75">記憶提示：{linkedLesson.mnemonic}</div>}
+                    </div>
+                  )}
                 </div>
               )}
               {state?.status === 'complete' && (
